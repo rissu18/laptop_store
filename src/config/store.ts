@@ -49,7 +49,7 @@ const TRUST_ITEMS: TrustItem[] = [
 
 export const storeConfig = {
   // TODO: REAL PROVIDER DATA REQUIRED — poe lõplik nimi, ettevõte ja kontaktid
-  name: "Sülearvutipood",
+  name: "Sülearvutid.ee",
   legalName: null as string | null,
   registryCode: null as string | null,
   email: null as string | null,
