@@ -1,4 +1,5 @@
-import { getVisibleTrustItems, storeConfig } from "@/config/store";
+import { storeConfig } from "@/config/store";
+import { getSettings, visibleTrustItems } from "@/server/settings/settings-service";
 import { BrandTiles } from "@/components/home/brand-tiles";
 import { Hero } from "@/components/home/hero";
 import { SectionHeader } from "@/components/home/section-header";
@@ -16,18 +17,19 @@ import {
 } from "@/server/catalog/catalog-service";
 
 export default async function HomePage() {
-  const [stats, popular, featured, recent, series] = await Promise.all([
+  const [stats, popular, featured, recent, series, settings] = await Promise.all([
     getCatalogStats(),
     getPopularModels(4),
     getFeaturedItems(8),
     getRecentlyAddedItems(4),
     getSeriesSummaries(),
+    getSettings(),
   ]);
 
   return (
     <>
       <Hero stats={stats} popular={popular} autoSyncActive={storeConfig.autoSyncActive} />
-      <ValueProps items={getVisibleTrustItems()} />
+      <ValueProps items={visibleTrustItems(settings)} />
 
       {featured.length > 0 && (
         <Container className="py-10">

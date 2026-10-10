@@ -1,4 +1,5 @@
 import "server-only";
+import { cacheLife, cacheTag } from "next/cache";
 import { pricingConfig } from "@/config/pricing";
 import { computeFacets, filterItems, sortItems, type CatalogFacets, type SearchableItem } from "@/domain/catalog/filtering";
 import { seriesSlug } from "@/domain/catalog/facets";
@@ -10,15 +11,22 @@ import { MockSupplierAdapter } from "@/integrations/supplier/mock/mock-supplier-
 import { MOCK_FEATURED_SKUS } from "@/integrations/supplier/mock/mock-supplier-data";
 import { toImageView, visibleImages, type ProductImageView } from "@/domain/images/product-image";
 import { readImageManifestSync } from "@/server/images/image-repository";
+import { isDatabaseConfigured } from "@/server/db/client";
 import { buildCatalog, type BuiltCatalog } from "./build-catalog";
+import { loadDbCatalogItems } from "./db-catalog";
 
 /**
  * Kataloogi teenus — ainus koht, kust lehed tooteandmeid küsivad.
  *
- * Phase 1: andmed tulevad MockSupplierAdapter'ist mälus.
- * Phase 2: sama liides, aga andmed PostgreSQL-ist (Prisma) + 'use cache' / cacheTag('catalog').
- * Lehed ja komponendid ei pea siis muutuma.
+ * Andmeallikas:
+ *  - PostgreSQL (kui DATABASE_URL on seadistatud) — 'use cache' + cacheTag('catalog'); admini muudatus
+ *    tühjendab vahemälu (updateTag('catalog')), seega pood näeb muudatust kohe.
+ *  - Mock-tarnija mälus (ainult kui andmebaasi pole seadistatud, nt lokaalne arendus ja testid).
+ * Andmebaasi viga EI vaheta vaikselt mock-andmetele — see logitakse ja visatakse edasi.
+ * Lehed ja komponendid ei sõltu andmeallikast.
  */
+
+export const CATALOG_CACHE_TAG = "catalog";
 
 let catalogPromise: Promise<BuiltCatalog> | null = null;
 
@@ -48,7 +56,15 @@ async function loadCatalog(): Promise<BuiltCatalog> {
   return catalog;
 }
 
+async function getCachedDbItems(): Promise<SearchableItem[]> {
+  "use cache";
+  cacheTag(CATALOG_CACHE_TAG);
+  cacheLife("max");
+  return loadDbCatalogItems();
+}
+
 async function getItems(): Promise<SearchableItem[]> {
+  if (isDatabaseConfigured()) return getCachedDbItems();
   catalogPromise ??= loadCatalog();
   return (await catalogPromise).items;
 }
@@ -108,8 +124,11 @@ export async function getItemsByVariantIds(ids: string[]): Promise<CatalogItem[]
 }
 
 export async function getFeaturedItems(limit: number): Promise<CatalogItem[]> {
-  const featured = (await getItems()).filter((item) => item.variant.isFeatured);
-  return sortItems(featured, "recommended").slice(0, limit).map(toPublic);
+  // Esiletõstmine on mudeli tasemel (admin) — igast mudelist näidatakse üht (soovituslikum) konfiguratsiooni
+  const featured = sortItems((await getItems()).filter((item) => item.variant.isFeatured), "recommended");
+  const seen = new Set<string>();
+  const unique = featured.filter((item) => !seen.has(item.product.slug) && seen.add(item.product.slug));
+  return unique.slice(0, limit).map(toPublic);
 }
 
 export async function getRecentlyAddedItems(limit: number): Promise<CatalogItem[]> {

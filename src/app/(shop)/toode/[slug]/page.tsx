@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { getVisibleTrustItems, storeConfig } from "@/config/store";
+import { storeConfig } from "@/config/store";
+import { getSettings, visibleTrustItems } from "@/server/settings/settings-service";
 import { formatSpecLine } from "@/domain/catalog/format";
 import { CONFIGURATION_PARAM, productHref, productPath } from "@/domain/catalog/urls";
 import { BRAND_NAMES, type CatalogItem } from "@/domain/catalog/types";
@@ -64,7 +65,7 @@ async function ProductDetail({ params, searchParams }: PageProps<"/toode/[slug]"
     data.variants.find((v) => v.id === requested) ?? data.variants.find((v) => v.stock.quantity > 0) ?? data.variants[0];
   const item: CatalogItem = { product: data.product, variant };
   const related = await getSimilarItems(item, 4);
-  const showSecurePayment = getVisibleTrustItems().some((t) => t.key === "payment");
+  const showSecurePayment = visibleTrustItems(await getSettings()).some((t) => t.key === "payment");
 
   return (
     <>

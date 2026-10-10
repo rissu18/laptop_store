@@ -1,12 +1,15 @@
-import { getVisibleTrustItems, storeConfig } from "@/config/store";
+import { storeConfig } from "@/config/store";
 import { CompareBar } from "@/components/compare/compare-bar";
 import { PrototypeNotice } from "@/components/layout/prototype-notice";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import { JsonLd } from "@/components/seo/json-ld";
+import { getSettings, visibleTrustItems } from "@/server/settings/settings-service";
 
 /** Poe tavalehtede layout. Checkout saab Phase 5-s oma minimaalse layout'i (ilma põhimenüüta). */
-export default function ShopLayout({ children }: LayoutProps<"/">) {
+export default async function ShopLayout({ children }: LayoutProps<"/">) {
+  const settings = await getSettings();
+  const { general } = settings;
   return (
     <>
       <a
@@ -15,18 +18,18 @@ export default function ShopLayout({ children }: LayoutProps<"/">) {
       >
         Liigu sisu juurde
       </a>
-      {storeConfig.prototypeMode && <PrototypeNotice />}
-      <SiteHeader storeName={storeConfig.name} trustItems={getVisibleTrustItems()} />
+      {settings.store.prototypeMode && <PrototypeNotice />}
+      <SiteHeader storeName={general.storeName} trustItems={visibleTrustItems(settings)} />
       <main id="sisu" className="flex-1">
         {children}
       </main>
-      <SiteFooter storeName={storeConfig.name} legalName={storeConfig.legalName} registryCode={storeConfig.registryCode} />
+      <SiteFooter storeName={general.storeName} legalName={general.companyName} registryCode={general.registryCode} />
       <CompareBar />
       <JsonLd
         data={{
           "@context": "https://schema.org",
           "@type": "Organization",
-          name: storeConfig.name,
+          name: general.storeName,
           url: storeConfig.siteUrl,
         }}
       />

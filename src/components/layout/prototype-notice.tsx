@@ -1,4 +1,4 @@
-/** Hoiatusriba, mis on nähtav seni, kuni pood töötab testandmetega (PROTOTYPE_MODE=true). */
+/** Hoiatusriba, mis on nähtav seni, kuni pood töötab testandmetega (admin → Seaded → Pood → prototüübirežiim). */
 export function PrototypeNotice() {
   return (
     <div role="note" className="bg-text px-4 py-2 text-center text-xs text-white">
