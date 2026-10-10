@@ -37,8 +37,9 @@ export function settingsFromForm(key: EditableSettingsKey, formData: FormData): 
       return {
         infoText: text(formData, "infoText"),
         freeShippingThresholdCents: euroToCents(text(formData, "freeShippingThreshold")),
-        standardShippingName: text(formData, "standardShippingName") ?? "",
-        standardShippingCents: euroToCents(text(formData, "standardShippingPrice")) ?? -1,
+        // Puuduv väli → vaikeväärtus (zod default); tühjaks jäetud väli → valideerimisviga
+        standardShippingName: formData.has("standardShippingName") ? (text(formData, "standardShippingName") ?? "") : undefined,
+        standardShippingCents: formData.has("standardShippingPrice") ? (euroToCents(text(formData, "standardShippingPrice")) ?? "") : undefined,
       };
     case "warranty":
     case "returns":

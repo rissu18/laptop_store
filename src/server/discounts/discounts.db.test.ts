@@ -272,8 +272,14 @@ describe.skipIf(!hasTestDatabase)("sooduskoodid (andmebaas)", () => {
       const result = evaluateDiscount(rule, [{ listing: "SP-X", productModel: "x", manufacturer: "dell", unitPriceCents: 50_000, quantity: 1 }], new Date());
       if (!result.valid) throw new Error("peaks kehtima");
 
-      const orderA = "11111111-1111-4111-8111-111111111111";
-      const orderB = "22222222-2222-4222-8222-222222222222";
+      // Kasutus viitab päris tellimusele (välisvõti) — loome kaks minimaalset tellimust
+      const { orders } = await import("@/server/db/schema");
+      const minimalOrder = (n: string) => ({
+        orderNumber: `SL-26-TEST${n}`, isTest: false, customerEmail: "a@example.com", customerFirstName: "A", customerLastName: "B", customerPhone: "+3725000000",
+        shippingMethodCode: "STANDARD", shippingMethodName: "Standardtarne", shippingAddressLine1: "Tee 1", shippingCity: "Tallinn", shippingPostalCode: "10115", shippingCountry: "EE",
+        subtotalCents: 50_000, discountAmountCents: 1_000, shippingAmountCents: 0, totalCents: 49_000, idempotencyKeyHash: `key${n}`, publicAccessTokenHash: `tok${n}`,
+      });
+      const [{ id: orderA }, { id: orderB }] = await t.db.insert(orders).values([minimalOrder("AA"), minimalOrder("BB")]).returning({ id: orders.id });
       const reserved = await t.db.transaction((tx) => reserveRedemption(tx, { discountCodeId: row.id, orderId: orderA, rule, result }));
       expect(reserved).toMatchObject({ status: "PENDING", codeSnapshot: "UKS1", discountAmountCents: 1_000 });
       await expect(t.db.transaction((tx) => reserveRedemption(tx, { discountCodeId: row.id, orderId: orderB, rule, result }))).rejects.toBeInstanceOf(RedemptionError);

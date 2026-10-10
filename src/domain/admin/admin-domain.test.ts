@@ -60,7 +60,12 @@ describe("vormid", () => {
     const fd = new FormData();
     fd.set("infoText", "  ");
     fd.set("freeShippingThreshold", "150");
-    expect(SETTINGS_SCHEMAS.delivery.parse(settingsFromForm("delivery", fd))).toEqual({ infoText: null, freeShippingThresholdCents: 15000 });
+    expect(SETTINGS_SCHEMAS.delivery.parse(settingsFromForm("delivery", fd))).toEqual({ infoText: null, freeShippingThresholdCents: 15000, standardShippingName: "Standardtarne", standardShippingCents: 699 });
+    fd.set("standardShippingName", "Kuller");
+    fd.set("standardShippingPrice", "4,99");
+    expect(SETTINGS_SCHEMAS.delivery.parse(settingsFromForm("delivery", fd))).toMatchObject({ standardShippingName: "Kuller", standardShippingCents: 499 });
+    fd.set("standardShippingPrice", "");
+    expect(SETTINGS_SCHEMAS.delivery.safeParse(settingsFromForm("delivery", fd)).success).toBe(false);
     const store = new FormData();
     store.set("currency", "EUR");
     store.set("locale", "et-EE");
