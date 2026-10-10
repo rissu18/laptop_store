@@ -58,3 +58,17 @@ export function removeFromCart(variantId: string) {
 export function cartItemCount(lines: CartLineRef[]): number {
   return lines.reduce((sum, line) => sum + line.quantity, 0);
 }
+
+/**
+ * Rakendatud sooduskood (ainult koodi TEKST — mitte summa). Server kontrollib ja arvutab koodi
+ * iga kord uuesti, seega brauseris olev väärtus ei saa soodustust mõjutada. Korraga üks kood.
+ */
+const discountStore = createPersistentStore<string | null>("cart:discount:v1", null, (value) =>
+  typeof value === "string" && value.length > 0 && value.length <= 40 ? value : null,
+);
+
+export const useAppliedDiscountCode = discountStore.useValue;
+
+export function setAppliedDiscountCode(code: string | null) {
+  discountStore.set(() => code);
+}

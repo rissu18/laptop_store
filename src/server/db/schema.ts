@@ -341,3 +341,144 @@ export const systemLogs = pgTable(
   },
   (t) => [index("system_logs_created_idx").on(t.createdAt), index("system_logs_level_idx").on(t.level, t.source)],
 );
+
+// ---------------------------------------------------------------------------
+// Sooduskoodid (vt docs/DISCOUNTS.md)
+// ---------------------------------------------------------------------------
+
+export const DISCOUNT_TYPE_VALUES = ["PERCENTAGE", "FIXED_AMOUNT", "FREE_SHIPPING"] as const;
+/** Admini määratud olek. SCHEDULED ja EXPIRED arvutatakse kuupäevadest (ei salvestata). */
+export const DISCOUNT_STATUS_VALUES = ["DRAFT", "ACTIVE", "DISABLED", "ARCHIVED"] as const;
+export const DISCOUNT_SCOPE_VALUES = ["ALL_PRODUCTS", "SELECTED_MANUFACTURERS", "SELECTED_PRODUCT_MODELS", "SELECTED_LISTINGS"] as const;
+/** INCLUDE = kehtib sellele, EXCLUDE = välistatud (välistus on alati ülimuslik) */
+export const DISCOUNT_TARGET_MODES = ["INCLUDE", "EXCLUDE"] as const;
+
+const inList = (name: string, column: string, values: readonly string[]) => check(name, sql.raw(`${column} in (${values.map((v) => `'${v}'`).join(", ")})`));
+
+export const discountCodes = pgTable(
+  "discount_codes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** Admini sisestatud kuju kuvamiseks, nt "Sügis10" */
+    code: text("code").notNull(),
+    /** Võrdlemiseks: trim + NFKC + suurtähed → "SÜGIS10" (UNIQUE) */
+    normalizedCode: text("normalized_code").notNull(),
+    name: text("name").notNull(),
+    internalDescription: text("internal_description"),
+    type: text("type", { enum: DISCOUNT_TYPE_VALUES }).notNull(),
+    /** PERCENTAGE: baaspunktid (1000 = 10%); FIXED_AMOUNT: sendid; FREE_SHIPPING: 0 */
+    value: integer("value").notNull(),
+    status: text("status", { enum: DISCOUNT_STATUS_VALUES }).notNull().default("DRAFT"),
+    /** Tuletatud veerg (status = 'ACTIVE') — ei saa kunagi staatusega vastuollu minna */
+    active: boolean("active").generatedAlwaysAs(sql`status = 'ACTIVE'`),
+    startsAt: timestamp("starts_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    minimumSubtotalCents: integer("minimum_subtotal_cents"),
+    maximumDiscountCents: integer("maximum_discount_cents"),
+    usageLimit: integer("usage_limit"),
+    /** Kinnitatud kasutused (discount_redemptions CONFIRMED). Koodi kontrollimine seda EI suurenda. */
+    usageCount: integer("usage_count").notNull().default(0),
+    scope: text("scope", { enum: DISCOUNT_SCOPE_VALUES }).notNull().default("ALL_PRODUCTS"),
+    /** Marginaalikaitse: soodustus ei vii hinda alla hinnastamise miinimumkasumi (vaikimisi sees) */
+    respectMinimumMargin: boolean("respect_minimum_margin").notNull().default(true),
+    createdBy: text("created_by"),
+    updatedBy: text("updated_by"),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("discount_codes_normalized_code_uq").on(t.normalizedCode),
+    index("discount_codes_status_idx").on(t.status),
+    inList("discount_codes_type_ck", "type", DISCOUNT_TYPE_VALUES),
+    inList("discount_codes_status_ck", "status", DISCOUNT_STATUS_VALUES),
+    inList("discount_codes_scope_ck", "scope", DISCOUNT_SCOPE_VALUES),
+    check("discount_codes_value_ck", sql`value >= 0 AND (type <> 'PERCENTAGE' OR value <= 10000)`),
+    check("discount_codes_dates_ck", sql`expires_at IS NULL OR starts_at IS NULL OR expires_at > starts_at`),
+    check("discount_codes_usage_ck", sql`usage_count >= 0 AND (usage_limit IS NULL OR usage_limit > 0)`),
+  ],
+);
+
+export const discountManufacturers = pgTable(
+  "discount_manufacturers",
+  {
+    discountCodeId: uuid("discount_code_id")
+      .notNull()
+      .references(() => discountCodes.id, { onDelete: "cascade" }),
+    /** Tootja kood (lenovo, dell, hp) — sama mis product_models.manufacturer */
+    manufacturer: text("manufacturer").notNull(),
+  },
+  (t) => [uniqueIndex("discount_manufacturers_uq").on(t.discountCodeId, t.manufacturer)],
+);
+
+export const discountProductModels = pgTable(
+  "discount_product_models",
+  {
+    discountCodeId: uuid("discount_code_id")
+      .notNull()
+      .references(() => discountCodes.id, { onDelete: "cascade" }),
+    productModelId: uuid("product_model_id")
+      .notNull()
+      .references(() => productModels.id, { onDelete: "cascade" }),
+    mode: text("mode", { enum: DISCOUNT_TARGET_MODES }).notNull(),
+  },
+  (t) => [uniqueIndex("discount_product_models_uq").on(t.discountCodeId, t.productModelId, t.mode), inList("discount_product_models_mode_ck", "mode", DISCOUNT_TARGET_MODES)],
+);
+
+export const discountSupplierListings = pgTable(
+  "discount_supplier_listings",
+  {
+    discountCodeId: uuid("discount_code_id")
+      .notNull()
+      .references(() => discountCodes.id, { onDelete: "cascade" }),
+    supplierListingId: uuid("supplier_listing_id")
+      .notNull()
+      .references(() => supplierListings.id, { onDelete: "cascade" }),
+    mode: text("mode", { enum: DISCOUNT_TARGET_MODES }).notNull(),
+  },
+  (t) => [uniqueIndex("discount_supplier_listings_uq").on(t.discountCodeId, t.supplierListingId, t.mode), inList("discount_supplier_listings_mode_ck", "mode", DISCOUNT_TARGET_MODES)],
+);
+
+export const REDEMPTION_STATUSES = ["PENDING", "CONFIRMED", "CANCELLED"] as const;
+
+/**
+ * Sooduskoodi kasutus tellimuses. Täidetakse alles koos Order süsteemiga:
+ * tellimuse loomisel PENDING (koht reserveeritud), makse kinnitamisel CONFIRMED (usage_count kasvab),
+ * tühistamisel CANCELLED. Snapshot-väljad säilitavad tolle hetke info ka siis, kui koodi hiljem muudetakse.
+ */
+export const discountRedemptions = pgTable(
+  "discount_redemptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    discountCodeId: uuid("discount_code_id")
+      .notNull()
+      .references(() => discountCodes.id, { onDelete: "restrict" }),
+    /** Tulevase orders tabeli ID (välisvõti lisatakse koos tellimuste tabeliga) */
+    orderId: uuid("order_id").notNull(),
+    status: text("status", { enum: REDEMPTION_STATUSES }).notNull().default("PENDING"),
+    codeSnapshot: text("code_snapshot").notNull(),
+    typeSnapshot: text("type_snapshot", { enum: DISCOUNT_TYPE_VALUES }).notNull(),
+    valueSnapshot: integer("value_snapshot").notNull(),
+    discountAmountCents: integer("discount_amount_cents").notNull(),
+    /** Täielik DiscountSnapshot (sh ridade jaotus) */
+    snapshot: jsonb("snapshot").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("discount_redemptions_order_uq").on(t.discountCodeId, t.orderId),
+    index("discount_redemptions_code_status_idx").on(t.discountCodeId, t.status),
+    inList("discount_redemptions_status_ck", "status", REDEMPTION_STATUSES),
+  ],
+);
+
+/** Sooduskoodi kontrollimise katsed (piirang botide vastu). */
+export const discountValidationAttempts = pgTable(
+  "discount_validation_attempts",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    ip: text("ip").notNull(),
+    success: boolean("success").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("discount_validation_attempts_ip_idx").on(t.ip, t.createdAt)],
+);

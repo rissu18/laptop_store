@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   Laptop,
   Settings,
+  TicketPercent,
   ShoppingCart,
   Truck,
   Users,
@@ -43,6 +44,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     label: "Pood",
     items: [
       { label: "Hinnastamine", href: "/admin/pricing", icon: BadgeEuro },
+      { label: "Sooduskoodid", href: "/admin/discounts", icon: TicketPercent },
       { label: "Seaded", href: "/admin/settings", icon: Settings },
     ],
   },

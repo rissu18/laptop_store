@@ -3,6 +3,7 @@ import Link from "next/link";
 import { fmtCents, fmtDateTime } from "@/components/admin/format";
 import { Card, MetricCard, Missing, PageHeader } from "@/components/admin/ui";
 import { getDashboard } from "@/server/admin/dashboard/queries";
+import { getDiscountStatusCounts } from "@/server/admin/discounts/queries";
 import { requireAdmin } from "@/server/auth/auth";
 
 /** Admin on alati päringupõhine (sessioon, värsked andmed) — eelrenderdust ega "instant" navigeerimist ei kasutata. */
@@ -11,7 +12,7 @@ export const instant = false;
 export const metadata: Metadata = { title: "Töölaud" };
 
 export default async function AdminDashboardPage() {
-  const [admin, d] = await Promise.all([requireAdmin(), getDashboard()]);
+  const [admin, d, discounts] = await Promise.all([requireAdmin(), getDashboard(), getDiscountStatusCounts()]);
   const issueHref = (key: string) => (["no-images", "icecat-not-found", "icecat-needs-review"].includes(key) ? `/admin/products/models?issue=${key}` : `/admin/products/listings?issue=${key}`);
 
   return (
@@ -55,6 +56,17 @@ export default async function AdminDashboardPage() {
           <MetricCard label="Min" value={fmtCents(d.prices.min) ?? "—"} />
           <MetricCard label="Keskmine" value={fmtCents(d.prices.avg) ?? "—"} />
           <MetricCard label="Max" value={fmtCents(d.prices.max) ?? "—"} />
+        </div>
+      </section>
+
+      <section aria-labelledby="sooduskoodid" className="mb-8">
+        <h2 id="sooduskoodid" className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
+          Sooduskoodid
+        </h2>
+        <div className="grid grid-cols-3 gap-3">
+          <MetricCard label="Aktiivsed" value={discounts.ACTIVE} href="/admin/discounts?status=ACTIVE" />
+          <MetricCard label="Ajastatud" value={discounts.SCHEDULED} href="/admin/discounts?status=SCHEDULED" />
+          <MetricCard label="Aegunud" value={discounts.EXPIRED} href="/admin/discounts?status=EXPIRED" />
         </div>
       </section>
 

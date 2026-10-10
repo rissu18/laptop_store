@@ -128,6 +128,26 @@ function isProfitable(config: PricingConfig, b: PriceBreakdown): boolean {
   return b.profitCents >= config.minProfitCents && b.profitCents * 10_000 >= b.saleCents * config.minProfitBps;
 }
 
+/**
+ * Madalaim müügihind, mille juures toode veel vastab miinimumkasumi reeglitele
+ * (minProfitCents, minProfitBps, minSalePriceCents) — ilma juurdehindluse ja ümardamiseta.
+ * Kasutab sama kasumiarvutust mis calculatePrice (sooduskoodide marginaalikaitse, vt docs/DISCOUNTS.md).
+ * Tagastab null, kui hinda ei saa arvutada (vigane ostuhind või teadmata käibemaksurežiim).
+ */
+export function minimumAllowedPrice(config: PricingConfig, input: PricingInput): Cents | null {
+  if (!Number.isInteger(input.costCents) || input.costCents <= 0 || input.vatScheme === "UNKNOWN") return null;
+  // Kasum kasvab müügihinnaga monotoonselt → kahendotsing
+  let low = 0;
+  let high = Math.max(config.minSalePriceCents, input.costCents * 4 + 100_000);
+  if (!isProfitable(config, breakdownFor(config, input, high))) return null;
+  while (low < high) {
+    const mid = Math.floor((low + high) / 2);
+    if (isProfitable(config, breakdownFor(config, input, mid))) high = mid;
+    else low = mid + 1;
+  }
+  return Math.max(low, config.minSalePriceCents);
+}
+
 export function calculatePrice(config: PricingConfig, input: PricingInput): PriceBreakdown {
   if (!Number.isInteger(input.costCents) || input.costCents <= 0) {
     throw new PricingError("INVALID_COST", `Vigane ostuhind: ${input.costCents}`);

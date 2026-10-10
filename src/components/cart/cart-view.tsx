@@ -3,7 +3,7 @@
 import { Minus, Plus, ShieldCheck, ShoppingBag, Trash2, Truck } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
-import { removeFromCart, setCartQuantity, useCart } from "@/client/cart-store";
+import { removeFromCart, setAppliedDiscountCode, setCartQuantity, useAppliedDiscountCode, useCart } from "@/client/cart-store";
 import { formatDeliveryDays, formatSpecLine } from "@/domain/catalog/format";
 import { productHref } from "@/domain/catalog/urls";
 import { formatEur } from "@/domain/money/money";
@@ -12,20 +12,29 @@ import { GradeBadge } from "@/components/product/grade-badge";
 import { ProductImage } from "@/components/product/product-image";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { cx } from "@/components/ui/class-names";
+import { DiscountCodeForm } from "./discount-code-form";
 
 /**
- * Ostukorv. Brauseris on ainult ID-d ja kogused; iga muudatuse järel küsitakse serverist
- * värsked hinnad ja laoseis. Hinda brauserist ei usaldata.
+ * Ostukorv. Brauseris on ainult ID-d, kogused ja sooduskoodi tekst; iga muudatuse järel küsitakse
+ * serverist värsked hinnad, laoseis ja soodustus. Hinda ega soodustuse summat brauserist ei usaldata.
  */
 export function CartView() {
   const refs = useCart();
+  const appliedCode = useAppliedDiscountCode();
   const [cart, setCart] = useState<ResolvedCart | null>(null);
+  const [discountError, setDiscountError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const key = JSON.stringify(refs);
+  const key = JSON.stringify([refs, appliedCode]);
 
   useEffect(() => {
     startTransition(async () => {
-      setCart(await resolveCart(refs));
+      const result = await resolveCart(refs, appliedCode ?? undefined);
+      setCart(result);
+      // Salvestatud kood ei kehti enam (nt aegus või ostukorv muutus) → eemalda ja ütle miks
+      if (appliedCode && result.discount && !result.discount.valid) {
+        setAppliedDiscountCode(null);
+        setDiscountError(`Sooduskood eemaldati: ${result.discount.message}`);
+      }
     });
     // `key` muutub ainult siis, kui ostukorvi sisu tegelikult muutub
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -35,6 +44,18 @@ export function CartView() {
   useEffect(() => {
     cart?.unavailableIds.forEach(removeFromCart);
   }, [cart]);
+
+  const applyDiscount = (code: string) =>
+    startTransition(async () => {
+      const result = await resolveCart(refs, code);
+      if (result.discount?.valid) {
+        setDiscountError(null);
+        setCart(result);
+        setAppliedDiscountCode(result.discount.code);
+      } else {
+        setDiscountError(result.discount?.message ?? "Sooduskoodi ei leitud.");
+      }
+    });
 
   if (!cart) {
     return <div className="h-64 animate-pulse rounded-lg bg-surface-sunken" aria-label="Laen ostukorvi" />;
@@ -124,17 +145,37 @@ export function CartView() {
         <h2 className="text-lg font-semibold">Kokkuvõte</h2>
         <dl className="mt-4 space-y-2 text-sm">
           <div className="flex justify-between">
-            <dt className="text-muted">Tooted</dt>
+            <dt className="text-muted">Vahesumma</dt>
             <dd className="tabular font-medium">{formatEur(cart.subtotalCents)}</dd>
           </div>
+          {cart.discount?.valid && cart.discountCents > 0 && (
+            <div className="flex justify-between text-success">
+              <dt>Sooduskood {cart.discount.code}</dt>
+              <dd className="tabular font-medium">−{formatEur(cart.discountCents)}</dd>
+            </div>
+          )}
           <div className="flex justify-between">
             <dt className="text-muted">Transport</dt>
-            <dd className="tabular font-medium">{cart.shippingFromCents !== null ? `alates ${formatEur(cart.shippingFromCents)}` : "kassas"}</dd>
+            <dd className="tabular font-medium">
+              {cart.discount?.valid && cart.discount.freeShipping ? "tasuta (kassas)" : cart.shippingFromCents !== null ? `alates ${formatEur(cart.shippingFromCents)}` : "kassas"}
+            </dd>
           </div>
         </dl>
+        <div className="mt-4 border-t border-border pt-4">
+          <DiscountCodeForm
+            applied={appliedCode && cart.discount?.valid ? cart.discount : null}
+            pending={isPending}
+            error={discountError}
+            onApply={applyDiscount}
+            onRemove={() => {
+              setDiscountError(null);
+              setAppliedDiscountCode(null);
+            }}
+          />
+        </div>
         <div className="mt-4 flex items-baseline justify-between border-t border-border pt-4">
           <span className="font-semibold">Kokku</span>
-          <span className="tabular text-2xl font-bold">{formatEur(cart.subtotalCents)}</span>
+          <span className="tabular text-2xl font-bold">{formatEur(cart.totalCents)}</span>
         </div>
         <p className="text-xs text-muted">+ transport, valitakse kassas</p>
 

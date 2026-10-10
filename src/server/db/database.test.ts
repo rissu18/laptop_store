@@ -19,12 +19,18 @@ describe.skipIf(!hasTestDatabase)("andmebaas", () => {
     await t?.cleanup();
   });
 
-  it("ühendus töötab ja migratsioon loob kõik tabelid", async () => {
+  it("ühendus töötab ja migratsioonid loovad kõik tabelid", async () => {
     const result = await t.db.execute<{ name: string }>(sql`SELECT table_name AS name FROM information_schema.tables WHERE table_schema = ${t.schema} ORDER BY 1`);
     expect(result.rows.map((r) => r.name)).toEqual([
       "admin_sessions",
       "admin_users",
       "audit_logs",
+      "discount_codes",
+      "discount_manufacturers",
+      "discount_product_models",
+      "discount_redemptions",
+      "discount_supplier_listings",
+      "discount_validation_attempts",
       "icecat_metadata",
       "login_attempts",
       "pricing_rules",
