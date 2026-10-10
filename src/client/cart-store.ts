@@ -72,3 +72,9 @@ export const useAppliedDiscountCode = discountStore.useValue;
 export function setAppliedDiscountCode(code: string | null) {
   discountStore.set(() => code);
 }
+
+/** Tühjendab ostukorvi ja sooduskoodi — AINULT pärast seda, kui server kinnitas tellimuse loomise. */
+export function clearCart() {
+  store.set(() => []);
+  discountStore.set(() => null);
+}

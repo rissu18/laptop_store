@@ -1,7 +1,9 @@
 "use server";
 
 import { z } from "zod";
-import { storeConfig } from "@/config/store";
+import { DEFAULT_SETTINGS } from "@/domain/settings/settings";
+import { availableShippingMethods } from "@/domain/shipping/shipping";
+import { readSettings } from "@/server/settings/read-settings";
 import type { CatalogItem } from "@/domain/catalog/types";
 import { getItemsByVariantIds } from "@/server/catalog/catalog-service";
 import { getClientMeta } from "@/server/auth/auth";
@@ -38,7 +40,10 @@ export interface ResolvedCart {
   discountCents: number;
   /** Toodete summa pärast soodustust (ilma transpordita), ≥ 0 */
   totalCents: number;
+  /** Standardtarne hind seadetest (lõplik tarne arvutatakse kassas) */
   shippingFromCents: number | null;
+  /** Tasuta tarne alates (toodete summa pärast soodustust) */
+  freeShippingFromCents: number | null;
   /** Kõigi ridade tarneaegade koond; null, kui mõnel real tarneaeg puudub */
   delivery: { minDays: number; maxDays: number } | null;
 }
@@ -98,7 +103,8 @@ export async function resolveCart(input: unknown, discountCode?: unknown): Promi
     lines.push({ item, quantity, maxQuantity, lineTotalCents: item.variant.price.saleCents * quantity });
   }
 
-  const shippingPrices = storeConfig.shippingMethods.map((m) => m.priceCents);
+  const delivery = isDatabaseConfigured() ? (await readSettings(getDb())).delivery : DEFAULT_SETTINGS.delivery;
+  const shippingPrices = availableShippingMethods(delivery).map((m) => m.priceCents);
   const subtotalCents = lines.reduce((sum, line) => sum + line.lineTotalCents, 0);
   const code = discountCodeSchema.safeParse(discountCode);
   const discount = code.success && code.data.trim() && lines.length ? await resolveDiscount(code.data, lines) : null;
@@ -111,6 +117,7 @@ export async function resolveCart(input: unknown, discountCode?: unknown): Promi
     discountCents,
     totalCents: Math.max(0, subtotalCents - discountCents),
     shippingFromCents: shippingPrices.length ? Math.min(...shippingPrices) : null,
+    freeShippingFromCents: delivery.freeShippingThresholdCents,
     delivery: combinedDelivery(lines),
   };
 }

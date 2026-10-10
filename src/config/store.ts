@@ -19,9 +19,5 @@ export const storeConfig = {
   /** Kas automaatne sync on päriselt töös — alles siis võib seda avalikult väita. */
   autoSyncActive: false,
 
-  // TODO: REAL PROVIDER DATA REQUIRED — tarneviisid ja hinnad (Phase 5: ShippingProvider)
-  shippingMethods: [
-    { code: "parcel-locker", label: "Pakiautomaat", priceCents: 399 },
-    { code: "courier", label: "Kuller", priceCents: 699 },
-  ],
+  // Tarneviisid ja hinnad on poe seadetes (admin → Seaded → Tarne), vt src/domain/shipping/shipping.ts
 };

@@ -2,8 +2,8 @@
 export function PrototypeNotice() {
   return (
     <div role="note" className="bg-text px-4 py-2 text-center text-xs text-white">
-      <strong className="font-semibold">Prototüüp:</strong> tooted, hinnad ja laoseisud on arenduse testandmed. Tellimusi
-      veel vastu ei võeta.
+      <strong className="font-semibold">Prototüüp:</strong> tooted, hinnad ja laoseisud on arenduse testandmed. Tellimused on
+      testtellimused — makseid ei võeta ja tellimusi ei täideta.
     </div>
   );
 }

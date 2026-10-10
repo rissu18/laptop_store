@@ -451,8 +451,9 @@ export const discountRedemptions = pgTable(
     discountCodeId: uuid("discount_code_id")
       .notNull()
       .references(() => discountCodes.id, { onDelete: "restrict" }),
-    /** Tulevase orders tabeli ID (välisvõti lisatakse koos tellimuste tabeliga) */
-    orderId: uuid("order_id").notNull(),
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "restrict" }),
     status: text("status", { enum: REDEMPTION_STATUSES }).notNull().default("PENDING"),
     codeSnapshot: text("code_snapshot").notNull(),
     typeSnapshot: text("type_snapshot", { enum: DISCOUNT_TYPE_VALUES }).notNull(),
@@ -481,4 +482,164 @@ export const discountValidationAttempts = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("discount_validation_attempts_ip_idx").on(t.ip, t.createdAt)],
+);
+
+// ---------------------------------------------------------------------------
+// Tellimused (vt docs/ORDERS.md)
+// ---------------------------------------------------------------------------
+
+/** Tellimuse olekud. Selles faasis kasutatakse CREATED ja CANCELLED; ülejäänud on makse/tarne faaside jaoks. */
+export const ORDER_STATUSES = ["CREATED", "AWAITING_PAYMENT", "PAID", "PROCESSING", "SHIPPED", "COMPLETED", "CANCELLED", "REFUNDED"] as const;
+export const PAYMENT_STATUSES = ["NOT_STARTED", "PENDING", "PAID", "FAILED", "REFUNDED"] as const;
+export const ORDER_HISTORY_SOURCES = ["CHECKOUT", "ADMIN", "SYSTEM", "PAYMENT"] as const;
+
+export const orders = pgTable(
+  "orders",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** Avalik tellimuse number, nt SL-26-A7K4P9 (mitte andmebaasi ID) */
+    orderNumber: text("order_number").notNull(),
+    /** Prototüübi testtellimus: makset ei võeta, tarnijale ei saadeta, laoseisu ei vähendata */
+    isTest: boolean("is_test").notNull(),
+    status: text("status", { enum: ORDER_STATUSES }).notNull().default("CREATED"),
+    paymentStatus: text("payment_status", { enum: PAYMENT_STATUSES }).notNull().default("NOT_STARTED"),
+
+    // Klient (snapshot — kliendikontot pole)
+    customerEmail: text("customer_email").notNull(),
+    customerFirstName: text("customer_first_name").notNull(),
+    customerLastName: text("customer_last_name").notNull(),
+    customerPhone: text("customer_phone").notNull(),
+    companyName: text("company_name"),
+    companyRegistryCode: text("company_registry_code"),
+    companyVatNumber: text("company_vat_number"),
+
+    // Tarne
+    shippingMethodCode: text("shipping_method_code").notNull(),
+    shippingMethodName: text("shipping_method_name").notNull(),
+    shippingAddressLine1: text("shipping_address_line1").notNull(),
+    shippingAddressLine2: text("shipping_address_line2"),
+    shippingCity: text("shipping_city").notNull(),
+    shippingPostalCode: text("shipping_postal_code").notNull(),
+    /** ISO 3166-1 alpha-2, nt "EE" */
+    shippingCountry: text("shipping_country").notNull(),
+
+    // Summad sentides (serveris arvutatud)
+    subtotalCents: integer("subtotal_cents").notNull(),
+    discountAmountCents: integer("discount_amount_cents").notNull().default(0),
+    shippingAmountCents: integer("shipping_amount_cents").notNull(),
+    totalCents: integer("total_cents").notNull(),
+    currency: text("currency").notNull().default("EUR"),
+
+    // Sooduskoodi snapshot (tellimus ei sõltu hiljem discount_codes reast)
+    discountCodeId: uuid("discount_code_id").references(() => discountCodes.id, { onDelete: "set null" }),
+    discountCode: text("discount_code"),
+    discountType: text("discount_type", { enum: DISCOUNT_TYPE_VALUES }),
+    discountValue: integer("discount_value"),
+    discountSnapshot: jsonb("discount_snapshot"),
+
+    customerNote: text("customer_note"),
+
+    /** SHA-256(checkoutAttemptId) — sama esitus ei loo kahte tellimust */
+    idempotencyKeyHash: text("idempotency_key_hash").notNull(),
+    /** SHA-256(juurdepääsutoken) — kinnituslehe juurdepääs (token on ainult kliendi httpOnly küpsises) */
+    publicAccessTokenHash: text("public_access_token_hash").notNull(),
+
+    ...timestamps,
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("orders_order_number_uq").on(t.orderNumber),
+    uniqueIndex("orders_idempotency_uq").on(t.idempotencyKeyHash),
+    index("orders_created_idx").on(t.createdAt),
+    index("orders_email_idx").on(t.customerEmail),
+    index("orders_status_idx").on(t.status, t.paymentStatus),
+    inList("orders_status_ck", "status", ORDER_STATUSES),
+    inList("orders_payment_status_ck", "payment_status", PAYMENT_STATUSES),
+    check("orders_amounts_ck", sql`subtotal_cents >= 0 AND discount_amount_cents >= 0 AND shipping_amount_cents >= 0 AND total_cents >= 0 AND total_cents = subtotal_cents - discount_amount_cents + shipping_amount_cents`),
+  ],
+);
+
+/** Tellimuse rida — SNAPSHOT ostu hetkest. Kuvamine ei sõltu hiljem kataloogist. */
+export const orderItems = pgTable(
+  "order_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    /** Viited on valikulised (toode võidakse hiljem kustutada/arhiveerida) — kuvamiseks kasutatakse snapshot'i */
+    productModelId: uuid("product_model_id").references(() => productModels.id, { onDelete: "set null" }),
+    supplierListingId: uuid("supplier_listing_id").references(() => supplierListings.id, { onDelete: "set null" }),
+    sku: text("sku").notNull(),
+    manufacturer: text("manufacturer").notNull(),
+    model: text("model").notNull(),
+    title: text("title").notNull(),
+    cpu: text("cpu"),
+    cpuGeneration: text("cpu_generation"),
+    ramGb: integer("ram_gb"),
+    storageGb: integer("storage_gb"),
+    gpu: text("gpu"),
+    screen: text("screen"),
+    keyboard: text("keyboard"),
+    grade: text("grade"),
+    quantity: integer("quantity").notNull(),
+    unitPriceCents: integer("unit_price_cents").notNull(),
+    lineSubtotalCents: integer("line_subtotal_cents").notNull(),
+    discountAmountCents: integer("discount_amount_cents").notNull().default(0),
+    lineTotalCents: integer("line_total_cents").notNull(),
+    imagePath: text("image_path"),
+  },
+  (t) => [
+    index("order_items_order_idx").on(t.orderId, t.position),
+    check("order_items_amounts_ck", sql`quantity > 0 AND unit_price_cents >= 0 AND line_subtotal_cents = unit_price_cents * quantity AND discount_amount_cents >= 0 AND line_total_cents = line_subtotal_cents - discount_amount_cents`),
+  ],
+);
+
+export const orderStatusHistory = pgTable(
+  "order_status_history",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    /** ORDER = tellimuse olek, PAYMENT = makse olek */
+    kind: text("kind", { enum: ["ORDER", "PAYMENT"] }).notNull().default("ORDER"),
+    fromStatus: text("from_status"),
+    toStatus: text("to_status").notNull(),
+    source: text("source", { enum: ORDER_HISTORY_SOURCES }).notNull(),
+    adminUserId: uuid("admin_user_id").references(() => adminUsers.id, { onDelete: "set null" }),
+    adminEmail: text("admin_email"),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("order_status_history_order_idx").on(t.orderId, t.createdAt), inList("order_status_history_source_ck", "source", ORDER_HISTORY_SOURCES)],
+);
+
+/** Admini sisemärkmed (kliendile ei näidata). Ainult lisamine — muutmist ega kustutamist pole. */
+export const orderInternalNotes = pgTable(
+  "order_internal_notes",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    adminUserId: uuid("admin_user_id").references(() => adminUsers.id, { onDelete: "set null" }),
+    adminEmail: text("admin_email"),
+    note: text("note").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("order_internal_notes_order_idx").on(t.orderId, t.createdAt)],
+);
+
+/** Avaliku tellimuse otsingu katsed (piirang). */
+export const orderLookupAttempts = pgTable(
+  "order_lookup_attempts",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    ip: text("ip").notNull(),
+    success: boolean("success").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("order_lookup_attempts_ip_idx").on(t.ip, t.createdAt)],
 );

@@ -28,8 +28,14 @@ export const storeModeSettingsSchema = z.object({
 
 export const deliverySettingsSchema = z.object({
   infoText: optionalText(500),
-  /** Tasuta tarne alates (sentides); null = tasuta tarnet pole */
+  /** Tasuta tarne alates (sentides, toodete summa pärast soodustust); null = tasuta tarnet pole */
   freeShippingThresholdCents: z.number().int().min(0).max(1_000_000).nullable(),
+  /**
+   * Standardtarne (kuni tarneteenuse API-ni üks meetod). Vaikeväärtusega, et varem salvestatud seaded
+   * jääksid kehtivaks ka ilma nende väljadeta.
+   */
+  standardShippingName: z.string().trim().min(1).max(60).default("Standardtarne"),
+  standardShippingCents: z.number().int().min(0).max(100_000).default(699),
 });
 
 export const textSettingsSchema = z.object({ text: optionalText(2000) });
@@ -79,7 +85,8 @@ export type Settings = { [K in SettingsKey]: z.infer<(typeof SETTINGS_SCHEMAS)[K
 export const DEFAULT_SETTINGS: Settings = {
   general: { storeName: "Sülearvutid.ee", supportEmail: null, phone: null, companyName: null, registryCode: null, address: null },
   store: { prototypeMode: true, currency: "EUR", locale: "et-EE" },
-  delivery: { infoText: "Pakiautomaati või kulleriga üle Eesti.", freeShippingThresholdCents: null },
+  // TODO: REAL PROVIDER DATA REQUIRED — tegelik tarnehind (6,99 € = varasem kulleri näidishind)
+  delivery: { infoText: "Kulleriga üle Eesti.", freeShippingThresholdCents: null, standardShippingName: "Standardtarne", standardShippingCents: 699 },
   warranty: { text: null },
   returns: { text: "E-poest ostes on tarbijal seadusest tulenev õigus 14 päeva jooksul lepingust taganeda." },
   trustBar: {

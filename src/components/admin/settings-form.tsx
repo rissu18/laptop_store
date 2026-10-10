@@ -104,9 +104,11 @@ export function SettingsEditor({ settings }: { settings: Settings }) {
         )}
       </SettingsGroupForm>
 
-      <SettingsGroupForm group="delivery" title="Tarne" description="Üldine tarneinfo. Tarneviisid ja -hinnad lisanduvad koos kassaga.">
+      <SettingsGroupForm group="delivery" title="Tarne" description="Kassas on praegu üks tarneviis (Standardtarne). Pakiautomaadid lisanduvad koos tarneteenuse ühendamisega.">
         {(e) => (
           <>
+            <TextField name="standardShippingName" label="Tarneviisi nimi" defaultValue={delivery.standardShippingName} error={e.standardShippingName} />
+            <TextField name="standardShippingPrice" label="Tarne hind (€)" defaultValue={toInput(delivery.standardShippingCents, "euro")} error={e.standardShippingCents} hint="Kassas lisatav summa (0 = tasuta)" />
             <TextArea name="infoText" label="Tarneinfo tekst" defaultValue={delivery.infoText} error={e.infoText} />
             <TextField name="freeShippingThreshold" label="Tasuta tarne alates (€)" defaultValue={toInput(delivery.freeShippingThresholdCents, "euro")} error={e.freeShippingThresholdCents} hint="Tühi = tasuta tarnet pole" />
           </>

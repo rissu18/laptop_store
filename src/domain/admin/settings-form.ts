@@ -34,7 +34,12 @@ export function settingsFromForm(key: EditableSettingsKey, formData: FormData): 
     case "store":
       return { prototypeMode: formData.get("prototypeMode") === "on", currency: text(formData, "currency"), locale: text(formData, "locale") };
     case "delivery":
-      return { infoText: text(formData, "infoText"), freeShippingThresholdCents: euroToCents(text(formData, "freeShippingThreshold")) };
+      return {
+        infoText: text(formData, "infoText"),
+        freeShippingThresholdCents: euroToCents(text(formData, "freeShippingThreshold")),
+        standardShippingName: text(formData, "standardShippingName") ?? "",
+        standardShippingCents: euroToCents(text(formData, "standardShippingPrice")) ?? -1,
+      };
     case "warranty":
     case "returns":
       return { text: text(formData, "text") };

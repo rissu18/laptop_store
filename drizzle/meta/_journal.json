@@ -15,6 +15,13 @@
       "when": 1791673326883,
       "tag": "0001_discount_codes",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791676180228,
+      "tag": "0002_orders",
+      "breakpoints": true
     }
   ]
 }

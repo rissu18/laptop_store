@@ -10,7 +10,7 @@ import { formatEur } from "@/domain/money/money";
 import { resolveCart, type ResolvedCart } from "@/server/cart/cart-actions";
 import { GradeBadge } from "@/components/product/grade-badge";
 import { ProductImage } from "@/components/product/product-image";
-import { Button, ButtonLink } from "@/components/ui/button";
+import { ButtonLink } from "@/components/ui/button";
 import { cx } from "@/components/ui/class-names";
 import { DiscountCodeForm } from "./discount-code-form";
 
@@ -157,7 +157,13 @@ export function CartView() {
           <div className="flex justify-between">
             <dt className="text-muted">Transport</dt>
             <dd className="tabular font-medium">
-              {cart.discount?.valid && cart.discount.freeShipping ? "tasuta (kassas)" : cart.shippingFromCents !== null ? `alates ${formatEur(cart.shippingFromCents)}` : "kassas"}
+              {cart.discount?.valid && cart.discount.freeShipping
+                ? "tasuta"
+                : cart.freeShippingFromCents !== null && cart.totalCents >= cart.freeShippingFromCents
+                  ? "tasuta"
+                  : cart.shippingFromCents !== null
+                    ? formatEur(cart.shippingFromCents)
+                    : "kassas"}
             </dd>
           </div>
         </dl>
@@ -177,7 +183,7 @@ export function CartView() {
           <span className="font-semibold">Kokku</span>
           <span className="tabular text-2xl font-bold">{formatEur(cart.totalCents)}</span>
         </div>
-        <p className="text-xs text-muted">+ transport, valitakse kassas</p>
+        <p className="text-xs text-muted">+ tarne, arvutatakse kassas</p>
 
         <ul className="mt-5 space-y-2 text-sm">
           {cart.delivery && (
@@ -192,11 +198,10 @@ export function CartView() {
           </li>
         </ul>
 
-        {/* Phase 5: guest checkout. Enne makset kontrollitakse hinda ja laoseisu tarnijalt uuesti. */}
-        <Button fullWidth size="lg" className="mt-6" disabled>
+        {/* Kassas arvutatakse kõik serveris uuesti (hinnad, laoseis, sooduskood, tarne) */}
+        <ButtonLink href="/kassa" fullWidth size="lg" className="mt-6" aria-disabled={cart.lines.length === 0}>
           Vormista tellimus
-        </Button>
-        <p className="mt-2 text-center text-xs text-muted">Tellimuse vormistamine lisandub järgmises etapis.</p>
+        </ButtonLink>
       </aside>
     </div>
   );
