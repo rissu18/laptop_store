@@ -167,9 +167,9 @@ Next.js 16 kasutab vaikimisi "Cache Components" mudelit (Partial Prerendering). 
 
 Phase 1 hoiab ostukorvi ja võrdlust brauseri `localStorage`-is (ainult toote ID ja kogus). **Hinda brauserist ei usaldata** — ostukorvi leht küsib serverist iga rea hinna uuesti. Phase 5-s liigub ostukorv andmebaasi (`Cart` tabel + httpOnly cookie). Kuna kasutame ainult tehniliselt vajalikke salvestusi, cookie bannerit ei ole vaja.
 
-### 🟡 R10. Autentimine
+### 🟡 R10. Autentimine — ✅ tehtud (vt ADMIN.md §2)
 
-Admin-kasutajaid on vähe. Plaan: andmebaasipõhised sessioonid (`AdminSession` tabel), httpOnly + Secure + SameSite=Lax cookie, paroolid **argon2id** räsina, login'i rate limit, kontroll igas serveri action'is ja `/admin` layout'is (mitte ainult React'i tingimuslik kuvamine). Kliendikontot MVP-s ei ole — tellimust saab vaadata tellimuse numbri + e-postiga.
+Admin-kasutajaid on vähe. Tehtud: andmebaasipõhised sessioonid (`admin_sessions`, tokeni SHA-256 räsi), httpOnly + Secure + SameSite=Strict cookie (`__Host-`), paroolid **scrypt** räsina (Node.js sisseehitatud; argon2id oleks vajanud natiivset moodulit), login'i rate limit, kontroll igas serveri action'is ja `/admin` layout'is (mitte ainult React'i tingimuslik kuvamine). Kliendikontot MVP-s ei ole — tellimust saab vaadata tellimuse numbri + e-postiga.
 
 ### 🟡 R11. Pildid — ✅ lahendatud Icecatiga (vt ARCHITECTURE.md "Tootepildid")
 
@@ -177,15 +177,15 @@ Mudelipildid tulevad Open Icecatist, laaditakse alla, töödeldakse (300 / 700 /
 
 ### 🔴 R13. Piltide püsiv salvestusruum tootmises
 
-Vercelis ei saa pilte runtime'is failisüsteemi salvestada. Online-piltide jaoks on vaja S3-ühilduvat salvestusruumi. **Vajab sinu otsust** (soovitus: Cloudflare R2 — 10 GB tasuta, väljaminev liiklus tasuta, S3 API → ei teki lukustust). Praegune maht: ~45 MB (38 mudelit, ~1,2 MB mudeli kohta); tuhande mudeli juures ~1,2 GB — mahub tasuta piiri. Kuni otsuseni töötavad pildid ainult kohalikus arenduses; Verceli testkeskkond näitab placeholderit.
+Vercelis ei saa pilte runtime'is failisüsteemi salvestada. Online-piltide jaoks on vaja S3-ühilduvat salvestusruumi. **Vajab sinu otsust** (soovitus: Cloudflare R2 — 10 GB tasuta, väljaminev liiklus tasuta, S3 API → ei teki lukustust). Praegune maht: ~45 MB (38 mudelit, ~1,2 MB mudeli kohta); tuhande mudeli juures ~1,2 GB — mahub tasuta piiri. Ajutine lahendus testversioonis: töödeldud pildid (~45 MB) on Git'is (`public/media/products`) ja Vercel serveerib neid staatiliste failidena. Piltide allalaadimine ja käsitsi üleslaadimine adminis töötab alles püsiva salvestusruumiga.
 
 ### 🔴 R14. Tarnija feed peab andma GTIN-i või tootja koodi (MPN)
 
 Icecati JSON API ei otsi nime järgi. Ilma GTIN/MPN-ita ei saa uusi mudeleid automaatselt Icecatiga siduda. Küsi hulgilaolt, kas feed sisaldab EAN-i ja tootja part number'it.
 
-### 🟡 R12. Prisma versioon
+### 🟡 R12. ORM — ✅ otsustatud: Drizzle
 
-Projekti alguse seisuga on Prisma `latest` sildi all 8.0 RC. Phase 2-s valime viimase **stabiilse** versiooni, mitte RC-d.
+Projekti alguse seisuga oli Prisma `latest` sildi all 8.0 RC. Andmebaasi etapis valisin **Drizzle ORM-i** (stabiilne, serverless'is kerge, SQL-i lähedane, migratsioonid tavalise SQL-ina). Põhjendus: DATABASE.md "ORM valik".
 
 ## 4. Lõplik tehnoloogiapakk
 
@@ -195,8 +195,8 @@ Projekti alguse seisuga on Prisma `latest` sildi all 8.0 RC. Phase 2-s valime vi
 | Keel | **TypeScript** strict | |
 | Stiil | **Tailwind CSS 4** + CSS muutujad (design tokens) | |
 | Valideerimine | **Zod** | API sisend, vormid, env, tarnija andmed |
-| Andmebaas | **PostgreSQL 17** | + `pg_trgm` otsinguks |
-| ORM | **Prisma** (stabiilne) | migratsioonid, tüübid |
+| Andmebaas | **PostgreSQL** (Neon, v18) | + `pg_trgm` otsinguks, kui kataloog kasvab |
+| ORM | **Drizzle ORM** + drizzle-kit | migratsioonid SQL-ina, tüübid skeemist (R12) |
 | Taustatööd | **pg-boss** (eraldi worker) | uus — põhjendus R6 |
 | E-post | **Nodemailer** (SMTP) `EmailProvider` taga | self-hosted SMTP sobib |
 | Logimine | **pino** (JSON logid) | |
@@ -231,7 +231,7 @@ Projekti alguse seisuga on Prisma `latest` sildi all 8.0 RC. Phase 2-s valime vi
 
 ### Admin (`/admin`, kaitstud serveris)
 
-`/admin/login`, `/admin` (dashboard), `/admin/tooted`, `/admin/tooted/[id]`, `/admin/tellimused`, `/admin/tellimused/[id]`, `/admin/sync`, `/admin/hinnastamine`, `/admin/seaded`.
+Tehtud: `/admin/login`, `/admin` (töölaud), `/admin/products/models[/id]`, `/admin/products/listings[/id]`, `/admin/images[/modelId]`, `/admin/data-quality`, `/admin/pricing`, `/admin/settings`, `/admin/system/activity`, `/admin/system/logs`, `/admin/system/health`. Tulekul: tellimused, kliendid, tarnijad (sync). Vt ADMIN.md.
 
 ### Filtrite URL-skeem
 
@@ -271,8 +271,8 @@ Põhimõtted:
 | **0 Analüüs** ✅ | Plaan, arhitektuur, andmemudel | Need dokumendid |
 | **1 UI prototüüp** ✅ (1. versioon) | Layout, avaleht, nimekiri, filtrid, otsing, tooteleht, ostukorv, võrdlus — mock-andmetel | Kõik põhilehed töötavad mobiilis ja desktopil |
 | **1b Tootepildid** ✅ | Icecati klient, vaste otsimine, pildi import (thumbnail/medium/large), galerii, duplikaadid, peitmine, Data Quality (CLI + arenduse vaade); kogu kataloog: 38 mudelit, 34 pildiga (89,5%) | Pildid kohalikult nähtavad; tootmise salvestusruum ootab otsust (R13) |
-| **2 Andmebaas** | Docker Compose + PostgreSQL, Prisma skeem, migratsioonid, seed, repository'd; mock-repositoorium asendatakse | Leht töötab andmebaasist |
-| **3 Admin** | Login, tooted, hinnareeglid, seaded, sync dashboard | Admin saab hindu ja seadeid muuta |
+| **2 Andmebaas** ✅ | Neon PostgreSQL, Drizzle skeem (12 tabelit), migratsioon, idempotentne import (38 / 46 / 320 klapib), pood loeb andmebaasist vahemäluga | Leht töötab andmebaasist |
+| **3 Admin** ✅ | Login (scrypt, sessioonid, piirang, CSRF), mudelid, konfiguratsioonid (parandused vs tarnija väärtus), pildid, Icecat, andmekvaliteet, hinnastamine (eelvaade + rakendamine), seaded, audit, logid, tervis | Admin saab hindu ja seadeid muuta; muudatus jõuab poodi kohe |
 | **4 Tarnija** | `SupplierAdapter`, sync worker, SyncRun log, hinnaajalugu; päris tarnija, kui API info olemas | Sync jookseb ajastatult, logid adminis |
 | **5 Checkout** | Serveripõhine ostukorv, guest checkout, tarneviisid, tellimuse loomine, snapshot | Tellimus tekib andmebaasi |
 | **6 Maksed** | `PaymentProvider` + valitud pakkuja, webhook verifitseerimine | Makse kinnitatakse serveris |

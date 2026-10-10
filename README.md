@@ -12,9 +12,10 @@ Custom veebirakendus — ei kasuta WordPressi, WooCommerce'i, Shopifyd ega muud 
 | --- | --- |
 | 0 — Analüüs ja planeerimine | ✅ valmis |
 | 1 — UI prototüüp (mock-andmed) | ✅ esimene versioon |
-| 1b — Tootepildid Open Icecatist | ✅ arenduses; tootmise salvestusruum ootab valikut |
-| 2 — Andmebaas (PostgreSQL + Prisma) | ⏳ järgmine |
-| 3–9 — Admin, tarnija sync, checkout, maksed, automaatika, lihvimine, tootmine | planeeritud |
+| 1b — Tootepildid Open Icecatist | ✅ valmis (pildid Git'is; püsiv salvestus ootab valikut) |
+| 2 — Andmebaas (PostgreSQL + Drizzle) | ✅ valmis |
+| 3 — Admin-liides | ✅ valmis — vt [docs/ADMIN.md](docs/ADMIN.md) |
+| 4–9 — Tarnija sync (Foxway), checkout, maksed, automaatika, lihvimine, tootmine | planeeritud |
 
 Vt [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md).
 
@@ -27,7 +28,8 @@ Vt [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md).
 - **Vitest** — unit- ja integratsioonitestid
 - **sharp** — tootepiltide kontroll ja variandid (WebP)
 - **Open Icecat** JSON API — tootjate mudelipildid
-- Plaanis: PostgreSQL, Prisma, pg-boss, Nodemailer, Playwright, Docker Compose, Nginx, Let's Encrypt
+- **PostgreSQL** (Neon) + **Drizzle ORM** — andmebaas ja migratsioonid
+- Plaanis: pg-boss, Nodemailer, Playwright, Docker Compose, Nginx, Let's Encrypt
 
 Põhjendused: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -35,7 +37,7 @@ Põhjendused: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 - Node.js 22 või uuem (arendatud versiooniga 24)
 - npm 10+
-- Phase 2-st alates: Docker ja Docker Compose (PostgreSQL)
+- PostgreSQL (arenduses ja Vercelis Neon). Ilma andmebaasita töötab pood mock-andmetega; admin vajab andmebaasi.
 
 ## Paigaldamine
 
@@ -47,17 +49,38 @@ npm install
 cp .env.example .env.local
 ```
 
+Andmebaasi muutujad (Neon, Verceliga seotud projekt):
+
+```bash
+npx vercel env pull .env.development.local
+```
+
+```bash
+npm run db:migrate
+```
+
+```bash
+npm run db:seed
+```
+
+```bash
+npm run admin:create
+```
+
+Seejärel ava <http://localhost:3000/admin/login>. Admini kasutajat ega parooli koodis ei ole — see luuakse ainult `admin:create` käsuga.
+
 ## Keskkonnamuutujad
 
 | Muutuja | Vaikimisi | Kirjeldus |
 | --- | --- | --- |
 | `SITE_URL` | `http://localhost:3000` | Poe avalik aadress (canonical, sitemap) |
-| `PROTOTYPE_MODE` | `true` | Näitab testandmete hoiatust, keelab indekseerimise |
+| `DATABASE_URL` / `database_DATABASE_URL` | – | PostgreSQL (pooled). Vercel + Neon lisab `database_` eesliitega |
+| `DATABASE_URL_UNPOOLED` | – | Otseühendus migratsioonidele ja skriptidele |
 | `ICECAT_USERNAME` | – | Open Icecati kasutajanimi (piltide import) |
 | `ICECAT_API_TOKEN` | – | Valikuline; saadetakse ainult HTTP päises |
 | `ICECAT_CONTENT_TOKEN` | – | Valikuline; saadetakse ainult HTTP päises |
 
-Muutujad valideeritakse käivitamisel failis [`src/config/env.ts`](src/config/env.ts). Saladusi (API võtmed, paroolid) ei commit'ita kunagi.
+Muutujad valideeritakse käivitamisel failis [`src/config/env.ts`](src/config/env.ts). Saladusi (API võtmed, paroolid, ühendusstringid) ei commit'ita ega logita kunagi. Prototüübirežiim (hoiatusriba + noindex) on nüüd poe seadetes: admin → Seaded → Pood.
 
 ## Arendus
 
@@ -77,6 +100,13 @@ Ava <http://localhost:3000>.
 | `npm run typecheck` | TypeScripti kontroll |
 | `npm run icecat -- import --all` | Icecati piltide import kõigile mudelitele + raport |
 | `npm run icecat -- status` | Data Quality: kate, staatused, mudelid ilma pildita |
+| `npm run db:check` | Andmebaasi ühenduse test |
+| `npm run db:migrate` | Rakenda migratsioonid |
+| `npm run db:seed` | Impordi praegune kataloog andmebaasi (idempotentne, ENNE/PÄRAST kontroll) |
+| `npm run db:verify-catalog` | Võrdle mock-kataloogi ja andmebaasi kataloogi |
+| `npm run db:generate` | Uus migratsioon pärast skeemi muutmist |
+| `npm run admin:create` | Loo admin (parool küsitakse varjatult); `-- --reset-password` vahetab parooli |
+| `npm run admin:delete -- <e-post>` | Kustuta admin |
 
 ## Tootepildid (Icecat)
 
@@ -86,17 +116,11 @@ npm run icecat -- import --all
 
 Pildid laaditakse Open Icecatist alla, töödeldakse (300 / 700 / 2000 px WebP) ja salvestatakse kausta `public/media/products/`. Frontend kasutab ainult meie URL-e. Icecatist võetakse **ainult pildid** — seadme tehnilised andmed tulevad alati tarnija pakkumisest.
 
-Admini toimingud käsurealt (kuni adminpaneelini):
-
-```bash
-npm run icecat -- confirm hp-elitebook-845-g8 12345678
-```
-
-Teised käsud: `reject <mudel> <icecatId>`, `images <mudel>`, `hide <mudel> <pildiId>`, `unhide …`, `retry <mudel>` (otsi vastet uuesti), `refresh <mudel>` (lae pildid uuesti). Arenduses on Data Quality vaade aadressil <http://localhost:3000/admin/andmekvaliteet> (productionis 404 kuni admin-autentimiseni).
+Üksikute mudelite toimingud (põhipilt, järjekord, peitmine, otsi uuesti, käsitsi vaste eelvaatega, värskenda pilte) tehakse nüüd **adminis**: Pildid ja mudeli leht. Andmed on PostgreSQL-is. CLI (`npm run icecat`) kasutab veel JSON-faile ja on mõeldud esialgseks massimpordiks.
 
 Raportid: [kogu kataloog](docs/reports/icecat-catalog-report.md) · [10 mudeli test](docs/reports/icecat-test-report.md).
 
-> Kohalikud pildid ei lähe Git'i ega Vercelisse. Online-piltide jaoks on vaja püsivat salvestusruumi (vt docs/PROJECT_PLAN.md R13).
+> Testversioonis on töödeldud pildid Git'is (`public/media/products`) ja Vercel serveerib neid. Piltide allalaadimine administ töötab ainult lokaalselt, kuni on püsiv salvestusruum (vt docs/PROJECT_PLAN.md R13).
 
 ## Testimine
 
@@ -110,17 +134,24 @@ Testitud on äriloogika, mis peab olema kindlasti õige:
 - **tarnija andmete normaliseerimine** — CPU, RAM-i, SSD, ekraani ja klaviatuuri parsimine;
 - **seisukorra (Grade) kaardistus**;
 - **kataloog** — otsing ("840 g8", "t14 16 512"), filtrid, facet'ide loendurid, URL-i valideerimine, sorteerimine;
-- **Icecat** — vaste prioriteedid ja kindlus, pealkirja kontroll (T14 ≠ T14s), pildivalik ja duplikaadid, klient (tokenid päistes, 404 ei korrata), pildi kontroll (HTML ei lähe pildina läbi), kogu import pipeline (muutumata pilte ei laeta uuesti, Icecat maas → pildid jäävad alles).
+- **Icecat** — vaste prioriteedid ja kindlus, pealkirja kontroll (T14 ≠ T14s), pildivalik ja duplikaadid, klient (tokenid päistes, 404 ei korrata), pildi kontroll (HTML ei lähe pildina läbi), kogu import pipeline (muutumata pilte ei laeta uuesti, Icecat maas → pildid jäävad alles);
+- **andmebaas** — migratsioon, import = allika arvud, idempotentsus, admini muudatused säilivad korduval impordil;
+- **autentimine** — scrypt, nõrgad paroolid, sessioonid, sisselogimise piirang, proxy, CSRF päritolu, open redirect;
+- **admin** — parandused vs tarnija väärtus, pildid, andmekvaliteet, hinnastamine (eelvaade/rakendamine), seaded, audit, toimingud ilma sessioonita, SQL-süst.
 
-E2E testid (Playwright) lisanduvad koos checkout'iga.
+Andmebaasi testid jooksevad päris PostgreSQL-is **ajutises skeemis**, mis testi lõpus kustutatakse. Ilma `DATABASE_URL`-ita jäetakse need vahele. E2E testid (Playwright) lisanduvad koos checkout'iga.
 
 ## Andmebaas
 
-Phase 2. Andmemudeli kavand: [docs/DATABASE.md](docs/DATABASE.md).
+PostgreSQL (Neon) + Drizzle ORM: 12 tabelit, migratsioon `drizzle/0000_init.sql`. Skeem, ORM valiku põhjendus ja impordi tulemused: [docs/DATABASE.md](docs/DATABASE.md).
+
+## Admin
+
+`/admin`: töölaud, mudelid, konfiguratsioonid, pildid ja Icecat, andmekvaliteet, hinnastamine, seaded, tegevuslogi, logid, tervis. Turvalisus, tarnija vs admini andmed, hinnastamine ja audit: [docs/ADMIN.md](docs/ADMIN.md).
 
 ## Deploy
 
-Phase 9: Docker Compose (`web`, `worker`, `db`, `nginx`) + Let's Encrypt tavalisel Linuxi VPS-il.
+Testversioon: Vercel (<https://laptop-store-rouge.vercel.app>) + Neon PostgreSQL; iga push `main` harusse deploy'b automaatselt. Lõplik plaan (Phase 9): Docker Compose (`web`, `worker`, `db`, `nginx`) + Let's Encrypt tavalisel Linuxi VPS-il.
 
 ## Projekti struktuur
 
@@ -129,14 +160,16 @@ docs/                     plaan, arhitektuur, andmebaas
 src/
   app/                    Next.js route'id
     (shop)/               avalik pood (avaleht, nimekiri, tooteleht, ostukorv, võrdlus …)
+    admin/                admin (login + kaitstud (panel))
     api/search/           otsingu autocomplete
   components/             UI komponendid (ui, layout, product, catalog, home, cart, compare, search, seo)
   domain/                 puhas äriloogika: kataloog, filtrid, otsing, hinnastamine, seisukord, raha
-  server/                 serveripoolsed teenused (kataloog, ostukorv)
+  server/                 serveripoolsed teenused (kataloog, ostukorv, db, auth, admin, settings, logging)
   integrations/supplier/  SupplierAdapter liides, normaliseerimine, MockSupplierAdapter + testandmed
   integrations/icecat/    Icecati klient, vaste otsimine, pildivalik
   server/images/          piltide import, töötlus, salvestusruum, Data Quality
-scripts/                  käsurea tööriistad (npm run icecat)
+scripts/                  käsurea tööriistad (icecat, db:*, admin:*)
+drizzle/                  andmebaasi migratsioonid (SQL)
 data/icecat/              Icecati vasted ja käsitsi kogutud identifikaatorid
   client/                 brauseripoolsed store'id (ostukorv, võrdlus)
   config/                 poe seaded, hinnareeglid, keskkonnamuutujad
@@ -144,4 +177,4 @@ data/icecat/              Icecati vasted ja käsitsi kogutud identifikaatorid
 
 ## Testandmed
 
-Kaustas [`src/integrations/supplier/mock/`](src/integrations/supplier/mock/) on **arenduse testandmed** (~45 sülearvutit). Mudelinimed on realistlikud, kuid hinnad, laoseisud ja muud numbrid on välja mõeldud. Seni, kuni `PROTOTYPE_MODE=true`, kuvatakse lehel vastav hoiatus.
+Kaustas [`src/integrations/supplier/mock/`](src/integrations/supplier/mock/) on **arenduse testandmed** (~45 sülearvutit). Mudelinimed on realistlikud, kuid hinnad, laoseisud ja muud numbrid on välja mõeldud. Need on imporditud andmebaasi. Seni, kuni prototüübirežiim on sees (admin → Seaded), kuvatakse lehel vastav hoiatus.

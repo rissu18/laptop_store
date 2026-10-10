@@ -1,388 +1,134 @@
 # Andmebaas
 
-PostgreSQL + Prisma. See on **esimene versioon** andmemudelist; lõplik Prisma skeem tehakse Phase 2-s pärast seda, kui andmemudel (PROJECT_PLAN.md, R3) on kinnitatud.
+**PostgreSQL** (Neon, versioon 18) + **Drizzle ORM**. Skeem on koodis failis [`src/server/db/schema.ts`](../src/server/db/schema.ts) ja migratsioonid kaustas [`drizzle/`](../drizzle/).
+
+> Admini poolt vaadatuna (omanikud, parandused, audit): [ADMIN.md](ADMIN.md).
+
+## ORM valik: Drizzle
+
+Algne plaan oli Prisma (PROJECT_PLAN.md, R12). Andmebaasi etapis valisin **Drizzle ORM-i** (0.45) ja **drizzle-kit**-i (migratsioonid). Põhjused:
+
+| Kriteerium | Drizzle | Prisma |
+| --- | --- | --- |
+| Stabiilne versioon projekti hetkel | ✅ 0.45 (stabiilne) | `latest` oli 8.0 RC — R12 nõudis stabiilset |
+| Serverless (Vercel) | Puhas TypeScript + `pg` draiver, eraldi mootorit pole | Eraldi päringumootor / genereeritud klient, suurem bundle ja külmkäivitus |
+| Genereerimise samm | Ei ole: tüübid tulevad otse skeemist | `prisma generate` enne buildi |
+| SQL-i läbipaistvus | Päringud on SQL-i lähedased; migratsioon on tavaline SQL fail, mida saab lugeda ja kontrollida | Oma päringukeel; migratsioon samuti SQL |
+| JSONB ja keerukamad päringud | Tüübitud `sql\`\`` template parameetritega (nt efektiivne väärtus `manual_overrides ? 'cpu'`) | `$queryRaw` |
+| Õppimise väärtus lõputöös | Näha on, milline SQL tegelikult jookseb | Rohkem abstraktsiooni |
+
+Prisma oleks samuti sobinud. Otsustasid stabiilsus, serverless'i sobivus ja SQL-i läbipaistvus.
+
+## Ühendus
+
+- Ühendusstring tuleb keskkonnamuutujast. Vercel + Neon integratsioon lisab muutujad eesliitega `database_` (`database_DATABASE_URL`, `database_DATABASE_URL_UNPOOLED`). Rakendus eelistab `DATABASE_URL`-i ja kasutab muul juhul `database_`-variante (`src/server/db/database-url.ts`).
+- Rakendus kasutab **pooled** ühendust (Neon pooler, `max: 5`), migratsioonid ja skriptid **direct** ühendust.
+- SSL: `sslmode=require` asendatakse `verify-full`-iga (sertifikaati kontrollitakse).
+- Lokaalselt: `vercel env pull .env.development.local` (Git'is ei ole). Ühendusstringi ei kuvata ega logita kunagi; veateadetes asendatakse see `[DATABASE_URL]`-iga.
+
+```bash
+npm run db:check      # ühenduse test (versioon, tabelite arv)
+npm run db:migrate    # rakenda migratsioonid
+npm run db:seed       # impordi praegune kataloog (idempotentne)
+npm run db:verify-catalog  # võrdle mock-kataloogi ja andmebaasi kataloogi
+npm run db:generate   # uus migratsioon pärast schema.ts muutmist
+```
 
 ## Põhiotsused
 
-1. **Raha = täisarv sentides** (`Int`, väljanimi lõpeb `Cents`). Ei kasuta `Float`-i.
-2. **Product → ProductVariant → SupplierListing** (põhjendus: PROJECT_PLAN.md, R3).
-3. **Filtreeritavad väärtused on päris veerud**, mitte JSON: bränd, CPU pere ja põlvkond, RAM, SSD, ekraani suurus, seisukord, klaviatuur, hind, laoseis, kaal ja levinumad omadused (touch, numpad, …). Neile tehakse indeksid.
-4. **Haruldased/dünaamilised omadused** (nt "Smart Card lugeja mudel", "kaamera resolutsioon") → `ProductAttribute` tabel (võti-väärtus). Ei pea iga uue omaduse jaoks skeemi muutma, aga põhifiltrid ei sõltu sellest.
-5. **Tarnija toorandmed** salvestatakse `SupplierListing.rawData` (JSONB) **ainult silumiseks** — rakendus ei loe sealt kunagi äriloogikat.
-6. **Midagi ei kustutata füüsiliselt**, mis on seotud tellimuste või tarnijaga: kasutame `status` välju (`ACTIVE`, `MISSING`, `ARCHIVED`).
-7. **Ajalugu** — `PriceHistory`, `StockHistory`, `OrderEvent` on ainult lisatavad (append-only).
-8. **Kolme-väärtuseline loogika omadustele:** `Boolean?` — `true` = on, `false` = pole, `null` = teadmata. Filtris kuvatakse omadus ainult siis, kui vähemalt ühel aktiivsel tootel on `true`.
+1. **Raha = täisarv sentides** (`integer`, väljanimi lõpeb `Cents`). Ujukomaarve ei kasutata.
+2. **ProductModel → SupplierListing.** Mudel kannab pilte, identifikaatoreid ja kirjeldust; pakkumine kannab konkreetset konfiguratsiooni, laoseisu ja hinda.
+3. **Puuduv tarnija väärtus = `NULL`**, mitte väljamõeldud vaikeväärtus. UI näitab "Puudub" ja Andmekvaliteet näitab probleemi.
+4. **Tarnija veerud + `manual_overrides` JSONB.** Efektiivne väärtus = parandus ?? tarnija väärtus. Sync kirjutab ainult tarnija veerge (vt ADMIN.md §4).
+5. **Staatused tekstiveeruna + CHECK** (mitte PostgreSQL enum). Uue väärtuse lisamine ei vaja `ALTER TYPE`-i ja tüübid tulevad TypeScripti konstantidest (`CATALOG_STATUSES` jne).
+6. **Midagi ei kustutata füüsiliselt** kataloogist: kasutatakse staatusi `ACTIVE` / `HIDDEN` / `ARCHIVED`.
+7. **Looduslikud unikaalsed võtmed** teevad impordi idempotentseks: mudel → `slug`; pakkumine → `(supplier, supplier_product_id)`; pilt → `(product_model_id, source, source_id)`; identifikaator → `(product_model_id, kind, value)`.
+8. **Audit samas tehingus** muudatusega.
 
-## ER-diagramm (lihtsustatud)
+## Tabelid
 
 ```mermaid
 erDiagram
-  Product ||--o{ ProductVariant : "konfiguratsioonid"
-  Product ||--o{ ProductImage : ""
-  Product ||--o{ ProductAttribute : ""
-  ProductVariant ||--o{ SupplierListing : "pakkumised"
-  ProductVariant ||--o{ ProductImage : "ühiku fotod"
-  Supplier ||--o{ SupplierListing : ""
-  SupplierListing ||--o{ PriceHistory : ""
-  SupplierListing ||--o{ StockHistory : ""
-  Supplier ||--o{ SyncRun : ""
-  SyncRun ||--o{ SyncError : ""
-  Cart ||--o{ CartItem : ""
-  Order ||--o{ OrderItem : "snapshot"
-  Order ||--o{ Payment : ""
-  Order ||--o{ SupplierOrder : ""
-  SupplierOrder ||--o{ Shipment : ""
-  Shipment ||--o{ TrackingEvent : ""
-  Order ||--o{ OrderEvent : "ajalugu"
-  AdminUser ||--o{ AdminSession : ""
+  admin_users ||--o{ admin_sessions : ""
+  admin_users ||--o{ audit_logs : "admin_user_id (SET NULL)"
+  product_models ||--o{ supplier_listings : "RESTRICT"
+  product_models ||--o{ product_images : "CASCADE"
+  product_models ||--o{ product_identifiers : "CASCADE"
+  product_models ||--o| icecat_metadata : "CASCADE"
 ```
 
-## Mudelid
+Lisaks on seosteta tabelid `login_attempts`, `pricing_rules`, `store_settings` ja `system_logs`.
 
-Allpool on Prisma-laadne mustand (mitte veel lõplik `schema.prisma`).
+| Tabel | Sisu | Olulised väljad |
+| --- | --- | --- |
+| `admin_users` | Admini kasutajad | `email` (unikaalne), `password_hash` (scrypt), `role`, `is_active`, `last_login_at` |
+| `admin_sessions` | Sessioonid | `token_hash` (SHA-256, unikaalne), `expires_at`, `last_seen_at`, `ip`, `user_agent` |
+| `login_attempts` | Sisselogimiskatsed (piirang) | `email`, `ip`, `success`, `created_at` (indeksid e-post + aeg, IP + aeg) |
+| `product_models` | Tootemudelid | `slug` (unikaalne), `manufacturer`, `family`, `model`, `generation`, `screen_size_in`, `weight_kg`, pordid, `wifi`, `bluetooth`; admin: `description`, `featured`, `status`, `manual_overrides` |
+| `product_identifiers` | GTIN, MPN, Icecat ID-d ja admini otsused | `kind` (GTIN / MPN / ICECAT_ID / CONFIRMED_ICECAT_ID / REJECTED_ICECAT_ID), `value`, `source` (SUPPLIER / CURATED / ADMIN) |
+| `supplier_listings` | Tarnija pakkumised (konfiguratsioonid) | tarnija veerud (CPU, RAM, SSD, GPU, ekraan, klaviatuur, seisukord, OS, garantii, aku, laadija, laoseis, tarneaeg, ostuhind, KM režiim, `raw_data`); admin: `sale_price_cents`, `status`, `manual_overrides`; `sku` (meie, unikaalne), `first_seen_at`, `last_synced_at` |
+| `product_images` | Mudelipildid | `source`, `source_id`, `position`, `is_main`, `is_hidden`, `thumbnail_path` / `medium_path` / `large_path`, mõõdud, `alt`, `content_hash`, `storage_keys` |
+| `icecat_metadata` | Icecati vaste mudeli kohta | `status` (MATCHED / NEEDS_REVIEW / NOT_FOUND / ERROR / REJECTED), `reason`, `match_type`, `confidence`, `icecat_id`, `icecat_title`, `matched_by`, `title_verified`, `image_count`, `checked_at` |
+| `pricing_rules` | Juurdehindluse vahemikud | `from_cost_cents`, `to_cost_cents` (NULL = piiranguta), `markup_fixed_cents`, `markup_percent_bps`, `position` |
+| `store_settings` | Poe seaded (võti → JSONB) | `key` (general, store, delivery, warranty, returns, trustBar, pricing), `value` (zod-valideeritud), `updated_by` |
+| `audit_logs` | Tegevuslogi | `admin_email`, `action`, `entity_type`, `entity_id`, `entity_label`, `changes` (`{väli:{from,to}}`) |
+| `system_logs` | Süsteemilogi | `level` (DEBUG / INFO / WARN / ERROR), `source` (APPLICATION / DATABASE / ADMIN / AUTH / ICECAT), `message`, `details`, `error_id` |
 
-### Kataloog
+`store_settings` on koos `manual_overrides`-iga ainus koht, kus JSON on põhjendatud. Seadeid on vähe, neid ei filtreerita ja iga võtme struktuur valideeritakse zod-skeemiga. Filtreeritavad väärtused (RAM, SSD, seisukord, hind …) on päris veerud.
 
-```prisma
-model Product {                       // mudel: "Lenovo ThinkPad T14 Gen 3"
-  id            String   @id @default(cuid())
-  slug          String   @unique      // lenovo-thinkpad-t14-gen-3
-  brand         Brand                 // LENOVO | DELL | HP | ...
-  series        String                // ThinkPad, EliteBook, Latitude
-  model         String                // T14 Gen 3
-  releaseYear   Int?
-  screenSizeIn  Decimal? @db.Decimal(3,1)
-  weightKg      Decimal? @db.Decimal(4,2)
-  dimensionsMm  String?
-  // mudeli tasemel omadused (variandi väärtus kirjutab üle, kui erineb)
-  hasThunderbolt Boolean?
-  hasHdmi        Boolean?
-  hasLan         Boolean?
-  hasSdReader    Boolean?
-  hasSmartCard   Boolean?
-  usbAPorts      Int?
-  usbCPorts      Int?
-  seoDescription String?
-  status        CatalogStatus @default(ACTIVE)
-  variants      ProductVariant[]
-  images        ProductImage[]
-  attributes    ProductAttribute[]
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  @@index([brand, status])
-}
+## Migratsioonid
 
-model ProductVariant {                // müüdav konfiguratsioon
-  id            String   @id @default(cuid())
-  productId     String
-  sku           String   @unique      // meie SKU
-  grade         Grade                 // A_PLUS | A | B | C
-  cpuModel      String                // "Intel Core i5-1235U"
-  cpuFamily     CpuFamily             // INTEL_CORE_I5 | INTEL_CORE_ULTRA_7 | AMD_RYZEN_7 | ...
-  cpuGeneration Int?                  // 12
-  ramGb         Int
-  ramType       String?               // DDR4, LPDDR5
-  storageGb     Int
-  storageType   StorageType @default(SSD)
-  gpuModel      String?
-  gpuDedicated  Boolean  @default(false)
-  resolution    String?               // "1920x1080"
-  panelType     String?               // IPS, OLED
-  isTouch       Boolean?
-  isConvertible Boolean?
-  keyboardLayout KeyboardLayout?      // SWE | NOR | EST | US | UK | DE | ...
-  hasBacklitKeyboard Boolean?
-  hasNumpad     Boolean?
-  hasFingerprint Boolean?
-  hasIrCamera   Boolean?
-  hasLte        Boolean?
-  has5g         Boolean?
-  os            String?
-  batteryHealthPct Int?
-  chargerIncluded  Boolean?
-  // kaupluse andmed — arvutatud aktiivsest SupplierListing'ust
-  salePriceCents      Int?
-  referencePriceCents Int?            // ainult päris varasem hind (PriceHistory põhjal)
-  vatScheme     VatScheme @default(UNKNOWN)
-  stockQuantity Int      @default(0)
-  isFeatured    Boolean  @default(false)
-  firstSeenAt   DateTime @default(now()) // "Värskelt hulgilaost"
-  lastSyncedAt  DateTime?
-  searchText    String                // normaliseeritud otsingutekst (pg_trgm GIN indeks)
-  status        CatalogStatus @default(ACTIVE)
-  product       Product  @relation(fields: [productId], references: [id])
-  listings      SupplierListing[]
-  @@index([status, salePriceCents])
-  @@index([status, ramGb])
-  @@index([status, storageGb])
-  @@index([status, grade])
-  @@index([status, cpuFamily, cpuGeneration])
-  @@index([firstSeenAt])
-}
+- `drizzle/0000_init.sql`: algne skeem (12 tabelit, indeksid, CHECK piirangud, välisvõtmed). Migratsioonide ajalugu on tabelis `public.__drizzle_migrations`.
+- Uus muudatus: muuda `schema.ts` → `npm run db:generate` → vaata genereeritud SQL üle → `npm run db:migrate`.
+- Migratsiooni SQL commit'itakse Git'i (`.gitignore`-is on erand `!/drizzle/*.sql`).
 
-model ProductImage {                  // pildid kuuluvad MUDELILE; kõik konfiguratsioonid jagavad neid
-  id                String      @id @default(cuid())
-  productModelId    String                 // = Product.id
-  variantId         String?                // ainult ACTUAL_UNIT fotodel (konkreetne seade)
-  source            ImageSource            // ICECAT | MANUAL | SUPPLIER | PLACEHOLDER
-  sourceId          String                 // nt Icecati galerii pildi ID — uuendamiseks ja duplikaatide vältimiseks
-  type              ImageType              // MODEL_GENERIC (illustratiivne) | ACTUAL_UNIT | PLACEHOLDER
-  position          Int
-  isMain            Boolean @default(false)
-  thumbnailUrl      String                 // 300×300 WebP, meie salvestusruumis
-  mediumUrl         String                 // ≤700 px WebP
-  largeUrl          String                 // ≤2000 px WebP
-  width             Int                    // large variandi mõõdud
-  height            Int
-  alt               String
-  originalSourceUrl String                 // Icecati originaal (ainult viide, frontend seda ei kasuta)
-  sourceUpdatedAt   String?                // Icecati "Updated" — kui sama, ei laeta uuesti alla
-  downloadedAt      DateTime
-  storageKeys       String[]               // salvestusruumi võtmed kustutamiseks
-  contentHash       String?                // allikafaili SHA-256 — täpsete duplikaatide eemaldamiseks
-  isHidden          Boolean @default(false) // admin peitis (nt eksitav klaviatuuri lähivõte)
-  @@unique([productModelId, source, sourceId])
-  @@index([productModelId, position])
-}
+## Kataloogi import (seed)
 
-model IcecatMatch {                   // Data Quality: iga mudeli Icecati vaste
-  productModelId String  @id
-  status         IcecatMatchStatus       // MATCHED | NEEDS_REVIEW | NOT_FOUND | ERROR | REJECTED
-  reason         IcecatStatusReason?     // NO_IDENTIFIERS | NOT_IN_ICECAT | TITLE_MISMATCH | LOW_CONFIDENCE | ICECAT_UNAVAILABLE | DOWNLOAD_FAILED
-  matchType      IcecatMatchType?        // GTIN | MPN | ICECAT_ID | MODEL_NAME | MANUAL
-  confidence     Decimal? @db.Decimal(3,2) // 1.0 / 0.95 / 0.9 / 0.7; live'i ainult ≥ 0.9 + kontrollitud pealkiri
-  icecatId       String?
-  icecatTitle    String?
-  matchedBy      String?                 // nt "GTIN 0196801582675"
-  titleVerified  Boolean?
-  imageCount     Int     @default(0)
-  checkedAt      DateTime
-  error          String?
-  @@index([status])
-}
+`npm run db:seed` loeb praegused allikad (`src/server/db/seed/seed-sources.ts`): mock-tarnija, pildikirjed (`data/media/product-images.json`), Icecati vasted (`data/icecat/matches.json`), käsitsi kogutud identifikaatorid ja hinnareeglid. Seejärel kirjutab need andmebaasi (`seed-catalog.ts`).
 
-model ModelIdentifier {               // GTIN/MPN/Icecat ID mudeli kohta (tarnija feed + käsitsi + admini otsused)
-  id             String @id @default(cuid())
-  productModelId String
-  kind           String                  // GTIN | MPN | ICECAT_ID | CONFIRMED_ICECAT_ID | REJECTED_ICECAT_ID
-  value          String
-  source         String                  // SUPPLIER | CURATED | ADMIN
-  @@unique([productModelId, kind, value])
-}
+Tulemus (2026-10-10):
 
-model ProductAttribute {              // haruldased omadused
-  id        String @id @default(cuid())
-  productId String
-  variantId String?
-  group     SpecGroup                 // PERFORMANCE | DISPLAY | CONNECTIVITY | PHYSICAL | SECURITY | OTHER
-  key       String                    // "webcam_resolution"
-  label     String                    // "Veebikaamera"
-  value     String                    // "1080p"
-  @@unique([productId, variantId, key])
-}
-```
+| | Allikas (ENNE) | Andmebaas (PÄRAST) |
+| --- | --- | --- |
+| Mudeleid | 38 | 38 |
+| Konfiguratsioone | 46 | 46 |
+| Pilte | 320 | 320 |
+| Icecat MATCHED / NOT_FOUND / NEEDS_REVIEW | 34 / 3 / 1 | 34 / 3 / 1 |
+| Identifikaatoreid | – | 123 |
 
-### Tarnija ja sync
+- **Idempotentne:** korduv import ei tekita duplikaate (testitud).
+- **Admini muudatused jäävad alles:** korduv import uuendab ainult tarnija veerge. Staatus, esiletõstmine, kirjeldus, parandused, müügihind ja piltide järjekord/peitmine seatakse ainult esmasel lisamisel (testitud).
+- `npm run db:verify-catalog` võrdleb mock-kataloogi ja andmebaasist ehitatud poe kataloogi: 46/46 pakkumist, samad ID-d, hinnad, CPU/RAM/SSD, seisukorrad, laoseisud ja pildid.
 
-```prisma
-model Supplier {
-  id          String  @id @default(cuid())
-  code        String  @unique           // adapteri kood: "mock", "supplier-a"
-  name        String
-  isActive    Boolean @default(true)
-  apiStatus   ApiStatus @default(UNKNOWN) // OK | DEGRADED | DOWN
-  lastSuccessfulSyncAt DateTime?
-}
+## Pood ja andmebaas
 
-model SupplierListing {
-  id             String   @id @default(cuid())
-  supplierId     String
-  variantId      String?               // null = veel sobitamata (admin seob käsitsi)
-  externalId     String                // tarnija SKU / ID
-  costCents      Int                   // ostuhind (ei jõua kunagi brauserisse)
-  costVatScheme  VatScheme
-  currency       String   @default("EUR")
-  stockQuantity  Int
-  status         ListingStatus         // ACTIVE | MISSING | DISABLED
-  rawData        Json                  // ainult silumiseks
-  contentHash    String                // muudatuste tuvastamiseks
-  firstSeenAt    DateTime @default(now())
-  lastSeenAt     DateTime
-  @@unique([supplierId, externalId])
-}
+`src/server/catalog/catalog-service.ts` on ainus koht, kust poe lehed andmeid küsivad:
 
-model PriceHistory {
-  id            String   @id @default(cuid())
-  listingId     String
-  costCents     Int
-  salePriceCents Int?
-  recordedAt    DateTime @default(now())
-  syncRunId     String?
-  @@index([listingId, recordedAt])
-}
+- Kui `DATABASE_URL` on seadistatud: andmebaas → `db-catalog-mapper.ts` (efektiivsed väärtused, nähtavus, kohustuslikud väljad) → `'use cache'` + `cacheTag('catalog')`.
+- Kui ei ole (lokaalne arendus ilma DB-ta, CI): mock-tarnija mälus.
+- Andmebaasi viga **ei vaheta vaikselt mock-andmetele**: see logitakse (`system_logs`, vea ID) ja kasutaja näeb veateadet.
 
-model StockHistory { id String @id; listingId String; quantity Int; recordedAt DateTime; syncRunId String? }
+## Pildid ja Icecat
 
-model SyncRun {
-  id            String    @id @default(cuid())
-  supplierId    String
-  trigger       SyncTrigger            // SCHEDULED | MANUAL
-  status        SyncStatus             // RUNNING | SUCCESS | PARTIAL | FAILED
-  startedAt     DateTime  @default(now())
-  finishedAt    DateTime?
-  durationMs    Int?
-  httpStatus    Int?
-  itemsRead     Int @default(0)
-  itemsCreated  Int @default(0)
-  itemsUpdated  Int @default(0)
-  itemsOutOfStock Int @default(0)
-  errorCount    Int @default(0)
-  errors        SyncError[]
-}
+Pildikirjed ja Icecati vasted on andmebaasis (`product_images`, `icecat_metadata`). Icecati import kasutab `DbImageRepository`-t (sama `ProductImageRepository` liides, mis varem JSON-failidel). Pildifailid ise on testversioonis `public/media/products/` all Git'is. Püsiv objektisalvestus on PROJECT_PLAN.md R13.
 
-model SyncError {
-  id         String @id @default(cuid())
-  syncRunId  String
-  externalId String?
-  stage      String                     // fetch | validate | normalize | price | save
-  message    String
-  details    Json?
-  createdAt  DateTime @default(now())
-}
-```
+> `npm run icecat` (CLI) kasutab veel JSON-faile ja sobib esialgseks massimpordiks. Pärast andmebaasi kasutuselevõttu tehakse üksikmudelite toimingud adminis. CLI viimine `DbImageRepository` peale on järgmise etapi töö.
 
-### Ostukorv ja tellimus
+## Tulevased tabelid (veel loomata)
 
-```prisma
-model Cart {
-  id        String @id @default(cuid())  // httpOnly cookie
-  items     CartItem[]
-  expiresAt DateTime
-}
-model CartItem { id String @id; cartId String; variantId String; quantity Int; @@unique([cartId, variantId]) }
+Andmemudel on valmis neid vastu võtma (UUID võtmed, `supplier` veerg, snapshot-põhimõte):
 
-model Order {
-  id             String @id @default(cuid())
-  number         String @unique          // meie tellimuse nr, nt "SP-2026-000123" — saadetakse tarnijale viitena
-  status         OrderStatus
-  email          String
-  phone          String
-  firstName      String
-  lastName       String
-  isCompany      Boolean @default(false)
-  companyName    String?
-  companyRegCode String?
-  companyVatNo   String?
-  shippingMethod String                  // ShippingProvider kood
-  shippingAddress Json                   // snapshot (pakiautomaat või aadress)
-  subtotalCents  Int
-  shippingCents  Int
-  vatCents       Int
-  totalCents     Int
-  currency       String @default("EUR")
-  items          OrderItem[]
-  payments       Payment[]
-  supplierOrders SupplierOrder[]
-  events         OrderEvent[]
-  createdAt      DateTime @default(now())
-}
+- `suppliers`, `sync_runs`, `sync_errors`: tarnija ühendus ja sync (Foxway)
+- `customers`, `orders`, `order_items` (hinna- ja spetsifikatsiooni **snapshot**, ei sõltu hiljem kataloogist), `payments`
+- `supplier_orders` (idempotentsusvõti duplikaatide vastu), `shipments`, `tracking_events`
+- `price_history`, `stock_history` (ainult lisatavad)
 
-model OrderItem {                       // SNAPSHOT — ei sõltu hiljem Product tabelist
-  id             String @id @default(cuid())
-  orderId        String
-  variantId      String?                // viide jääb, aga kuvamiseks kasutatakse snapshot'i
-  supplierListingId String?
-  title          String
-  sku            String
-  cpu            String
-  ramGb          Int
-  storageGb      Int
-  grade          Grade
-  keyboardLayout String?
-  unitPriceCents Int
-  unitCostCents  Int                    // ostuhind ostu hetkel (marginaali aruandeks)
-  vatScheme      VatScheme
-  vatRateBps     Int                    // 2400 = 24%
-  vatCents       Int
-  quantity       Int
-}
-
-model Payment {
-  id              String @id @default(cuid())
-  orderId         String
-  provider        String                // PaymentProvider kood
-  providerPaymentId String? @unique
-  status          PaymentStatus
-  amountCents     Int
-  rawWebhook      Json?
-  paidAt          DateTime?
-}
-
-model SupplierOrder {
-  id               String @id @default(cuid())
-  orderId          String
-  supplierId       String
-  idempotencyKey   String @unique       // kaitse duplikaatide vastu
-  supplierOrderId  String?
-  status           SupplierOrderStatus
-  attemptCount     Int @default(0)
-  lastError        String?
-  lastErrorAt      DateTime?
-}
-
-model Shipment { id String @id; supplierOrderId String; carrier String; trackingCode String; trackingUrl String?; status ShipmentStatus; }
-model TrackingEvent { id String @id; shipmentId String; status String; description String?; occurredAt DateTime }
-model OrderEvent { id String @id; orderId String; type String; message String; data Json?; createdAt DateTime }
-```
-
-### Admin ja seaded
-
-```prisma
-model AdminUser    { id String @id; email String @unique; passwordHash String; name String; isActive Boolean; lastLoginAt DateTime? }
-model AdminSession { id String @id; userId String; tokenHash String @unique; expiresAt DateTime; ip String?; userAgent String? }
-model LoginAttempt { id String @id; email String; ip String; success Boolean; createdAt DateTime }  // rate limit
-
-model SystemSetting {                   // võti-väärtus, väärtus valideeritakse zod-skeemiga
-  key       String @id                  // "store.trustItems", "shipping.methods", "sync.intervalMinutes"
-  value     Json
-  updatedAt DateTime @updatedAt
-  updatedBy String?
-}
-
-model PricingRule {
-  id                String @id @default(cuid())
-  fromCostCents     Int
-  toCostCents       Int?
-  markupFixedCents  Int @default(0)
-  markupPercentBps  Int @default(0)     // 1500 = 15%
-  priority          Int @default(0)
-  isActive          Boolean @default(true)
-}
-```
-
-`SystemSetting` on ainuke koht, kus JSON on põhjendatud: seadeid on vähe, neid ei filtreerita ja iga võtme struktuur valideeritakse koodis zod-skeemiga.
+Need luuakse koos vastava funktsionaalsusega, mitte ette, et skeemis ei oleks kasutamata tabeleid.
 
 ## Otsing
 
-- `ProductVariant.searchText` = normaliseeritud tekst: bränd, seeria, mudel, CPU, SKU, "16gb", "512gb", grade.
-- Indeks: `CREATE INDEX ... USING gin (search_text gin_trgm_ops)` (`pg_trgm` laiendus).
-- Päring jagab sisendi sõnadeks; iga sõna peab leiduma (AND). "840 g8" → leiab "HP EliteBook 840 G8"; "t14 16 512" → T14 + 16 GB + 512 GB.
-- Prototüübis on sama loogika TypeScriptis (`src/domain/catalog/search.ts`) ja unit-testitud.
+Otsing ja filtrid töötavad praegu rakenduse mälus (kataloog on väike: kümned või sajad pakkumised) ja on unit-testitud (`src/domain/catalog/search.ts`, `filtering.ts`). Kui kataloog kasvab tuhandetesse, liigub otsing PostgreSQL-i (`pg_trgm` GIN indeks normaliseeritud otsingutekstil).
 
-## Pildid enne PostgreSQL-i (praegu)
+## Varukoopia
 
-Kuni Phase 2-ni hoitakse pildiandmeid JSON failides sama liidese (`ProductImageRepository`) taga:
-
-| Fail | Sisu | Git |
-| --- | --- | --- |
-| `data/media/product-images.json` | ProductImage kirjed (viitavad kohalikele failidele) | ei (nagu `public/media/`) |
-| `data/icecat/matches.json` | IcecatMatch kirjed (Data Quality) | jah — saladusi ega pilte pole |
-| `data/icecat/model-identifiers.json` | käsitsi kogutud GTIN/MPN/Icecat ID + admini otsused | jah |
-
-Paralleelsed impordid kirjutavad faile järjekorras (lukk faili kohta) ja atomaarse ümbernimetamisega.
-
-## Migratsioonid ja seed
-
-- `prisma migrate dev` arenduses, `prisma migrate deploy` tootmises (Docker käivitusel).
-- Seed loeb `MockSupplierAdapter`-i andmed ja käivitab **sama sync-ahela** — seed andmed läbivad sama koodi kui päris tarnija andmed.
-- Varukoopia: igaöine `pg_dump` serveris; dump'e, mis sisaldavad kliendiandmeid, **ei commit'ita** Git'i.
+Neon teeb automaatseid varukoopiaid (point-in-time restore). Andmebaasi dump'e, mis sisaldavad kliendiandmeid, **ei commit'ita** Git'i.

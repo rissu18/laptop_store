@@ -5,6 +5,36 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 ---
 
+## 2026-10-11 — PostgreSQL ja admin-liides
+
+**Mis lisati**
+
+- **Andmebaas:** Neon PostgreSQL (Verceli projektiga seotud) + **Drizzle ORM**, 12 tabelit (`admin_users`, `admin_sessions`, `login_attempts`, `product_models`, `product_identifiers`, `supplier_listings`, `product_images`, `icecat_metadata`, `pricing_rules`, `store_settings`, `audit_logs`, `system_logs`), migratsioon `drizzle/0000_init.sql`. ORM valiku põhjendus: docs/DATABASE.md.
+- **Import:** `npm run db:seed` viis praeguse kataloogi andmebaasi. ENNE = PÄRAST: 38 mudelit, 46 konfiguratsiooni, 320 pilti, Icecat 34/3/1, 123 identifikaatorit. Import on idempotentne ega kirjuta üle admini muudatusi. `npm run db:verify-catalog` kinnitas, et andmebaasist ehitatud poe kataloog on 46/46 sama (ID-d, hinnad, spetsifikatsioonid, pildid).
+- **Pood loeb andmebaasist** (`'use cache'` + `cacheTag`). Poe nimi, ettevõtte andmed, prototüübirežiim ja usaldusriba tulevad seadetest; esiletõstmine on mudeli tasemel (hardcode'itud SKU-sid pole). Ilma `DATABASE_URL`-ita kasutatakse mock-andmeid.
+- **Admin** (`/admin`): sisselogimine, töölaud, mudelid, konfiguratsioonid, pildid, Icecat, andmekvaliteet, hinnastamine, seaded, tegevuslogi, logid, tervis. Vt docs/ADMIN.md.
+- **Turvalisus:** scrypt paroolid, andmebaasi sessioonid (küpsises juhuslik token, andmebaasis räsi), `__Host-` küpsis (httpOnly, Secure, SameSite=Strict), sisselogimise piirang e-posti ja IP järgi, CSRF päritolu kontroll, kontroll igas server action'is, vea ID stack trace'i asemel. Admin luuakse käsuga `npm run admin:create`, vaikeparooli pole.
+- **Tarnija vs admin andmed:** tarnija veerud + `manual_overrides` (JSONB). Admin näeb mõlemat väärtust, "Taasta" viib tagasi tarnija väärtusele ja sync ei kirjuta parandusi üle.
+- **Audit:** iga muudatus (vana → uus) samas tehingus.
+- **Testid:** 133 → 184. Andmebaasi testid jooksevad päris PostgreSQL-is ajutises skeemis.
+
+**Probleemid ja lahendused**
+
+- **Verceli + Neoni muutujate nimed:** integratsioon lisas muutujad eesliitega `database_` (`database_DATABASE_URL`). Lahendus: `resolveDatabaseUrl()` eelistab `DATABASE_URL`-i ja kasutab muul juhul `database_`-varianti. Väärtusi ei kuvata kunagi; veateadetes asendatakse ühendusstring `[DATABASE_URL]`-iga.
+- **pg hoiatus `sslmode=require`:** asendatakse `verify-full`-iga, et sertifikaati päriselt kontrollitaks.
+- **Migratsiooni SQL ei läinud Git'i:** `.gitignore`-is oli `*.sql`. Lisatud erand `!/drizzle/*.sql`.
+- **Next.js 16 Cache Components ja admin:** sessiooni lugemine (küpsised, kellaaeg) ei tohi jõuda staatilisse eelrenderdusse. Lahendus: admini sisu on `<Suspense>`-i sees, `connection()` enne sessiooni kontrolli ja `export const instant = false` admini lehtedel (admin on alati päringupõhine).
+- **Serverikomponent ei saa anda funktsiooni kliendikomponendile:** seadete vorm oli algul kavandatud render-funktsiooniga. Lahendus: kogu seadete redaktor on kliendikomponent, mis saab andmed props'ina.
+- **Testid poe andmeid ei puutu:** iga andmebaasi testifail loob ajutise skeemi (`test_xxxx`), käivitab sinna migratsiooni ja kustutab skeemi lõpus.
+- **Brauseri testimine:** peidetud brauseripaneelis ei hüdreerunud React (`requestAnimationFrame` ei käi). Kliendipoolsed vormid testiti nähtava paneeliga; serveripoolsed toimingud on kaetud automaattestidega.
+- **Turvapäis töötab:** mobiilivaate kontroll iframe'idega ebaõnnestus, sest admin saadab `X-Frame-Options: DENY`. Lehed kontrolliti ükshaaval.
+
+**Teadaolevad piirangud**
+
+- Piltide allalaadimine ja käsitsi üleslaadimine adminis töötab ainult lokaalselt, kuni on püsiv salvestusruum (R13).
+- `npm run icecat` CLI kasutab veel JSON-faile. Üksikmudelite toimingud tehakse adminis.
+- Icecati muutujad pole Vercelis seadistatud, seega on Icecati toimingud seal välja lülitatud (tervise leht näitab seda).
+
 ## 2026-10-10 — UX parandused (hinnaliugur, tooteleht, võrdlus, finder)
 
 **Mis muutus**

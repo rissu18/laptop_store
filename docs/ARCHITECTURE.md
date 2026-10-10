@@ -36,7 +36,8 @@ flowchart LR
 src/
   app/                    Next.js route'id (ainult "liim": loe parameetrid, kutsu teenust, renderda)
     (shop)/...            avalik pood
-    admin/...             admin (Phase 3)
+    admin/login/          admini sisselogimine
+    admin/(panel)/...     kaitstud admin (layout kontrollib sessiooni) — vt docs/ADMIN.md
     api/...               route handler'id (autocomplete, webhook'id)
   components/             UI komponendid (vt PROJECT_PLAN.md §6)
   domain/                 puhas äriloogika — ei sõltu Next.js-ist ega andmebaasist, kergesti testitav
@@ -45,32 +46,44 @@ src/
     pricing/              hinnastamismootor
     money/                sentides arvutamine ja vormindamine
     use-cases/            "Leia sobiv" filtrieelistused
+    admin/                admini vormide valideerimine, andmekvaliteedi reeglid, hindade eelvaade
+    settings/             poe seadete zod-skeemid ja vaikeväärtused
   server/                 serveripoolsed teenused ja andmepääs ("server-only")
-    catalog/              CatalogRepository liides + implementatsioon
+    catalog/              kataloogi teenus (PostgreSQL või mock) + andmebaasi read → poe kirjed
     cart/                 ostukorvi arvutus serveris
+    db/                   Drizzle skeem, ühendus, import (seed)
+    auth/                 paroolid, sessioonid, piirang, sisse-/väljalogimine
+    admin/                admini päringud (DAL) ja server action'id, audit
+    settings/             poe seaded andmebaasist (vahemäluga)
+    logging/              struktureeritud logi + system_logs
   integrations/           välised süsteemid adapterite taga
     supplier/             SupplierAdapter, normaliseerimine, MockSupplierAdapter
     payment/              PaymentProvider (Phase 6)
     email/                EmailProvider (Phase 7)
     shipping/             ShippingProvider (Phase 5)
-  config/                 poe seadistus (prototüübis fail, Phase 3-st andmebaasis)
+  config/                 tehnilised seaded (SITE_URL, hinnastamise algväärtused); poe seaded on andmebaasis
+  proxy.ts                admini optimistlik kaitse (Next.js 16 "middleware")
   client/                 brauseripoolsed store'id (ostukorv, võrdlus)
 ```
 
 Reegel: `domain/` ei impordi kunagi `server/`, `app/` ega `components/`. `components/` ei impordi `server/`-i (andmed tulevad props'ina või server action'i kaudu).
 
-## Kataloogi andmevoog (Phase 1 vs hiljem)
+## Kataloogi andmevoog
 
 ```
-Phase 1 (praegu):
-  MockSupplierAdapter.getProducts()  → normalizeSupplierProduct() → priceOffer() → in-memory CatalogRepository
+Praegu (andmebaasi etapp):
+  import:  MockSupplierAdapter → normaliseerimine → hinnastamine → PostgreSQL (npm run db:seed, idempotentne upsert)
+  pood:    PostgreSQL → db-catalog-mapper (efektiivsed väärtused, nähtavus) → 'use cache' + cacheTag('catalog') → lehed
+  admin:   server action → valideerimine → tehing (muudatus + audit) → updateTag('catalog') → pood näeb kohe
 
-Phase 2+:
-  worker: SupplierAdapter.getProducts() → normalize → priceOffer() → PostgreSQL (upsert)
-  web:    PrismaCatalogRepository → 'use cache' + cacheTag('catalog') → lehed
+Ilma DATABASE_URL-ita (lokaalne arendus, CI):
+  MockSupplierAdapter → normaliseerimine → hinnastamine → mälus olev kataloog
+
+Järgmine etapp (tarnija sync):
+  worker: SupplierAdapter (Foxway) → normaliseerimine → upsert ainult tarnija veergudesse → updateTag('catalog')
 ```
 
-Prototüüp läbib juba praegu sama ahela (tarnija toorandmed → normaliseerimine → hinnastamine → kataloog). Phase 2-s vahetatakse ainult `CatalogRepository` implementatsioon; lehed ja komponendid ei muutu.
+Lehed ja komponendid ei sõltu andmeallikast: üleminek andmebaasile ei muutnud ühtegi poe komponenti. Andmebaasi viga ei vaheta vaikselt mock-andmetele: see logitakse ja leht näitab veateadet. Tarnija ja admini andmete eraldamine (`manual_overrides`) on kirjeldatud failis [ADMIN.md](ADMIN.md#4-andmete-omanik-tarnija-vs-admin).
 
 ## Tootepildid (Icecat)
 
@@ -223,15 +236,16 @@ Idempotentsus:
 
 | Oht | Kaitse |
 | --- | --- |
-| SQL injection | Prisma parametriseeritud päringud; toor-SQL ainult `$queryRaw` template'iga |
+| SQL injection | Drizzle'i parameetrid; toor-SQL ainult `sql` template'iga; LIKE metamärgid escape'itakse |
 | XSS | React escape'ib; `dangerouslySetInnerHTML` ainult JSON-LD jaoks (serialiseeritud, `<` escape'itud) |
-| CSRF | Server Actions kontrollivad Origin päist; cookie'd SameSite=Lax |
+| CSRF | Server Actions kontrollivad Origin päist + oma `assertSameOrigin()` admini toimingutes; admini küpsis SameSite=Strict |
 | Hinna võltsimine | Hind arvutatakse alati serveris |
 | Makse võltsimine | Webhook allkiri + staatus pakkuja API-st |
 | Tarnija võltsimine | Tarnija webhook'il jagatud saladus/allkiri; andmed valideeritakse zod-iga |
-| Admin | Serveripoolne sessioonikontroll, argon2id, rate limit |
+| Admin | Serveripoolne sessioonikontroll (proxy + layout + iga action), scrypt, andmebaasi sessioonid, rate limit (e-post/IP), audit — vt ADMIN.md |
 | Saladused | Ainult `.env` (ei commit'ita), valideeritakse käivitamisel (`src/config/env.ts`) |
-| Failid | Admin upload: tüübi ja suuruse kontroll, uus failinimi, ei serveerita käivitatavana |
+| Failid | Admin upload on välja lülitatud, kuni on püsiv salvestus; siis: tüübi ja suuruse kontroll, uus failinimi, ei serveerita käivitatavana |
+| Vealeke | Kasutajale ainult vea ID; detail serveri logis ja `system_logs` tabelis |
 
 ## Mida me ei kasuta
 
