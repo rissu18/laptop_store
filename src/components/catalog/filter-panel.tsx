@@ -8,6 +8,7 @@ import { toggleFacetValue, toggleFeature, withPriceRange, type CatalogQuery } fr
 import type { FeatureKey } from "@/domain/catalog/types";
 import { cx } from "@/components/ui/class-names";
 import { useCatalogNavigation } from "./catalog-navigation";
+import { PriceRangeSlider } from "./price-range-slider";
 
 /**
  * Filtripaneel (desktopil külgriba, mobiilis drawer'i sees).
@@ -69,50 +70,16 @@ function OptionList({ name, options, onToggle }: { name: string; options: FacetO
 
 function PriceFilter({ query, range }: { query: CatalogQuery; range: CatalogFacets["price"] }) {
   const { navigate } = useCatalogNavigation();
-  const key = `${query.minPrice}-${query.maxPrice}`;
-
+  if (!range) return <p className="text-sm text-muted">Hinnad puuduvad</p>;
+  // key: kui URL või kataloogi hinnavahemik muutub, algab liugur uutest väärtustest
+  const key = `${query.minPrice}-${query.maxPrice}-${range.min}-${range.max}`;
   return (
-    <form
+    <PriceRangeSlider
       key={key}
-      className="flex items-end gap-2"
-      onSubmit={(event) => {
-        event.preventDefault();
-        const data = new FormData(event.currentTarget);
-        const parse = (value: FormDataEntryValue | null) => {
-          const n = Number(value);
-          return value && Number.isFinite(n) && n >= 0 ? Math.round(n) : null;
-        };
-        navigate(withPriceRange(query, parse(data.get("min")), parse(data.get("max"))));
-      }}
-    >
-      <label className="flex-1 text-xs text-muted">
-        Alates €
-        <input
-          name="min"
-          type="number"
-          inputMode="numeric"
-          min={0}
-          defaultValue={query.minPrice ?? ""}
-          placeholder={range ? String(range.min) : ""}
-          className="mt-1 h-10 w-full rounded-md border border-border-strong px-2 text-sm text-text"
-        />
-      </label>
-      <label className="flex-1 text-xs text-muted">
-        Kuni €
-        <input
-          name="max"
-          type="number"
-          inputMode="numeric"
-          min={0}
-          defaultValue={query.maxPrice ?? ""}
-          placeholder={range ? String(range.max) : ""}
-          className="mt-1 h-10 w-full rounded-md border border-border-strong px-2 text-sm text-text"
-        />
-      </label>
-      <button type="submit" className="h-10 rounded-md bg-surface-sunken px-3 text-sm font-semibold hover:bg-border">
-        OK
-      </button>
-    </form>
+      bounds={range}
+      value={{ min: query.minPrice, max: query.maxPrice }}
+      onCommit={({ min, max }) => navigate(withPriceRange(query, min, max))}
+    />
   );
 }
 

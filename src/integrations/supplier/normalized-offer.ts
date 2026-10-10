@@ -11,6 +11,10 @@ import type {
 /**
  * Tarnija pakkumine meie normaliseeritud kujul.
  * Sisaldab ostuhinda — seega ainult serveris kasutamiseks, mitte brauserisse.
+ *
+ * REEGEL: kui tarnija mingit väärtust ei anna, on see `null` (või tundmatu omadus `null`).
+ * Adapter EI TOHI panna vaikeväärtusi nagu "12 kuud garantiid", "aku 85%", "Windows 11",
+ * "laadija kaasas" või "tarne 2–4 päeva". UI peidab puuduva väärtusega read.
  */
 export interface NormalizedOffer {
   supplierCode: string;
@@ -56,6 +60,8 @@ export interface NormalizedOffer {
   costCents: Cents;
   vatScheme: VatScheme;
   stockQuantity: number;
+  /** Tarnija teatatud tarneaeg; `null`, kui tarnija seda ei anna (siis UI tarneaega ei kuva) */
+  deliveryDays: { minDays: number; maxDays: number } | null;
   /** Tarnija teatatud kuupäev, millal toode lisati (kui on) */
   listedAt: string | null;
 }

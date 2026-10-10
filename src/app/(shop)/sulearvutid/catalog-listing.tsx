@@ -28,7 +28,11 @@ export async function CatalogListing({
     <CatalogNavigationProvider basePath={basePath} locked={locked}>
       <div className="lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-8">
         <aside aria-label="Filtrid" className="hidden lg:block">
-          <div className="sticky top-[124px] max-h-[calc(100dvh-140px)] overflow-y-auto overscroll-contain pb-8 pr-2">
+          {/*
+            Filtrid kerivad koos lehega (mitte eraldi sisemise kerimisalana): pikk filtrinimekiri on alati
+            lõpuni kättesaadav ka siis, kui tulemusi on vähe ja leht ise lühike. pb: võrdlusriba (~80 px) ei kata viimast valikut.
+          */}
+          <div className="pb-28 pr-2">
             <FilterPanel query={query} facets={facets} locked={locked} />
           </div>
         </aside>

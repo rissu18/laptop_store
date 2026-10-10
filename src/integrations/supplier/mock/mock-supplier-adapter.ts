@@ -56,6 +56,17 @@ const mockRecordSchema = z.object({
 
 class NormalizationError extends Error {}
 
+/**
+ * MOCK: testandmete tarneaeg. Päris adapter võtab selle tarnija feed'ist; kui feed seda ei anna,
+ * on väärtus null ja UI tarneaega ei näita.
+ */
+const MOCK_DELIVERY_DAYS = { minDays: 2, maxDays: 4 };
+
+/**
+ * MOCK: testandmete `features` nimekiri on täielik, seega puudumine = false.
+ * Päris tarnija adapteris: kui feed omadust ei kinnita ega eita, peab väärtus olema null (teadmata),
+ * mitte false — muidu kuvaksime kliendile "Ei" ilma andmeteta.
+ */
 function buildFeatures(record: MockSupplierRecord, touch: boolean): FeatureFlags {
   const has = (name: string) => record.features.includes(name);
   const gpu = record.gpu.toUpperCase();
@@ -131,6 +142,7 @@ export function normalizeMockRecord(record: MockSupplierRecord, supplierCode: st
     costCents: eurosToCents(record.price_eur),
     vatScheme: record.vat === "margin" ? "MARGIN" : "STANDARD",
     stockQuantity: record.qty,
+    deliveryDays: MOCK_DELIVERY_DAYS,
     listedAt: record.listed_at,
   };
 }

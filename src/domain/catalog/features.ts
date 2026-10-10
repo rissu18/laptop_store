@@ -10,7 +10,9 @@ export const FEATURE_LABELS: Record<FeatureKey, string> = {
   backlit: "Taustavalgustusega klaviatuur",
   fingerprint: "Sõrmejäljelugeja",
   "ir-camera": "IR-kaamera (Windows Hello)",
-  smartcard: "ID-kaardilugeja (Smart Card)",
+  // Sisemine võti on "smartcard" (Smart Card lugeja). EI tähenda kinnitatud Eesti ID-kaardi tuge —
+  // selleks oleks vaja eraldi tarnija/tootja kinnitust (päris tarnija mapping tuleb hiljem).
+  smartcard: "Smart Card lugeja",
   lte: "4G / LTE",
   "5g": "5G",
   thunderbolt: "Thunderbolt",

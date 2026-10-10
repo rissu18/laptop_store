@@ -60,8 +60,6 @@ export const storeConfig = {
   /** Kas automaatne sync on päriselt töös — alles siis võib seda avalikult väita. */
   autoSyncActive: false,
 
-  // TODO: REAL PROVIDER DATA REQUIRED — tarnija tegelik tarneaeg
-  delivery: { minDays: 2, maxDays: 4 },
 
   // TODO: REAL PROVIDER DATA REQUIRED — tarneviisid ja hinnad (Phase 5: ShippingProvider)
   shippingMethods: [

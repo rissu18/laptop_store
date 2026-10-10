@@ -21,8 +21,8 @@ export default function GradesPage() {
       </p>
       {hasPlaceholders && (
         <p className="mt-6 rounded-md bg-warning-soft p-4 text-sm text-warning">
-          Arenduse märkus: klasside ametlikud kirjeldused ja näidispildid lisatakse hulgilao dokumentatsiooni põhjal.
-          Allolevad tekstid on ajutised.
+          <strong>Prototüüp:</strong> allolevad kirjeldused on arenduse näidistekstid, mitte hulgilao (tarnija) ametlikud
+          seisukorra reeglid. Ametlikud kirjeldused ja näidispildid lisatakse tarnija dokumentatsiooni põhjal.
         </p>
       )}
       <ul className="mt-8 space-y-4">

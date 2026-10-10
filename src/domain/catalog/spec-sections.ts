@@ -1,6 +1,8 @@
 import { GRADES } from "@/domain/grade/grades";
 import { BRAND_NAMES, type CatalogItem } from "./types";
-import { formatScreenSize, formatStorage, formatWeight } from "./format";
+import { cpuGenerationLabel } from "./facets";
+import { FEATURE_LABELS } from "./features";
+import { formatScreenSize, formatWeight } from "./format";
 
 /**
  * Tehnilised andmed rühmadena. Puuduva väärtusega rida jäetakse välja —
@@ -24,9 +26,14 @@ function yesNo(value: boolean | null): string | null {
   return value ? "Jah" : "Ei";
 }
 
+/** Väärtused, mida ei kuvata kunagi (tarnija "tühjad" väärtused). */
+const EMPTY_VALUES = new Set(["", "-", "–", "n/a", "na", "unknown", "null", "undefined", "none"]);
+
 function row(label: string, value: Maybe): SpecRow | null {
-  if (value === null || value === undefined || value === "") return null;
-  return { label, value: String(value) };
+  if (value === null || value === undefined || value === false) return null;
+  const text = String(value).trim();
+  if (EMPTY_VALUES.has(text.toLowerCase())) return null;
+  return { label, value: text };
 }
 
 function section(title: string, rows: (SpecRow | null)[]): SpecSection | null {
@@ -39,11 +46,10 @@ export function buildSpecSections({ product, variant }: CatalogItem): SpecSectio
   const count = (n: number | null) => (n === null ? null : n > 0 ? `${n} tk` : null);
 
   return [
+    // Protsessor, RAM ja SSD on juba tootelehe kiirinfo kastides — siin neid ei korrata
     section("Jõudlus", [
-      row("Protsessor", variant.cpu.model),
-      row("Mälu (RAM)", `${variant.ramGb} GB`),
+      row("Protsessori põlvkond", variant.cpu.generationKey ? cpuGenerationLabel(variant.cpu.generationKey) : null),
       row("Mälu tüüp", variant.ramType),
-      row("Salvestus", `${formatStorage(variant.storageGb)} SSD`),
       row("Graafika", variant.gpu.model),
     ]),
     section("Ekraan", [
@@ -70,7 +76,7 @@ export function buildSpecSections({ product, variant }: CatalogItem): SpecSectio
       row("Mobiilne internet", f["5g"] ? "5G" : f.lte ? "4G / LTE" : null),
     ]),
     section("Füüsilised omadused", [
-      row("Kaal", product.weightKg !== null ? formatWeight(product.weightKg) : null),
+      row("Kaal", product.weightKg ? formatWeight(product.weightKg) : null),
       row("Klaviatuur", variant.keyboardLayout),
       row("Klaviatuuri taustavalgus", yesNo(f.backlit)),
       row("Numbriklahvistik", yesNo(f.numpad)),
@@ -78,7 +84,8 @@ export function buildSpecSections({ product, variant }: CatalogItem): SpecSectio
     section("Turvalisus", [
       row("Sõrmejäljelugeja", yesNo(f.fingerprint)),
       row("IR-kaamera", yesNo(f["ir-camera"])),
-      row("ID-kaardilugeja", yesNo(f.smartcard)),
+      // "Smart Card lugeja", mitte "ID-kaardilugeja": Eesti ID-kaardi tuge pole kinnitatud
+      row(FEATURE_LABELS.smartcard, yesNo(f.smartcard)),
     ]),
     section("Muu", [
       row("Operatsioonisüsteem", variant.os),

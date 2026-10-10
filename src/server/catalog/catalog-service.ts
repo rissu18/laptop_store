@@ -1,10 +1,10 @@
 import "server-only";
-import { storeConfig } from "@/config/store";
 import { pricingConfig } from "@/config/pricing";
 import { computeFacets, filterItems, sortItems, type CatalogFacets, type SearchableItem } from "@/domain/catalog/filtering";
 import { seriesSlug } from "@/domain/catalog/facets";
 import { PAGE_SIZE, emptyQuery, type CatalogQuery, type FacetSelection } from "@/domain/catalog/query";
 import { searchScore, tokenize } from "@/domain/catalog/search";
+import { findSimilarItems } from "@/domain/catalog/similar";
 import type { CatalogItem, CatalogProduct, CatalogVariant } from "@/domain/catalog/types";
 import { MockSupplierAdapter } from "@/integrations/supplier/mock/mock-supplier-adapter";
 import { MOCK_FEATURED_SKUS } from "@/integrations/supplier/mock/mock-supplier-data";
@@ -38,7 +38,6 @@ async function loadCatalog(): Promise<BuiltCatalog> {
   const catalog = buildCatalog(source, {
     pricing: pricingConfig,
     featuredExternalIds: MOCK_FEATURED_SKUS,
-    delivery: storeConfig.delivery,
     lastSyncedAt: null, // päris sync puudub → "Laoseis uuendatud …" ei kuvata
     modelImages: loadModelImages(),
   });
@@ -117,16 +116,14 @@ export async function getRecentlyAddedItems(limit: number): Promise<CatalogItem[
   return sortItems(await getItems(), "recently-added").slice(0, limit).map(toPublic);
 }
 
-export async function getRelatedItems(product: CatalogProduct, limit: number): Promise<CatalogItem[]> {
-  const others = (await getItems()).filter((item) => item.product.slug !== product.slug);
-  const sameSeries = others.filter((item) => item.product.series === product.series);
-  const pool = sameSeries.length >= limit ? sameSeries : others;
-  // Üks konfiguratsioon mudeli kohta, et soovitused oleksid mitmekesised
-  const seen = new Set<string>();
-  return sortItems(pool, "recommended")
-    .filter((item) => !seen.has(item.product.slug) && seen.add(item.product.slug))
-    .slice(0, limit)
-    .map(toPublic);
+/** Kõik müüdavad pakkumised (avalikul kujul) — nt laptop finderi jaoks. Phase 2-s andmebaasipäring. */
+export async function getAllItems(): Promise<CatalogItem[]> {
+  return (await getItems()).map(toPublic);
+}
+
+/** Sarnased sülearvutid valitud konfiguratsioonile (hind ±25%, ka teised tootjad) — vt domain/catalog/similar.ts */
+export async function getSimilarItems(current: CatalogItem, limit: number): Promise<CatalogItem[]> {
+  return findSimilarItems(current, (await getItems()).map(toPublic), limit);
 }
 
 export interface SeriesSummary {

@@ -5,6 +5,26 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 ---
 
+## 2026-10-10 — UX parandused (hinnaliugur, tooteleht, võrdlus, finder)
+
+**Mis muutus**
+
+- **Hinnafilter:** kahe käepidemega liugur (2 natiivset range-sisendit: hiir, puude, klaviatuur, ekraanilugeja), samm 10 €, piirid aktiivsest kataloogist, rakendub vabastamisel; +/- nuppe pole.
+- **Kiirinfo kastid:** lühike selgitus deterministlikest reeglitest (`src/domain/catalog/spec-explanations.ts`), ilma benchmark-väideteta.
+- **Tehnilised andmed:** CPU/RAM/SSD ei kordu; lisatud "Protsessori põlvkond"; tühjad väärtused ("–", "N/A", null) peidetakse; CSS veerud gridi asemel → ei teki auke.
+- **Sarnased sülearvutid:** `src/domain/catalog/similar.ts` — hind ±25% (kohustuslik), seejärel ekraan, CPU klass, RAM, SSD, kasutusklass, teise tootja boonus; üks pakkumine mudeli kohta.
+- **Mobiili võrdlus:** omaduse veerg sticky, toodete veerud 150 px ja keritavad tabeli sees, kerimisvihje, 32 px eemaldusnupp; lehe ülevoolu pole (375/390/430 px).
+- **Laptop Finder:** 4-sammuline wizard (`src/domain/finder/finder.ts`), skoor + põhjendused, Parim / Soodsaim / Võimsaim, "Muuda vastuseid", "Alusta uuesti", link kõigile sobivatele.
+- **Mock vs päris andmed:** tarneaeg tuleb tarnija pakkumisest (`deliveryDays`), mitte poe vaikeväärtusest; puudumisel null ja UI peidab. "ID-kaardilugeja" → "Smart Card lugeja".
+
+**Probleemid ja lahendused**
+
+- **Seisukorra klasside leht "ei töötanud":** Next.js 16 peidab navigeerimisel eelmise lehe (React `<Activity>`) selle eemaldamise asemel. Seisukorra selgituse modaalne `<dialog>` jäi avatuks ja tegi uue lehe kasutamatuks (inert). Lahendus: Dialog suletakse alati efekti puhastamisel + link sulgeb dialoogi.
+- **Mobiili filtrid:** dialoogi sisualal puudus `min-h-0`, flex-laps ei kahanenud ja viimased valikud jäid nähtamatuks. Lisatud ka safe-area alumine vahe.
+- **Desktopi filtrid:** kõrguspiiranguga kleepuv külgriba jäi lehe ülaosas ekraanist välja ja lühikese nimekirja korral ei kinnitunud kunagi → filtrid kerivad nüüd koos lehega.
+- **Testid leidsid vea:** `cpuTier("intel-core-i5")` kontrollis lõppu "-5" → Inteli Core i-seeria klass oli alati tundmatu (mõjutas selgitusi, sarnaseid ja finderit).
+- Dev-serveri vana vahemälu näitas eemaldatud koodi viga → puhas taaskäivitus.
+
 ## 2026-10-10 — Icecati pildid kogu kataloogile
 
 **Mis lisati**

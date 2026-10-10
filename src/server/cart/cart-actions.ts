@@ -29,7 +29,17 @@ export interface ResolvedCart {
   unavailableIds: string[];
   subtotalCents: number;
   shippingFromCents: number | null;
-  delivery: { minDays: number; maxDays: number };
+  /** Kõigi ridade tarneaegade koond; null, kui mõnel real tarneaeg puudub */
+  delivery: { minDays: number; maxDays: number } | null;
+}
+
+function combinedDelivery(lines: ResolvedCartLine[]): ResolvedCart["delivery"] {
+  const deliveries = lines.map((line) => line.item.variant.delivery);
+  if (deliveries.length === 0 || deliveries.some((d) => d === null)) return null;
+  return {
+    minDays: Math.max(...deliveries.map((d) => d!.minDays)),
+    maxDays: Math.max(...deliveries.map((d) => d!.maxDays)),
+  };
 }
 
 export async function resolveCart(input: unknown): Promise<ResolvedCart> {
@@ -57,7 +67,7 @@ export async function resolveCart(input: unknown): Promise<ResolvedCart> {
     unavailableIds,
     subtotalCents: lines.reduce((sum, line) => sum + line.lineTotalCents, 0),
     shippingFromCents: shippingPrices.length ? Math.min(...shippingPrices) : null,
-    delivery: storeConfig.delivery,
+    delivery: combinedDelivery(lines),
   };
 }
 

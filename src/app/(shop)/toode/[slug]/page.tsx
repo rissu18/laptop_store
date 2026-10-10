@@ -13,7 +13,7 @@ import { ProductGrid } from "@/components/product/product-card";
 import { SpecSections } from "@/components/product/spec-sections";
 import { JsonLd } from "@/components/seo/json-ld";
 import { Container } from "@/components/ui/container";
-import { getAllProductSlugs, getProductPage, getRelatedItems } from "@/server/catalog/catalog-service";
+import { getAllProductSlugs, getProductPage, getSimilarItems } from "@/server/catalog/catalog-service";
 
 export async function generateStaticParams() {
   return (await getAllProductSlugs()).map((slug) => ({ slug }));
@@ -63,7 +63,7 @@ async function ProductDetail({ params, searchParams }: PageProps<"/toode/[slug]"
   const variant =
     data.variants.find((v) => v.id === requested) ?? data.variants.find((v) => v.stock.quantity > 0) ?? data.variants[0];
   const item: CatalogItem = { product: data.product, variant };
-  const related = await getRelatedItems(data.product, 4);
+  const related = await getSimilarItems(item, 4);
   const showSecurePayment = getVisibleTrustItems().some((t) => t.key === "payment");
 
   return (

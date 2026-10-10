@@ -48,6 +48,9 @@ export function Dialog({ open, onClose, title, hideTitle, variant = "modal", foo
     }
     return () => {
       document.documentElement.style.overflow = "";
+      // Next.js 16 peidab navigeerimisel eelmise lehe (React <Activity>) selle asemel, et seda eemaldada.
+      // Avatuks jäänud modaalne <dialog> teeks siis UUE lehe kasutamatuks (inert) — seega sulgeme selle alati.
+      if (dialog.open) dialog.close();
     };
   }, [open]);
 
@@ -69,7 +72,7 @@ export function Dialog({ open, onClose, title, hideTitle, variant = "modal", foo
     >
       <div
         className={cx(
-          "flex items-center justify-between gap-4 border-b border-border px-5 py-4",
+          "flex shrink-0 items-center justify-between gap-4 border-b border-border px-5 py-4",
           hideTitle && "sr-only",
           variant === "fullscreen" && "border-white/10 text-white",
         )}
@@ -86,8 +89,11 @@ export function Dialog({ open, onClose, title, hideTitle, variant = "modal", foo
           <X className="size-5" aria-hidden />
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto overscroll-contain">{children}</div>
-      {footer && <div className="border-t border-border bg-surface px-5 py-4">{footer}</div>}
+      {/* min-h-0: ilma selleta ei kahane flex-laps alla sisu kõrguse ja viimased valikud jäävad nähtamatuks */}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-6">{children}</div>
+      {footer && (
+        <div className="shrink-0 border-t border-border bg-surface px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">{footer}</div>
+      )}
     </dialog>
   );
 }

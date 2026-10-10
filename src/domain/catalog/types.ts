@@ -117,7 +117,8 @@ export interface CatalogVariant {
     vatScheme: VatScheme;
   };
   stock: { quantity: number };
-  delivery: { minDays: number; maxDays: number };
+  /** Tarneaeg tarnija andmetest; `null` = teadmata → UI ei kuva tarneaega. Vaikeväärtust EI panda. */
+  delivery: { minDays: number; maxDays: number } | null;
   /** ISO kuupäev, millal toode esimest korda meie süsteemi tuli */
   firstSeenAt: string;
   /** ISO kuupäev, viimane edukas sync. `null` = sync pole veel töötanud. */

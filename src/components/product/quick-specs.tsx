@@ -1,31 +1,49 @@
 import { Cpu, HardDrive, Keyboard, MemoryStick, Monitor, MonitorSmartphone } from "lucide-react";
 import { formatScreenSize, formatStorage } from "@/domain/catalog/format";
+import {
+  explainCpu,
+  explainDisplay,
+  explainGpu,
+  explainKeyboard,
+  explainRam,
+  explainStorage,
+} from "@/domain/catalog/spec-explanations";
 import type { CatalogItem } from "@/domain/catalog/types";
 
-/** 6 olulisemat väärtust visuaalselt — kasutaja saab 3 sekundiga aru, mis masinaga on tegu. */
+/**
+ * 6 olulisemat väärtust visuaalselt + lühike selgitus (deterministlikud reeglid).
+ * Puuduva väärtusega kasti ei kuvata.
+ */
 export function QuickSpecs({ item }: { item: CatalogItem }) {
   const { product, variant } = item;
   const specs = [
-    { icon: Cpu, label: "Protsessor", value: variant.cpu.model.replace(/^(Intel|AMD)\s+/, "") },
-    { icon: MemoryStick, label: "Mälu", value: `${variant.ramGb} GB RAM` },
-    { icon: HardDrive, label: "Salvestus", value: `${formatStorage(variant.storageGb)} SSD` },
+    { icon: Cpu, label: "Protsessor", value: variant.cpu.model.replace(/^(Intel|AMD)\s+/, ""), note: explainCpu(item) },
+    { icon: MemoryStick, label: "Mälu", value: variant.ramGb ? `${variant.ramGb} GB RAM` : null, note: explainRam(item) },
+    {
+      icon: HardDrive,
+      label: "Salvestus",
+      value: variant.storageGb ? `${formatStorage(variant.storageGb)} SSD` : null,
+      note: explainStorage(item),
+    },
     {
       icon: Monitor,
       label: "Ekraan",
-      value: [formatScreenSize(product.screenSizeIn), variant.display.resolutionLabel].filter(Boolean).join(" "),
+      value: [product.screenSizeIn && formatScreenSize(product.screenSizeIn), variant.display.resolutionLabel].filter(Boolean).join(" ") || null,
+      note: explainDisplay(item),
     },
-    { icon: MonitorSmartphone, label: "Graafika", value: variant.gpu.model },
-    variant.keyboardLayout && { icon: Keyboard, label: "Klaviatuur", value: variant.keyboardLayout },
-  ].filter((spec): spec is NonNullable<typeof spec> => Boolean(spec));
+    { icon: MonitorSmartphone, label: "Graafika", value: variant.gpu.model || null, note: explainGpu(item) },
+    { icon: Keyboard, label: "Klaviatuur", value: variant.keyboardLayout, note: explainKeyboard(item) },
+  ].filter((spec) => Boolean(spec.value));
 
   return (
     <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-      {specs.map(({ icon: Icon, label, value }) => (
+      {specs.map(({ icon: Icon, label, value, note }) => (
         <div key={label} className="flex gap-2.5 rounded-md bg-surface-alt p-3">
           <Icon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
           <div className="min-w-0">
             <dt className="text-xs text-muted">{label}</dt>
             <dd className="text-sm font-semibold leading-snug">{value}</dd>
+            {note && <dd className="mt-0.5 text-xs leading-snug text-muted">{note}</dd>}
           </div>
         </div>
       ))}

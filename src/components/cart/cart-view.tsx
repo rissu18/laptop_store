@@ -139,10 +139,12 @@ export function CartView() {
         <p className="text-xs text-muted">+ transport, valitakse kassas</p>
 
         <ul className="mt-5 space-y-2 text-sm">
-          <li className="flex items-center gap-2">
-            <Truck className="size-4 text-primary" aria-hidden />
-            Eeldatav tarne {formatDeliveryDays(cart.delivery.minDays, cart.delivery.maxDays)}
-          </li>
+          {cart.delivery && (
+            <li className="flex items-center gap-2">
+              <Truck className="size-4 text-primary" aria-hidden />
+              Eeldatav tarne {formatDeliveryDays(cart.delivery.minDays, cart.delivery.maxDays)}
+            </li>
+          )}
           <li className="flex items-center gap-2">
             <ShieldCheck className="size-4 text-primary" aria-hidden />
             14-päevane taganemisõigus

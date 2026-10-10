@@ -15,7 +15,6 @@ import type { SupplierCatalogResult } from "@/integrations/supplier/supplier-ada
 export interface CatalogBuildOptions {
   pricing: PricingConfig;
   featuredExternalIds: string[];
-  delivery: { minDays: number; maxDays: number };
   /** Viimase eduka sync'i aeg; `null`, kui päris sync pole jooksnud. */
   lastSyncedAt: string | null;
   /** Mudelipildid (ProductModel ID → pildid), nt Icecati import */
@@ -81,7 +80,8 @@ function variantFromOffer(offer: NormalizedOffer, saleCents: number, options: Ca
       vatScheme: offer.vatScheme,
     },
     stock: { quantity: offer.stockQuantity },
-    delivery: options.delivery,
+    // Tarneaeg tuleb tarnija pakkumisest; puudumisel null (poe vaikeväärtust ei panda)
+    delivery: offer.deliveryDays,
     firstSeenAt: offer.listedAt ?? "1970-01-01T00:00:00Z",
     lastSyncedAt: options.lastSyncedAt,
     isFeatured: options.featuredExternalIds.includes(offer.externalId),

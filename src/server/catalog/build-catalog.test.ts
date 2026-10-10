@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+﻿import { describe, expect, it } from "vitest";
 import { pricingConfig } from "@/config/pricing";
 import { computeFacets, filterItems, sortItems } from "@/domain/catalog/filtering";
 import { emptyQuery, parseCatalogQuery } from "@/domain/catalog/query";
@@ -12,19 +12,18 @@ async function catalog() {
   return buildCatalog(source, {
     pricing: pricingConfig,
     featuredExternalIds: [],
-    delivery: { minDays: 2, maxDays: 4 },
     lastSyncedAt: null,
   });
 }
 
-describe("tarnija → kataloog", () => {
-  it("lükkab tundmatu seisukorraga kirje tagasi, mitte ei pane seda poodi", async () => {
+describe("tarnija â†’ kataloog", () => {
+  it("lÃ¼kkab tundmatu seisukorraga kirje tagasi, mitte ei pane seda poodi", async () => {
     const { items, issues } = await catalog();
     expect(issues).toContainEqual(expect.objectContaining({ externalId: "MS-99999", stage: "normalize" }));
     expect(items.some((item) => item.variant.sku === "SP-99999")).toBe(false);
   });
 
-  it("hinnastab iga toote ostuhinnast kõrgemale", async () => {
+  it("hinnastab iga toote ostuhinnast kÃµrgemale", async () => {
     const { items } = await catalog();
     const costBySku = new Map(MOCK_SUPPLIER_RECORDS.map((r) => [`SP-${r.sku.replace("MS-", "")}`, r.price_eur * 100]));
     for (const { variant } of items) {
@@ -32,19 +31,18 @@ describe("tarnija → kataloog", () => {
     }
   });
 
-  it("koondab sama mudeli konfiguratsioonid ühe tootelehe alla", async () => {
+  it("koondab sama mudeli konfiguratsioonid Ã¼he tootelehe alla", async () => {
     const { items } = await catalog();
     const t14 = items.filter((item) => item.product.slug === "lenovo-thinkpad-t14-gen-3");
     expect(t14).toHaveLength(3);
   });
 
-  it("mudeli pildid on jagatud kõigi selle mudeli konfiguratsioonide vahel (üks kirje, mitte koopiad)", async () => {
+  it("mudeli pildid on jagatud kÃµigi selle mudeli konfiguratsioonide vahel (Ã¼ks kirje, mitte koopiad)", async () => {
     const source = await new MockSupplierAdapter().getProducts();
     const image = { thumbnailUrl: "/t", mediumUrl: "/m", largeUrl: "/l", width: 1, height: 1, alt: "T14", type: "MODEL_GENERIC" as const };
     const { items } = buildCatalog(source, {
       pricing: pricingConfig,
       featuredExternalIds: [],
-      delivery: { minDays: 2, maxDays: 4 },
       lastSyncedAt: null,
       modelImages: { "lenovo-thinkpad-t14-gen-3": [image] },
     });
@@ -56,7 +54,7 @@ describe("tarnija → kataloog", () => {
     expect(items.find((item) => item.product.slug === "lenovo-thinkpad-t14-gen-2")?.product.images).toEqual([]);
   });
 
-  it("piltide import teeb ühe päringu mudeli, mitte konfiguratsiooni kohta", async () => {
+  it("piltide import teeb Ã¼he pÃ¤ringu mudeli, mitte konfiguratsiooni kohta", async () => {
     const { offers } = await new MockSupplierAdapter().getProducts();
     const models = groupOffersIntoModels(offers);
     const t14 = models.filter((m) => m.model.id === "lenovo-thinkpad-t14-gen-3");
@@ -65,7 +63,7 @@ describe("tarnija → kataloog", () => {
     expect(models.length).toBeLessThan(offers.length);
   });
 
-  it("ThinkPad P seeria saab õige pealkirja ja seeria", async () => {
+  it("ThinkPad P seeria saab Ãµige pealkirja ja seeria", async () => {
     const { items } = await catalog();
     const p1 = items.find((item) => item.product.model === "P1 Gen 4")!;
     expect(p1.product.title).toBe("Lenovo ThinkPad P1 Gen 4");
@@ -94,7 +92,7 @@ describe("otsing", () => {
 });
 
 describe("filtrid", () => {
-  it("sama filtri valikud on VÕI, eri filtrid JA", async () => {
+  it("sama filtri valikud on VÃ•I, eri filtrid JA", async () => {
     const { items } = await catalog();
     const query = parseCatalogQuery({ ram: "16,32", brand: "dell" });
     const found = filterItems(items, query);
@@ -110,14 +108,14 @@ describe("filtrid", () => {
     expect(lenovo.count).toBe(items.filter((i) => i.product.brand === "lenovo").length);
   });
 
-  it("ei näita omadusi, mida ühelgi tootel pole", async () => {
+  it("ei nÃ¤ita omadusi, mida Ã¼helgi tootel pole", async () => {
     const { items } = await catalog();
     const lenovoOnly = parseCatalogQuery({ brand: "lenovo", screen: "13" });
     const facets = computeFacets(items, lenovoOnly);
     expect(facets.features.find((f) => f.value === "numpad")).toBeUndefined();
   });
 
-  it("lükkab URL-ist tulnud tundmatud väärtused tagasi", () => {
+  it("lÃ¼kkab URL-ist tulnud tundmatud vÃ¤Ã¤rtused tagasi", () => {
     const query = parseCatalogQuery({ ram: "16,999,<script>", sort: "drop table", page: "-3", min: "abc" });
     expect(query.facets.ram).toEqual(["16"]);
     expect(query.sort).toBe("recommended");
@@ -125,7 +123,7 @@ describe("filtrid", () => {
     expect(query.minPrice).toBeNull();
   });
 
-  it("sorteerib hinna järgi", async () => {
+  it("sorteerib hinna jÃ¤rgi", async () => {
     const { items } = await catalog();
     const sorted = sortItems(items, "price-asc");
     for (let i = 1; i < sorted.length; i++) {

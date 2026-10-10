@@ -52,7 +52,7 @@ export function GradeExplainer({ grade }: { grade: GradeCode }) {
               </li>
             ))}
           </ul>
-          <Link href="/seisukorrad" className="inline-block text-sm font-semibold text-primary hover:underline">
+          <Link href="/seisukorrad" onClick={() => setOpen(false)} className="inline-block text-sm font-semibold text-primary hover:underline">
             Loe seisukorra hindamise kohta lähemalt →
           </Link>
         </div>

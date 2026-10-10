@@ -18,7 +18,7 @@ export function StockStatus({ variant, compact, className }: { variant: CatalogV
           {inStock ? `Partnerlaos ${quantity} tk` : "Laost otsas"}
         </span>
       </p>
-      {inStock && (
+      {inStock && variant.delivery && (
         <p className="flex items-center gap-2 text-muted">
           <Truck className="size-4 shrink-0" aria-hidden />
           {compact ? "" : "Tarne "}
