@@ -54,10 +54,11 @@ service-account*.json
 *.sql.gz
 /backups/
 
-# kohalikult salvestatud tootepildid (LocalImageStorageAdapter) ja nende kirjed
-# productionis tulevad pildid püsivast salvestusruumist (S3-ühilduv), mitte Git'ist
-/public/media/
-/data/media/
+# Tootepildid (public/media/products) ja nende kirjed (data/media/product-images.json)
+# on TESTVERSIOONI jaoks ajutiselt Git'is, et Vercel saaks neid serveerida.
+# Tootmises asenduvad need püsiva salvestusruumiga (S3-ühilduv, vt docs/PROJECT_PLAN.md R13).
+/data/media/*.tmp
+/public/media/**/*.tmp
 
 # testide väljund
 /playwright-report/
