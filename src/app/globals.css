@@ -1,0 +1,152 @@
+@import "tailwindcss";
+
+/*
+ * DESIGN TOKENS
+ * Kõik värvid, raadiused ja varjud on defineeritud siin CSS muutujatena.
+ * Komponendid kasutavad AINULT neid (Tailwindi klassid nagu bg-primary, text-muted),
+ * mitte hardcoded hex-väärtusi. Brändi muutmiseks piisab selle ploki muutmisest.
+ */
+:root {
+  /* Pinnad */
+  --c-bg: #ffffff;
+  --c-surface: #ffffff;
+  --c-surface-alt: #f7f8fa;
+  --c-surface-sunken: #f1f3f6;
+  --c-border: #e5e7eb;
+  --c-border-strong: #d1d5db;
+
+  /* Tekst */
+  --c-text: #111827;
+  --c-text-muted: #6b7280;
+  --c-text-subtle: #9ca3af;
+
+  /* Bränd */
+  --c-primary: #0f766e;
+  --c-primary-hover: #115e59;
+  --c-primary-soft: #ecfdf8;
+  --c-primary-border: #99e2d4;
+  --c-on-primary: #ffffff;
+
+  /* Hea hind / pakkumine */
+  --c-deal: #c2410c;
+  --c-deal-soft: #fff4ec;
+
+  /* Olekud */
+  --c-success: #15803d;
+  --c-success-soft: #ecfdf3;
+  --c-warning: #a16207;
+  --c-warning-soft: #fefce8;
+  --c-danger: #b91c1c;
+  --c-danger-soft: #fef2f2;
+  --c-info-soft: #eff6ff;
+
+  /* Seisukorra klassid */
+  --c-grade-aplus: #0f766e;
+  --c-grade-a: #15803d;
+  --c-grade-b: #a16207;
+  --c-grade-c: #6b7280;
+
+  /* Kuju */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --shadow-sm: 0 1px 2px rgb(17 24 39 / 0.05);
+  --shadow-md: 0 4px 16px -4px rgb(17 24 39 / 0.1), 0 2px 4px -2px rgb(17 24 39 / 0.05);
+  --shadow-lg: 0 16px 40px -12px rgb(17 24 39 / 0.2);
+
+  --header-height: 64px;
+  --focus-ring: 0 0 0 3px rgb(15 118 110 / 0.35);
+}
+
+@theme inline {
+  --color-bg: var(--c-bg);
+  --color-surface: var(--c-surface);
+  --color-surface-alt: var(--c-surface-alt);
+  --color-surface-sunken: var(--c-surface-sunken);
+  --color-border: var(--c-border);
+  --color-border-strong: var(--c-border-strong);
+  --color-text: var(--c-text);
+  --color-muted: var(--c-text-muted);
+  --color-subtle: var(--c-text-subtle);
+  --color-primary: var(--c-primary);
+  --color-primary-hover: var(--c-primary-hover);
+  --color-primary-soft: var(--c-primary-soft);
+  --color-primary-border: var(--c-primary-border);
+  --color-on-primary: var(--c-on-primary);
+  --color-deal: var(--c-deal);
+  --color-deal-soft: var(--c-deal-soft);
+  --color-success: var(--c-success);
+  --color-success-soft: var(--c-success-soft);
+  --color-warning: var(--c-warning);
+  --color-warning-soft: var(--c-warning-soft);
+  --color-danger: var(--c-danger);
+  --color-danger-soft: var(--c-danger-soft);
+  --color-info-soft: var(--c-info-soft);
+  --color-grade-aplus: var(--c-grade-aplus);
+  --color-grade-a: var(--c-grade-a);
+  --color-grade-b: var(--c-grade-b);
+  --color-grade-c: var(--c-grade-c);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-padding-top: calc(var(--header-height) + 16px);
+  }
+
+  body {
+    background: var(--c-bg);
+    color: var(--c-text);
+    font-feature-settings: "cv11", "ss01";
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--c-primary);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background: var(--c-primary-soft);
+  }
+
+  dialog::backdrop {
+    background: rgb(17 24 39 / 0.45);
+  }
+
+  /* Numbrid hindades ühelaiused, et veerud ei "hüppaks" */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Kui lehel on mobiili sticky ostunupp, tõuseb võrdlusriba selle kohale */
+@media (max-width: 1023px) {
+  body:has([data-sticky-cta]) [data-compare-bar] {
+    bottom: 76px;
+  }
+  body:has([data-sticky-cta]) {
+    padding-bottom: 76px;
+  }
+}
