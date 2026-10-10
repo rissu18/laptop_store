@@ -16,7 +16,8 @@
     "db:migrate": "tsx --conditions=react-server scripts/db-migrate.ts",
     "db:seed": "tsx --conditions=react-server scripts/db-seed.ts",
     "db:verify-catalog": "tsx --conditions=react-server scripts/db-verify-catalog.ts",
-    "admin:create": "tsx --conditions=react-server scripts/admin-create.ts"
+    "admin:create": "tsx --conditions=react-server scripts/admin-create.ts",
+    "admin:delete": "tsx --conditions=react-server scripts/admin-delete.ts"
   },
   "engines": {
     "node": ">=22"
