@@ -6,7 +6,7 @@ import { getDb, isDatabaseConfigured } from "@/server/db/client";
 import { storeSettings } from "@/server/db/schema";
 import { errorMessage, newErrorId, writeSystemLog } from "@/server/logging/system-log";
 
-export const SETTINGS_CACHE_TAG = "settings";
+import { SETTINGS_CACHE_TAG } from "@/server/cache-tags";
 
 /**
  * Poe seaded andmebaasist (admin → Seaded). Vahemälus kuni admin muudab (updateTag('settings')).

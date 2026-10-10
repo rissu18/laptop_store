@@ -26,7 +26,7 @@ import { loadDbCatalogItems } from "./db-catalog";
  * Lehed ja komponendid ei sõltu andmeallikast.
  */
 
-export const CATALOG_CACHE_TAG = "catalog";
+import { CATALOG_CACHE_TAG } from "@/server/cache-tags";
 
 let catalogPromise: Promise<BuiltCatalog> | null = null;
 
