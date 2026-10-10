@@ -99,6 +99,38 @@ ProductModel (+ tarnija GTIN/MPN + data/icecat/model-identifiers.json)
 | Data Quality | `src/server/images/data-quality.ts` |
 | Käsurida | `scripts/icecat-images.ts` (`npm run icecat -- …`) |
 
+**Andmeallikate piir (väga oluline)**
+
+| Andmed | Allikas (source of truth) |
+| --- | --- |
+| CPU, RAM, SSD, GPU, ekraan, puuteekraan, klaviatuur, OS, seisukord, laoseis, hind, garantii, aku | **Tarnija pakkumine** (SupplierListing) |
+| Mudeli üldpildid, galerii, Icecati identifikaatorid | **Icecat** |
+
+Icecati vaste on tihti üks konkreetne SKU (nt Saksa klaviatuur, puuteekraan, teine RAM/SSD). Selle tehnilisi andmeid **ei kirjutata kunagi** meie pakkumistesse — `ProductImageRecord` ei sisalda ühtegi tehnilist välja (test kontrollib seda). Mudelitaseme lisaandmeid võib Icecatist võtta ainult eraldi otsusega. Kuna Icecati pildil võib olla teine klaviatuur, kuvatakse galerii juures alati märge *"Tootepildid on illustratiivsed. Seadme tegelik konfiguratsioon ja kosmeetiline seisukord vastavad tootekirjelduses märgitule."* (`ACTUAL_UNIT` piltide puhul seda ei kuvata).
+
+**Staatused**: `MATCHED`, `NEEDS_REVIEW`, `NOT_FOUND`, `ERROR` (+ `REJECTED` admini otsusega) ning täpsustus `reason`: `NO_IDENTIFIERS`, `NOT_IN_ICECAT`, `TITLE_MISMATCH`, `LOW_CONFIDENCE`, `ICECAT_UNAVAILABLE`, `DOWNLOAD_FAILED`.
+
+**Kindlus**: GTIN 1,0 · MPN + tootja 0,95 · teadaolev Icecat ID 0,90 · mudelinimi 0,70 (ei lähe kunagi automaatselt live'i) · admini käsitsi vaste 1,0 (kõrgeim prioriteet).
+
+**Pealkirja kontroll** võrdleb Icecati `Title` välja meie bränd + mudelinimega tervete sõnadena (T14 ≠ T14s, 840 G8 ≠ 840 Aero G8). Teadaolevad erikujud: HP lisab ekraani suuruse ("EliteBook 860 **16** G10"), Dell kirjutab "Latitude 9420 … Hybrid (**2-in-1**)". Kogu kataloogi impordil püüdis see kontroll kinni vale vaste: L14 Gen 2 jaoks leitud Icecat ID osutus ThinkPad **E14** Gen 2-ks → `NEEDS_REVIEW`, pilti live'i ei pandud.
+
+**Galerii kvaliteet**
+- Duplikaadid eemaldatakse Icecati pildi ID, URL-i ja **faili sisu (SHA-256)** järgi.
+- Mitte-tootefotod (nt 500×49 logoriba) jäetakse mõõtude järgi välja.
+- Max 12 pilti mudeli kohta; tootelehel kuni 6 pisipilti + "+N" (ülejäänud täisekraani galeriis); mobiilis punktid kuni 8 pildi korral.
+- Admin saab üksiku pildi peita (`isHidden`, nt eksitav klaviatuuri lähivõte). Peitmine säilib ka uuesti allalaadimisel; põhipilt on esimene nähtav pilt.
+
+**Põhipildi valik**: Icecati ametlik HighPic → esimene hea resolutsiooniga (≥ 500 px) galeriipilt → Pic500x500 → LowPic → placeholder.
+
+**Jagatud pildid**: üks Icecati päring ja üks pildikomplekt mudeli kohta. Kõik selle mudeli tarnija pakkumised viitavad samale massiivile (`CatalogProduct.images`) — konfiguratsiooni kohta midagi uuesti alla ei laadita.
+
+**Jõudlus** (production build, mõõdetud 10.10.2026):
+- tootekaardi `srcset` sisaldab ainult 300 / 700 px variante — suurt faili kaardile ei laadita;
+- esimesed 1–2 nähtavat pilti `loading="eager"` + `fetchPriority="high"`, ülejäänud `lazy`;
+- kõigil piltidel `width`/`height` ja fikseeritud kuvasuhtega pildiala → CLS 0;
+- avaleht LCP 340 ms; nimekirja algne pildimaht ~54 KB; tooteleht ~98 KB (põhipilt, 2000 px WebP).
+- Tootepiltide jaoks kasutatakse `<img srcset>`, mitte `next/image`'it: variandid on juba serveris optimeeritud ja tulevikus asuvad välises salvestusruumis. `unoptimized` ei ole globaalselt sisse lülitatud; logo kasutab `next/image`'it.
+
 **Põhimõtted**
 
 - **Vale pilt on hullem kui placeholder.** Automaatselt läheb live'i ainult vaste kindlusega ≥ 0,9 *ja* kontrollitud pealkirjaga. Muu → `NEEDS_REVIEW`.
@@ -109,7 +141,17 @@ ProductModel (+ tarnija GTIN/MPN + data/icecat/model-identifiers.json)
 - **Kontrollitud paralleelsus**: 3 mudelit × 2 pilti korraga; retry ainult 408/429/5xx/võrguvigadel, 404 kunagi.
 - **Saladused**: `ICECAT_API_TOKEN` / `ICECAT_CONTENT_TOKEN` ainult HTTP päistes; logger peidab kõik `token|password|secret|key` väljad.
 
-**Salvestusruum ja Vercel.** Verceli runtime failisüsteem ei ole püsiv, seega `LocalImageStorageAdapter` sobib ainult arenduseks. Tootmises on vaja püsivat S3-ühilduvat salvestusruumi (`S3CompatibleImageStorageAdapter`, nt Cloudflare R2). Kuni see on valimata, pole pildid Verceli testkeskkonnas nähtavad — sealt puuduvad nii failid kui ka `data/media/product-images.json`, ja leht kuvab placeholderit.
+**Salvestusruum ja Vercel — praegune seis**
+
+| Küsimus | Vastus |
+| --- | --- |
+| Kas veeb kasutab Icecati pildi-URL-e otse (hotlink)? | **Ei.** Frontend kasutab ainult meie URL-e (`/media/products/...`). Icecati URL on andmebaasis ainult viitena (`originalSourceUrl`). |
+| Kas pildid laaditakse meie salvestusruumi? | **Jah** — alla laaditud, kontrollitud ja töödeldud (300 / 700 / 2000 px WebP). |
+| Kus failid füüsiliselt asuvad? | Arendusarvutis: `public/media/products/<mudel>/` (~45 MB, 323 pilti × 3 varianti) + kirjed `data/media/product-images.json`. Mõlemad on Git'ist välja jäetud. |
+| Kas töötab pärast uut Verceli deploy'd? | **Ei.** Faile pole Git'is, seega neid pole ka Verceli buildis → Vercel näitab placeholderit. |
+| Kas pildid jäävad alles, kui deploy asendatakse? | Vercelis neid praegu pole. Kui import jookseks Verceli runtime'is, kaoksid failid järgmise deploy'ga (failisüsteem ei ole püsiv) — seetõttu seda ei tehta. |
+
+Tootmises on vaja püsivat S3-ühilduvat salvestusruumi (`S3CompatibleImageStorageAdapter`). Teenus on valimata (vajab omaniku otsust, vt PROJECT_PLAN.md R13). Import jookseb siis serveris/arvutis, failid lähevad salvestusruumi ja kirjed (Phase 2-s) andmebaasi.
 
 ## Hulgilao integratsioon
 

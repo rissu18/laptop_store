@@ -5,6 +5,32 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 ---
 
+## 2026-10-10 — Icecati pildid kogu kataloogile
+
+**Mis lisati**
+
+- Import kõigile 38 ProductModelile (üks päring mudeli, mitte konfiguratsiooni kohta): 34 MATCHED, 1 NEEDS_REVIEW, 3 NOT_FOUND, 0 ERROR → pildikate 89,5%, keskmiselt 9,4 pilti mudeli kohta.
+- Staatused MATCHED / NEEDS_REVIEW / NOT_FOUND / ERROR (+ REJECTED) ja põhjuse väli (`reason`).
+- `ProductImage.isHidden` (admin saab eksitava pildi peita) ja `contentHash` (täpsete duplikaatide eemaldamine).
+- Põhipildi prioriteet: ametlik HighPic → hea galeriipilt → Pic500x500 → LowPic → placeholder.
+- Uus märge: "Tootepildid on illustratiivsed. Seadme tegelik konfiguratsioon ja kosmeetiline seisukord vastavad tootekirjelduses märgitule."
+- Galerii: kuni 6 pisipilti + "+N"; tootekaardi srcset ainult 300/700 px.
+- Data Quality: mõõdikud ja "Mudelid ilma pildita" (CLI, raport, arenduse vaade `/admin/andmekvaliteet`).
+- Raport `docs/reports/icecat-catalog-report.md`.
+
+**Miks nii**
+
+- Icecati vaste on tihti teise klaviatuuri / RAM-i / puuteekraaniga SKU — Icecatist võetakse ainult pildid, seadme andmed tulevad tarnijalt.
+- Mudelinimi + bränd ei ole Icecati JSON API-s otsitav; identifikaatorid koguti käsitsi (tarnija feed peab need hiljem andma).
+
+**Probleemid ja lahendused**
+
+- HP lisab Icecatis nimesse ekraani suuruse ("EliteBook 860 16 G10") ja Dell kirjutab "Hybrid (2-in-1)" → pealkirja kontroll tunneb need nüüd ära (testidega).
+- L14 Gen 2 jaoks leitud Icecat ID oli tegelikult ThinkPad E14 Gen 2 → pealkirja kontroll pani selle NEEDS_REVIEW, vale pilti live'i ei läinud.
+- Testide võlts-allalaadija andis kõigile piltidele sama faili → uus duplikaatide eemaldus võttis need kokku; testid kasutavad nüüd erinevaid faile.
+- TypeScript ei kitsendanud liitstaatusega tüüpi → staatuste käsitlus ümber järjestatud.
+- Tootelehe jõudluse mõõtmine peidetud brauseripaneelis ei andnud LCP-d → pildimaht arvutati production-serveri HTML-ist ja failisuurustest.
+
 ## 2026-10-10 — Tootepildid Open Icecatist
 
 **Mis lisati**

@@ -1,30 +1,43 @@
-# Icecati piltide testraport
+# Icecati piltide testraport (10 mudelit)
 
-Käivitatud: 2026-10-10 14:46 UTC
-Käsk: `npm run icecat -- import --test`
+Käivitatud: 2026-10-10 15:07 UTC
+Käsk: `npm run icecat -- --test --rematch`
 Ligipääs: Open Icecat (kasutajanimi, ilma API/content tokenita)
+Pildid: allalaaditud ja töödeldud meie salvestusruumi (`LocalImageStorageAdapter` → `public/media/products/`), Icecati URL-e frontend ei kasuta.
 
 ## Kokkuvõte
 
-- Testitud mudeleid: **10**
-- Icecat leidis: **9**
-- Põhipilt olemas: **9**
-- Galerii (lisaks põhipildile) olemas: **9**
+- ProductModeleid kokku: **10**
+- MATCHED: **9**
+- NEEDS_REVIEW: **0**
+- NOT_FOUND: **1**
+- ERROR: **0**
+- Pildiga mudeleid: **9** / 10 → image coverage **90%**
+- Rohkem kui üks pilt: **9** → gallery coverage **90%**
+- Ainult põhipilt: **0**
+- Keskmine pilte pildiga mudeli kohta: **9.7**
 
-| Mudel | Icecat match | Match method | Main image | Gallery images | Result |
-|---|---|---|---|---|---|
-| Dell Latitude 5420 | Jah (Icecat ID 95037175) | MPN (0.95) | Jah | 9 | ✅ Pildid live'is |
-| Dell Latitude 5430 | Jah (Icecat ID 103427438) | GTIN (1) | Jah | 11 | ✅ Pildid live'is |
-| Dell Latitude 7420 | Jah (Icecat ID 96024841) | MPN (0.95) | Jah | 9 | ✅ Pildid live'is |
-| HP EliteBook 840 G8 | Jah (Icecat ID 92708302) | GTIN (1) | Jah | 3 | ✅ Pildid live'is |
-| HP EliteBook 845 G8 | Ei | – | Ei | 0 | ❌ NOT_FOUND |
-| HP EliteBook 850 G8 | Jah (Icecat ID 93345844) | ICECAT_ID (0.9) | Jah | 7 | ✅ Pildid live'is |
-| HP ProBook 450 G8 | Jah (Icecat ID 89552415) | MPN (0.95) | Jah | 6 | ✅ Pildid live'is |
-| Lenovo ThinkPad T14 Gen 2 | Jah (Icecat ID 96871343) | ICECAT_ID (0.9) | Jah | 11 | ✅ Pildid live'is |
-| Lenovo ThinkPad T14 Gen 3 | Jah (Icecat ID 100004657) | GTIN (1) | Jah | 11 | ✅ Pildid live'is |
-| Lenovo ThinkPad X1 Carbon Gen 9 | Jah (Icecat ID 88961147) | MPN (0.95) | Jah | 11 | ✅ Pildid live'is |
+Üks ProductModel = üks Icecati päring; kõik selle mudeli konfiguratsioonid (Listings) jagavad samu pilte.
+"Gallery" = kuvatavad pildid lisaks põhipildile (duplikaadid ja peidetud pildid välja arvatud, max 12 pilti mudeli kohta).
 
-Galerii veerg näitab pilte LISAKS põhipildile (duplikaadid eemaldatud, max 12 pilti mudeli kohta).
+| ProductModel | Listings | Match | Method | Confidence | Main image | Gallery | Status |
+|---|---|---|---|---|---|---|---|
+| Dell Latitude 5420 | 2 | Icecat 95037175 | MPN (MPN Dell 5420-0457) | 0.95 | Jah | 9 | MATCHED |
+| Dell Latitude 5430 | 2 | Icecat 103427438 | GTIN (GTIN 0884116437888) | 1 | Jah | 11 | MATCHED |
+| Dell Latitude 7420 | 1 | Icecat 96024841 | MPN (MPN Dell 23DH1) | 0.95 | Jah | 9 | MATCHED |
+| HP EliteBook 840 G8 | 2 | Icecat 92708302 | GTIN (GTIN 0196068302726) | 1 | Jah | 3 | MATCHED |
+| HP EliteBook 845 G8 | 1 | – | – | – | Ei | 0 | NOT_FOUND · NOT_IN_ICECAT |
+| HP EliteBook 850 G8 | 1 | Icecat 93345844 | ICECAT_ID (Icecat ID 93345844) | 0.9 | Jah | 7 | MATCHED |
+| HP ProBook 450 G8 | 2 | Icecat 89552415 | MPN (MPN HP 3C2W7ES) | 0.95 | Jah | 6 | MATCHED |
+| Lenovo ThinkPad T14 Gen 2 | 2 | Icecat 96871343 | ICECAT_ID (Icecat ID 96871343) | 0.9 | Jah | 11 | MATCHED |
+| Lenovo ThinkPad T14 Gen 3 | 3 | Icecat 100004657 | GTIN (GTIN 0196801582675) | 1 | Jah | 11 | MATCHED |
+| Lenovo ThinkPad X1 Carbon Gen 9 | 2 | Icecat 88961147 | MPN (MPN Lenovo 20XW004JUS) | 0.95 | Jah | 11 | MATCHED |
+
+## Mudelid ilma pildita
+
+| Mudel | Staatus | Mida teha |
+|---|---|---|
+| HP EliteBook 845 G8 | NOT_FOUND | Icecat ei leidnud ühegi identifikaatoriga |
 
 ## Üksikasjad
 
@@ -58,7 +71,7 @@ Galerii veerg näitab pilte LISAKS põhipildile (duplikaadid eemaldatud, max 12 
 
 ### HP EliteBook 845 G8
 
-- Staatus: NOT_FOUND
+- Staatus: NOT_FOUND (NOT_IN_ICECAT)
 - Icecati pealkiri: –
 - Päringud:
   - GTIN 0196786546242: NOT_FOUND — Products datasheet is not yet released

@@ -40,6 +40,18 @@ export interface ProductImageRecord {
   downloadedAt: string;
   /** Salvestusruumi võtmed (thumbnail, medium, large) — vana pildi kustutamiseks */
   storageKeys: string[];
+  /** Allikafaili SHA-256 — täpselt sama sisuga pildid eemaldatakse galeriist */
+  contentHash: string | null;
+  /**
+   * Admin on pildi peitnud (nt eksitav klaviatuuri lähivõte). Peidetud pilti ei kuvata,
+   * aga kirje jääb alles, et import seda tagasi ei tooks.
+   */
+  isHidden: boolean;
+}
+
+/** Kuvatavad pildikirjed: peidetud välja, järjekord säilib. */
+export function visibleImages(records: ProductImageRecord[]): ProductImageRecord[] {
+  return records.filter((record) => !record.isHidden).sort((a, b) => a.position - b.position);
 }
 
 /** Avalik kuju, mis jõuab brauserisse. */
@@ -72,6 +84,10 @@ export function toImageView(record: ProductImageRecord): ProductImageView {
 export function imagesForDisplay(item: { product: { images: ProductImageView[] }; variant: { images: ProductImageView[] } }): ProductImageView[] {
   return item.variant.images.length > 0 ? item.variant.images : item.product.images;
 }
+
+/** MODEL_GENERIC piltide juures kuvatav märge (Icecati pilt võib erineda müüdavast seadmest, nt klaviatuur). */
+export const ILLUSTRATIVE_IMAGES_NOTICE =
+  "Tootepildid on illustratiivsed. Seadme tegelik konfiguratsioon ja kosmeetiline seisukord vastavad tootekirjelduses märgitule.";
 
 /** Kas pildi juurde tuleb kuvada "illustratiivne" märge. */
 export function isIllustrative(image: Pick<ProductImageView, "type">): boolean {

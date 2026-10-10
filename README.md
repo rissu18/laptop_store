@@ -75,22 +75,26 @@ Ava <http://localhost:3000>.
 | `npm test` | Unit- ja integratsioonitestid (Vitest) |
 | `npm run lint` | ESLint |
 | `npm run typecheck` | TypeScripti kontroll |
-| `npm run icecat -- import --test` | Icecati piltide import 10 testmudelile + raport |
-| `npm run icecat -- status` | Data Quality: mudelid ilma pildita, vasteta, ülevaatust vajavad |
+| `npm run icecat -- import --all` | Icecati piltide import kõigile mudelitele + raport |
+| `npm run icecat -- status` | Data Quality: kate, staatused, mudelid ilma pildita |
 
 ## Tootepildid (Icecat)
 
 ```bash
-npm run icecat -- import --test
+npm run icecat -- import --all
 ```
 
-Pildid laaditakse Open Icecatist alla, töödeldakse (300 / 700 / 2000 px WebP) ja salvestatakse kausta `public/media/products/`. Frontend kasutab ainult meie URL-e. Admini toimingud käsurealt (kuni adminpaneelini):
+Pildid laaditakse Open Icecatist alla, töödeldakse (300 / 700 / 2000 px WebP) ja salvestatakse kausta `public/media/products/`. Frontend kasutab ainult meie URL-e. Icecatist võetakse **ainult pildid** — seadme tehnilised andmed tulevad alati tarnija pakkumisest.
+
+Admini toimingud käsurealt (kuni adminpaneelini):
 
 ```bash
-npm run icecat -- confirm dell-latitude-5420 95037175
+npm run icecat -- confirm hp-elitebook-845-g8 12345678
 ```
 
-Teised käsud: `reject <mudel> <icecatId>`, `retry <mudel>` (otsi vastet uuesti), `refresh <mudel>` (lae pildid uuesti). Viimane testraport: [docs/reports/icecat-test-report.md](docs/reports/icecat-test-report.md).
+Teised käsud: `reject <mudel> <icecatId>`, `images <mudel>`, `hide <mudel> <pildiId>`, `unhide …`, `retry <mudel>` (otsi vastet uuesti), `refresh <mudel>` (lae pildid uuesti). Arenduses on Data Quality vaade aadressil <http://localhost:3000/admin/andmekvaliteet> (productionis 404 kuni admin-autentimiseni).
+
+Raportid: [kogu kataloog](docs/reports/icecat-catalog-report.md) · [10 mudeli test](docs/reports/icecat-test-report.md).
 
 > Kohalikud pildid ei lähe Git'i ega Vercelisse. Online-piltide jaoks on vaja püsivat salvestusruumi (vt docs/PROJECT_PLAN.md R13).
 

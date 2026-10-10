@@ -139,13 +139,16 @@ model ProductImage {                  // pildid kuuluvad MUDELILE; kõik konfigu
   sourceUpdatedAt   String?                // Icecati "Updated" — kui sama, ei laeta uuesti alla
   downloadedAt      DateTime
   storageKeys       String[]               // salvestusruumi võtmed kustutamiseks
+  contentHash       String?                // allikafaili SHA-256 — täpsete duplikaatide eemaldamiseks
+  isHidden          Boolean @default(false) // admin peitis (nt eksitav klaviatuuri lähivõte)
   @@unique([productModelId, source, sourceId])
   @@index([productModelId, position])
 }
 
 model IcecatMatch {                   // Data Quality: iga mudeli Icecati vaste
   productModelId String  @id
-  status         IcecatMatchStatus       // MATCHED | NEEDS_REVIEW | NOT_FOUND | NO_IDENTIFIERS | DOWNLOAD_FAILED | REJECTED
+  status         IcecatMatchStatus       // MATCHED | NEEDS_REVIEW | NOT_FOUND | ERROR | REJECTED
+  reason         IcecatStatusReason?     // NO_IDENTIFIERS | NOT_IN_ICECAT | TITLE_MISMATCH | LOW_CONFIDENCE | ICECAT_UNAVAILABLE | DOWNLOAD_FAILED
   matchType      IcecatMatchType?        // GTIN | MPN | ICECAT_ID | MODEL_NAME | MANUAL
   confidence     Decimal? @db.Decimal(3,2) // 1.0 / 0.95 / 0.9 / 0.7; live'i ainult ≥ 0.9 + kontrollitud pealkiri
   icecatId       String?

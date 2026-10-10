@@ -8,7 +8,7 @@ import { searchScore, tokenize } from "@/domain/catalog/search";
 import type { CatalogItem, CatalogProduct, CatalogVariant } from "@/domain/catalog/types";
 import { MockSupplierAdapter } from "@/integrations/supplier/mock/mock-supplier-adapter";
 import { MOCK_FEATURED_SKUS } from "@/integrations/supplier/mock/mock-supplier-data";
-import { toImageView, type ProductImageView } from "@/domain/images/product-image";
+import { toImageView, visibleImages, type ProductImageView } from "@/domain/images/product-image";
 import { readImageManifestSync } from "@/server/images/image-repository";
 import { buildCatalog, type BuiltCatalog } from "./build-catalog";
 
@@ -28,7 +28,8 @@ let catalogPromise: Promise<BuiltCatalog> | null = null;
  */
 function loadModelImages(): Record<string, ProductImageView[]> {
   const manifest = readImageManifestSync();
-  return Object.fromEntries(Object.entries(manifest).map(([modelId, records]) => [modelId, records.map(toImageView)]));
+  // Admini peidetud pilte ei kuvata
+  return Object.fromEntries(Object.entries(manifest).map(([modelId, records]) => [modelId, visibleImages(records).map(toImageView)]));
 }
 
 async function loadCatalog(): Promise<BuiltCatalog> {

@@ -14,7 +14,7 @@ export function ProductImage({ item, sizes, priority, className }: { item: Catal
   return (
     <div className={cx("relative aspect-[4/3] overflow-hidden bg-white", !image && "bg-surface-alt", className)}>
       {image ? (
-        <StoredImage image={image} sizes={sizes} priority={priority} screenSizeIn={item.product.screenSizeIn} className="p-3" />
+        <StoredImage image={image} sizes={sizes} priority={priority} includeLarge={false} screenSizeIn={item.product.screenSizeIn} className="p-3" />
       ) : (
         <LaptopIllustration screenSizeIn={item.product.screenSizeIn} className="absolute inset-0 m-auto h-[80%] w-[80%]" />
       )}

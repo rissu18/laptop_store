@@ -23,6 +23,13 @@ describe("resolveIcecatImages", () => {
     expect(resolveIcecatImages(product).map((i) => i.sourceId)).toEqual(["100", "203"]);
   });
 
+  it("kui ametlik põhipilt on väike, eelistatakse esimest hea resolutsiooniga galeriipilti", () => {
+    const product = icecatProduct({ gallery: [galleryItem("100", 1), galleryItem("101", 2)] });
+    product.Image = { LowPic: "https://images.icecat.biz/img/gallery_lows/x.jpg", LowPicWidth: 200, LowPicHeight: 200 } as never;
+    const images = resolveIcecatImages(product);
+    expect(images[0]).toMatchObject({ sourceId: "100", isMain: true });
+  });
+
   it("jätab välja logoribad ja muud mitte-tootefotod", () => {
     const banner = galleryItem("300", 2, { PicWidth: "500", PicHeight: "49", Pic500x500Width: "500", Pic500x500Height: "49" });
     const product = icecatProduct({ gallery: [galleryItem("100", 1), banner] });

@@ -18,6 +18,9 @@ import type { ProductImageRecord } from "@/domain/images/product-image";
 export interface ProductImageRepository {
   listImages(productModelId: string): Promise<ProductImageRecord[]>;
   replaceImages(productModelId: string, records: ProductImageRecord[]): Promise<void>;
+  /** Admin: peida/näita üks pilt (Icecati pildi ID järgi). Tagastab false, kui pilti pole. */
+  setImageHidden(productModelId: string, sourceId: string, hidden: boolean): Promise<boolean>;
+  listAllImages(): Promise<Record<string, ProductImageRecord[]>>;
   getMatch(productModelId: string): Promise<IcecatMatchRecord | null>;
   saveMatch(record: IcecatMatchRecord): Promise<void>;
   listMatches(): Promise<IcecatMatchRecord[]>;
@@ -94,6 +97,28 @@ export class JsonFileImageRepository implements ProductImageRepository {
     });
   }
 
+  async setImageHidden(productModelId: string, sourceId: string, hidden: boolean) {
+    return withFileLock(this.imagesPath, async () => {
+      const all = await readJson<ImagesFile>(this.imagesPath, {});
+      const records = all[productModelId] ?? [];
+      const target = records.find((r) => r.sourceId === sourceId);
+      if (!target) return false;
+      target.isHidden = hidden;
+      // Põhipilt = esimene nähtav pilt
+      let mainAssigned = false;
+      for (const record of [...records].sort((a, b) => a.position - b.position)) {
+        record.isMain = !record.isHidden && !mainAssigned;
+        if (record.isMain) mainAssigned = true;
+      }
+      await writeJsonAtomic(this.imagesPath, sortedObject(all));
+      return true;
+    });
+  }
+
+  async listAllImages() {
+    return withFileLock(this.imagesPath, () => readJson<ImagesFile>(this.imagesPath, {}));
+  }
+
   async getMatch(productModelId: string) {
     return withFileLock(this.matchesPath, async () => (await readJson<MatchesFile>(this.matchesPath, {}))[productModelId] ?? null);
   }
@@ -108,6 +133,17 @@ export class JsonFileImageRepository implements ProductImageRepository {
 
   async listMatches() {
     return withFileLock(this.matchesPath, async () => Object.values(await readJson<MatchesFile>(this.matchesPath, {})));
+  }
+}
+
+/** Data Quality vaate jaoks: kõik Icecati vasted (sünkroonselt). */
+export function readMatchesSync(dataDir = DEFAULT_DATA_DIR): IcecatMatchRecord[] {
+  const filePath = path.join(dataDir, "icecat", "matches.json");
+  if (!existsSync(filePath)) return [];
+  try {
+    return Object.values(JSON.parse(readFileSync(filePath, "utf8")) as MatchesFile);
+  } catch {
+    return [];
   }
 }
 

@@ -75,9 +75,24 @@ describe("matchModel", () => {
     expect(result.status).toBe("NOT_FOUND");
   });
 
-  it("ilma identifikaatoriteta → NO_IDENTIFIERS ja ei tee ühtegi päringut", async () => {
+  it("admini käsitsi vaste on kõrgeima prioriteediga", async () => {
+    const icecat = fakeIcecat({
+      "Icecat ID 777": { status: "FOUND", product: icecatProduct({ icecatId: "777" }) },
+      "GTIN 0884116437888": { status: "FOUND", product: icecatProduct() },
+    });
+    const result = await matchModel(model, { ...noIds, gtins: ["0884116437888"], confirmedIcecatId: "777" }, icecat);
+    expect(result).toMatchObject({ status: "MATCHED", matchType: "MANUAL", confidence: 1 });
+    expect(icecat.calls).toEqual(["Icecat ID 777"]);
+  });
+
+  it("ilma identifikaatoriteta → NOT_FOUND (NO_IDENTIFIERS) ja ei tee ühtegi päringut", async () => {
     const icecat = fakeIcecat({});
-    expect((await matchModel(model, noIds, icecat)).status).toBe("NO_IDENTIFIERS");
+    expect(await matchModel(model, noIds, icecat)).toMatchObject({ status: "NOT_FOUND", reason: "NO_IDENTIFIERS" });
     expect(icecat.calls).toHaveLength(0);
+  });
+
+  it("Icecati tehniline viga → ERROR, mitte NOT_FOUND", async () => {
+    const icecat = fakeIcecat({ "MPN Dell 5420-0457": { status: "ERROR", message: "HTTP 503" } });
+    expect(await matchModel(model, { ...noIds, mpns: ["5420-0457"] }, icecat)).toMatchObject({ status: "ERROR", reason: "ICECAT_UNAVAILABLE" });
   });
 });

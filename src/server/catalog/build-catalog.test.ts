@@ -4,6 +4,7 @@ import { computeFacets, filterItems, sortItems } from "@/domain/catalog/filterin
 import { emptyQuery, parseCatalogQuery } from "@/domain/catalog/query";
 import { MockSupplierAdapter } from "@/integrations/supplier/mock/mock-supplier-adapter";
 import { MOCK_SUPPLIER_RECORDS } from "@/integrations/supplier/mock/mock-supplier-data";
+import { groupOffersIntoModels } from "@/server/images/product-models";
 import { buildCatalog } from "./build-catalog";
 
 async function catalog() {
@@ -35,6 +36,33 @@ describe("tarnija → kataloog", () => {
     const { items } = await catalog();
     const t14 = items.filter((item) => item.product.slug === "lenovo-thinkpad-t14-gen-3");
     expect(t14).toHaveLength(3);
+  });
+
+  it("mudeli pildid on jagatud kõigi selle mudeli konfiguratsioonide vahel (üks kirje, mitte koopiad)", async () => {
+    const source = await new MockSupplierAdapter().getProducts();
+    const image = { thumbnailUrl: "/t", mediumUrl: "/m", largeUrl: "/l", width: 1, height: 1, alt: "T14", type: "MODEL_GENERIC" as const };
+    const { items } = buildCatalog(source, {
+      pricing: pricingConfig,
+      featuredExternalIds: [],
+      delivery: { minDays: 2, maxDays: 4 },
+      lastSyncedAt: null,
+      modelImages: { "lenovo-thinkpad-t14-gen-3": [image] },
+    });
+    const t14 = items.filter((item) => item.product.slug === "lenovo-thinkpad-t14-gen-3");
+    expect(t14.length).toBe(3);
+    expect(new Set(t14.map((item) => item.product.images)).size).toBe(1);
+    expect(t14[0].product.images).toEqual([image]);
+    // Teise mudeli pakkumised pilte ei saa
+    expect(items.find((item) => item.product.slug === "lenovo-thinkpad-t14-gen-2")?.product.images).toEqual([]);
+  });
+
+  it("piltide import teeb ühe päringu mudeli, mitte konfiguratsiooni kohta", async () => {
+    const { offers } = await new MockSupplierAdapter().getProducts();
+    const models = groupOffersIntoModels(offers);
+    const t14 = models.filter((m) => m.model.id === "lenovo-thinkpad-t14-gen-3");
+    expect(t14).toHaveLength(1);
+    expect(t14[0].offerCount).toBe(3);
+    expect(models.length).toBeLessThan(offers.length);
   });
 
   it("ThinkPad P seeria saab õige pealkirja ja seeria", async () => {

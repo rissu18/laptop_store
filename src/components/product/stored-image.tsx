@@ -18,6 +18,7 @@ export function StoredImage({
   image,
   sizes,
   priority,
+  includeLarge = true,
   fallbackView = "front",
   screenSizeIn = 14,
   className,
@@ -26,6 +27,8 @@ export function StoredImage({
   image: ProductImageView;
   sizes: string;
   priority?: boolean;
+  /** Tootekaardil false: brauser valib ainult 300 / 700 px vahel (suurt faili kaardile ei laadita) */
+  includeLarge?: boolean;
   fallbackView?: IllustrationView;
   screenSizeIn?: number;
   className?: string;
@@ -39,12 +42,15 @@ export function StoredImage({
     );
   }
 
-  const largeWidth = Math.max(image.width, 700);
+  const largeWidth = Math.max(image.width, 701);
+  const srcSet = [`${image.thumbnailUrl} 300w`, `${image.mediumUrl} 700w`, includeLarge && `${image.largeUrl} ${largeWidth}w`]
+    .filter(Boolean)
+    .join(", ");
   return (
     // eslint-disable-next-line @next/next/no-img-element -- variandid on juba serveris optimeeritud (vt kommentaar)
     <img
       src={image.mediumUrl}
-      srcSet={`${image.thumbnailUrl} 300w, ${image.mediumUrl} 700w, ${image.largeUrl} ${largeWidth}w`}
+      srcSet={srcSet}
       sizes={sizes}
       alt={image.alt}
       width={image.width}

@@ -2,7 +2,7 @@
 
 import { ChevronLeft, ChevronRight, Expand, ZoomIn, ZoomOut } from "lucide-react";
 import { useRef, useState } from "react";
-import { isIllustrative, type ProductImageView } from "@/domain/images/product-image";
+import { ILLUSTRATIVE_IMAGES_NOTICE, isIllustrative, type ProductImageView } from "@/domain/images/product-image";
 import { Dialog } from "@/components/ui/dialog";
 import { cx } from "@/components/ui/class-names";
 import { LaptopIllustration, type IllustrationView } from "./laptop-illustration";
@@ -18,6 +18,8 @@ import { StoredImage } from "./stored-image";
  */
 
 type Slide = { kind: "image"; image: ProductImageView } | { kind: "illustration"; view: IllustrationView; label: string };
+
+const MAX_THUMBNAILS = 6;
 
 const ILLUSTRATIONS: Slide[] = [
   { kind: "illustration", view: "front", label: "Eestvaade (illustratsioon)" },
@@ -99,8 +101,8 @@ export function ProductGallery({ images, title, screenSizeIn }: { images: Produc
             >
               <ChevronRight className="size-5" aria-hidden />
             </button>
-            {/* Mobiilis punktid */}
-            <div className="absolute inset-x-0 bottom-3 flex justify-center gap-1.5 md:hidden" aria-hidden>
+            {/* Mobiilis punktid (kuni 8 pildi korral; rohkemate korral piisab loendurist) */}
+            <div className={cx("absolute inset-x-0 bottom-3 justify-center gap-1.5 md:hidden", slides.length <= 8 ? "flex" : "hidden")} aria-hidden>
               {slides.map((_, i) => (
                 <span key={i} className={cx("size-1.5 rounded-full", i === index ? "bg-text" : "bg-border-strong")} />
               ))}
@@ -110,33 +112,42 @@ export function ProductGallery({ images, title, screenSizeIn }: { images: Produc
       </div>
 
       {images.length > 0 ? (
-        images.some(isIllustrative) && (
-          <p className="mt-2 text-xs text-muted">
-            Tootepildid on illustratiivsed. Seadme tegelik kosmeetiline seisukord sõltub märgitud seisukorraklassist.
-          </p>
-        )
+        images.some(isIllustrative) && <p className="mt-2 text-xs text-muted">{ILLUSTRATIVE_IMAGES_NOTICE}</p>
       ) : (
         <p className="mt-2 text-xs text-muted">Tootefotod lisatakse. Praegu on kuvatud illustratsioon.</p>
       )}
 
       {slides.length > 1 && (
-        <ul className="mt-3 hidden gap-2 overflow-x-auto pb-1 sm:flex" aria-label="Pisipildid">
-          {slides.map((slide, i) => (
-            <li key={i} className="shrink-0">
-              <button
-                type="button"
-                onClick={() => goTo(i)}
-                aria-label={label(slide, i)}
-                aria-current={i === index}
-                className={cx(
-                  "relative block aspect-[4/3] w-20 overflow-hidden rounded-md border-2 bg-white lg:w-24",
-                  i === index ? "border-primary" : "border-border hover:border-border-strong",
-                )}
-              >
-                <SlideView slide={slide} screenSizeIn={screenSizeIn} sizes="96px" padded={false} />
-              </button>
-            </li>
-          ))}
+        <ul className="mt-3 hidden gap-2 sm:flex" aria-label="Pisipildid">
+          {/* Lehte ei koormata: näidatakse kuni 6 pisipilti, ülejäänud on täisekraani galeriis */}
+          {slides.slice(0, MAX_THUMBNAILS).map((slide, i) => {
+            const isMore = i === MAX_THUMBNAILS - 1 && slides.length > MAX_THUMBNAILS;
+            return (
+              <li key={i} className="shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isMore) return goTo(i);
+                    setIndex(i);
+                    setFullscreen(true);
+                  }}
+                  aria-label={isMore ? `Näita kõiki ${slides.length} pilti` : label(slide, i)}
+                  aria-current={!isMore && i === index}
+                  className={cx(
+                    "relative block aspect-[4/3] w-20 overflow-hidden rounded-md border-2 bg-white lg:w-24",
+                    i === index ? "border-primary" : "border-border hover:border-border-strong",
+                  )}
+                >
+                  <SlideView slide={slide} screenSizeIn={screenSizeIn} sizes="96px" padded={false} />
+                  {isMore && (
+                    <span className="absolute inset-0 flex items-center justify-center bg-text/60 text-sm font-semibold text-white">
+                      +{slides.length - MAX_THUMBNAILS + 1}
+                    </span>
+                  )}
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
 

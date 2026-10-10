@@ -177,7 +177,7 @@ Mudelipildid tulevad Open Icecatist, laaditakse alla, töödeldakse (300 / 700 /
 
 ### 🔴 R13. Piltide püsiv salvestusruum tootmises
 
-Vercelis ei saa pilte runtime'is failisüsteemi salvestada. Online-piltide jaoks on vaja S3-ühilduvat salvestusruumi. **Vajab sinu otsust** (soovitus: Cloudflare R2). Kuni otsuseni töötavad pildid ainult kohalikus arenduses; Verceli testkeskkond näitab placeholderit.
+Vercelis ei saa pilte runtime'is failisüsteemi salvestada. Online-piltide jaoks on vaja S3-ühilduvat salvestusruumi. **Vajab sinu otsust** (soovitus: Cloudflare R2 — 10 GB tasuta, väljaminev liiklus tasuta, S3 API → ei teki lukustust). Praegune maht: ~45 MB (38 mudelit, ~1,2 MB mudeli kohta); tuhande mudeli juures ~1,2 GB — mahub tasuta piiri. Kuni otsuseni töötavad pildid ainult kohalikus arenduses; Verceli testkeskkond näitab placeholderit.
 
 ### 🔴 R14. Tarnija feed peab andma GTIN-i või tootja koodi (MPN)
 
@@ -270,7 +270,7 @@ Põhimõtted:
 | --- | --- | --- |
 | **0 Analüüs** ✅ | Plaan, arhitektuur, andmemudel | Need dokumendid |
 | **1 UI prototüüp** ✅ (1. versioon) | Layout, avaleht, nimekiri, filtrid, otsing, tooteleht, ostukorv, võrdlus — mock-andmetel | Kõik põhilehed töötavad mobiilis ja desktopil |
-| **1b Tootepildid** ✅ | Icecati klient, vaste otsimine, pildi import (thumbnail/medium/large), galerii, Data Quality CLI; 10 mudeli test (9 leitud) | Pildid kohalikult nähtavad; tootmise salvestusruum ootab otsust (R13) |
+| **1b Tootepildid** ✅ | Icecati klient, vaste otsimine, pildi import (thumbnail/medium/large), galerii, duplikaadid, peitmine, Data Quality (CLI + arenduse vaade); kogu kataloog: 38 mudelit, 34 pildiga (89,5%) | Pildid kohalikult nähtavad; tootmise salvestusruum ootab otsust (R13) |
 | **2 Andmebaas** | Docker Compose + PostgreSQL, Prisma skeem, migratsioonid, seed, repository'd; mock-repositoorium asendatakse | Leht töötab andmebaasist |
 | **3 Admin** | Login, tooted, hinnareeglid, seaded, sync dashboard | Admin saab hindu ja seadeid muuta |
 | **4 Tarnija** | `SupplierAdapter`, sync worker, SyncRun log, hinnaajalugu; päris tarnija, kui API info olemas | Sync jookseb ajastatult, logid adminis |

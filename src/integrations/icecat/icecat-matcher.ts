@@ -1,4 +1,10 @@
-import { decideMatch, type IcecatMatchStatus, type IcecatMatchType, titleMatchesModel } from "@/domain/images/icecat-match";
+import {
+  decideMatch,
+  titleMatchesModel,
+  type IcecatMatchStatus,
+  type IcecatMatchType,
+  type IcecatStatusReason,
+} from "@/domain/images/icecat-match";
 import { describeIdentifier, type IcecatIdentifier, type IcecatLookupResult, type IcecatProduct } from "./icecat-types";
 
 /**
@@ -42,6 +48,7 @@ export interface MatchAttempt {
 export type MatchOutcome =
   | {
       status: Extract<IcecatMatchStatus, "MATCHED" | "NEEDS_REVIEW">;
+      reason: IcecatStatusReason | null;
       matchType: IcecatMatchType;
       confidence: number;
       product: IcecatProduct;
@@ -49,7 +56,12 @@ export type MatchOutcome =
       titleVerified: boolean;
       attempts: MatchAttempt[];
     }
-  | { status: Extract<IcecatMatchStatus, "NOT_FOUND" | "NO_IDENTIFIERS">; attempts: MatchAttempt[]; error: string | null };
+  | {
+      status: Extract<IcecatMatchStatus, "NOT_FOUND" | "ERROR">;
+      reason: IcecatStatusReason;
+      attempts: MatchAttempt[];
+      error: string | null;
+    };
 
 export interface IcecatLookup {
   getProduct(identifier: IcecatIdentifier): Promise<IcecatLookupResult>;
@@ -94,7 +106,7 @@ export async function matchModel(model: ModelForMatching, ids: ModelIdentifiers,
   const queue = buildIdentifierQueue(model, ids);
   const attempts: MatchAttempt[] = [];
   if (queue.length === 0) {
-    return { status: "NO_IDENTIFIERS", attempts, error: "Mudelil pole GTIN-i, MPN-i ega Icecat ID-d" };
+    return { status: "NOT_FOUND", reason: "NO_IDENTIFIERS", attempts, error: "Mudelil pole GTIN-i, MPN-i ega Icecat ID-d" };
   }
 
   const rejected = new Set(ids.rejectedIcecatIds ?? []);
@@ -119,6 +131,7 @@ export async function matchModel(model: ModelForMatching, ids: ModelIdentifiers,
     attempts.push({ identifier: description, result: titleVerified ? "FOUND" : "TITLE_MISMATCH", message: result.product.GeneralInfo.Title });
 
     const outcome = {
+      reason: decision.reason,
       matchType,
       confidence: decision.confidence,
       product: result.product,
@@ -132,6 +145,10 @@ export async function matchModel(model: ModelForMatching, ids: ModelIdentifiers,
   }
 
   if (fallback) return fallback;
+  // Kui mõni päring ebaõnnestus tehniliselt, ei saa kindlalt öelda "ei leitud" — see on viga (proovi hiljem)
   const lastError = attempts.findLast((a) => a.result === "ERROR");
-  return { status: "NOT_FOUND", attempts, error: lastError?.message ?? null };
+  if (lastError) {
+    return { status: "ERROR", reason: "ICECAT_UNAVAILABLE", attempts, error: lastError.message ?? null };
+  }
+  return { status: "NOT_FOUND", reason: "NOT_IN_ICECAT", attempts, error: null };
 }

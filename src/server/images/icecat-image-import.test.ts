@@ -21,6 +21,17 @@ beforeAll(async () => {
   photo = await sharp({ create: { width: 1200, height: 1200, channels: 3, background: "#ffffff" } }).jpeg().toBuffer();
 });
 
+/** Iga Icecati pildi ID annab erineva faili (et duplikaatide eemaldus neid kokku ei võtaks). */
+const photoCache = new Map<string, Promise<Buffer>>();
+function distinctPhoto(url: string): Promise<Buffer> {
+  const id = url.match(/\/(\w+)\.jpg$/)?.[1] ?? "x";
+  if (!photoCache.has(id)) {
+    const shade = [...id].reduce((sum, ch) => sum + ch.charCodeAt(0) * 7, 0) % 200;
+    photoCache.set(id, sharp({ create: { width: 1200, height: 1200, channels: 3, background: { r: shade, g: 100, b: 50 } } }).jpeg().toBuffer());
+  }
+  return photoCache.get(id)!;
+}
+
 function setup(initialProduct: IcecatProduct | null) {
   let product = initialProduct;
   let icecatDown = false;
@@ -48,6 +59,14 @@ function setup(initialProduct: IcecatProduct | null) {
     async replaceImages(id, records) {
       images.set(id, records);
     },
+    async setImageHidden(id, sourceId, hidden) {
+      const target = (images.get(id) ?? []).find((r) => r.sourceId === sourceId);
+      if (target) target.isHidden = hidden;
+      return Boolean(target);
+    },
+    async listAllImages() {
+      return Object.fromEntries(images);
+    },
     async getMatch(id) {
       return matches.get(id) ?? null;
     },
@@ -72,7 +91,7 @@ function setup(initialProduct: IcecatProduct | null) {
     download: async (url) => {
       downloads.push(url);
       if (url.includes("broken")) return { data: Buffer.from("<html>error</html>"), contentType: "text/html" };
-      return { data: photo, contentType: "image/jpeg" };
+      return { data: await distinctPhoto(url), contentType: "image/jpeg" };
     },
     now: () => new Date("2026-10-10T12:00:00Z"),
   };
@@ -141,14 +160,38 @@ describe("importModelImages", () => {
     expect(env.downloads).toHaveLength(0);
   });
 
-  it("Icecat maas → olemasolevad pildid jäävad alles", async () => {
+  it("Icecat maas → staatus ERROR, olemasolevad pildid jäävad alles", async () => {
     const env = setup(icecatProduct());
     await importModelImages(model, ids, env.deps);
     env.setIcecatDown(true);
 
     const report = await importModelImages(model, ids, env.deps, { rematch: true });
-    expect(report.errors[0]).toMatch(/Icecat ei vastanud/);
+    expect(report).toMatchObject({ status: "ERROR", reason: "ICECAT_UNAVAILABLE", imageCount: 3 });
     expect(env.images.get(model.id)).toHaveLength(3);
+    expect(env.matches.get(model.id)?.status).toBe("ERROR");
+  });
+
+  it("admini peidetud pilt jääb peidetuks ka pärast uuesti allalaadimist ja põhipilt liigub edasi", async () => {
+    const env = setup(icecatProduct());
+    await importModelImages(model, ids, env.deps);
+    await env.deps.repository.setImageHidden(model.id, "100", true);
+
+    const report = await importModelImages(model, ids, env.deps, { force: true });
+    const records = env.images.get(model.id)!;
+    expect(records.find((r) => r.sourceId === "100")?.isHidden).toBe(true);
+    expect(records.find((r) => r.isMain)?.sourceId).toBe("101");
+    expect(report).toMatchObject({ imageCount: 2, hidden: 1, galleryCount: 1 });
+  });
+
+  it("eemaldab täpsed duplikaadid (sama faili sisu erineva ID ja URL-iga)", async () => {
+    const env = setup(icecatProduct());
+    const other = await sharp({ create: { width: 1200, height: 1200, channels: 3, background: "#000000" } }).jpeg().toBuffer();
+    // 100 ja 101 tagastavad sama faili; 102 on erinev
+    env.deps.download = async (url) => ({ data: url.includes("102") ? other : photo, contentType: "image/jpeg" });
+    const report = await importModelImages(model, ids, env.deps);
+    expect(report.duplicates).toBe(1);
+    expect(env.images.get(model.id)!.map((r) => r.sourceId)).toEqual(["100", "102"]);
+    expect([...env.files.keys()].some((key) => key.includes("-02-"))).toBe(false);
   });
 
   it("katkine pildifail lükatakse tagasi, ülejäänud pildid salvestatakse", async () => {
@@ -163,10 +206,17 @@ describe("importModelImages", () => {
     expect(env.images.get(model.id)).toHaveLength(2);
   });
 
-  it("kõigi piltide ebaõnnestumisel → DOWNLOAD_FAILED", async () => {
+  it("kõigi piltide ebaõnnestumisel → ERROR (DOWNLOAD_FAILED)", async () => {
     const env = setup(icecatProduct());
     env.deps.download = async () => ({ data: Buffer.from("nope"), contentType: "image/jpeg" });
     const report = await importModelImages(model, ids, env.deps);
-    expect(report.status).toBe("DOWNLOAD_FAILED");
+    expect(report).toMatchObject({ status: "ERROR", reason: "DOWNLOAD_FAILED" });
+  });
+
+  it("Icecati andmetest võetakse ainult pildid — tehnilisi andmeid kirjetes pole", async () => {
+    const env = setup(icecatProduct({ title: "DELL Latitude 5420 Intel® Core™ i7 32 GB German keyboard Touchscreen" }));
+    await importModelImages(model, ids, env.deps);
+    const record = env.images.get(model.id)![0] as unknown as Record<string, unknown>;
+    for (const field of ["ram", "ramGb", "cpu", "keyboard", "keyboardLayout", "touch", "storageGb"]) expect(record).not.toHaveProperty(field);
   });
 });
