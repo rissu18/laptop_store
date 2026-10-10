@@ -50,6 +50,8 @@ service-account*.json
 
 # andmebaasi dump'id ja varukoopiad (võivad sisaldada kliendiandmeid)
 *.sql
+# erand: andmebaasi migratsioonid (skeem, mitte andmed) kuuluvad Git'i
+!/drizzle/*.sql
 *.dump
 *.sql.gz
 /backups/
