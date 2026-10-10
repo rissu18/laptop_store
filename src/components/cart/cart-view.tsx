@@ -75,7 +75,7 @@ export function CartView() {
   }
 
   return (
-    <div className={cx("grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]", isPending && "opacity-70")}>
+    <div className={cx("grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_360px]", isPending && "opacity-70")}>
       <div>
         {cart.unavailableIds.length > 0 && (
           <p role="status" className="mb-4 rounded-md bg-warning-soft p-3 text-sm text-warning">

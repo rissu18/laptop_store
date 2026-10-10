@@ -5,6 +5,28 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 ---
 
+## 2026-10-11 — Sooduskoodid
+
+**Mis lisati**
+
+- **Andmebaas** (migratsioon `0001_discount_codes.sql`, 6 uut tabelit): `discount_codes` (`normalized_code` UNIQUE, tuletatud veerg `active`, CHECK piirangud), tootjate/mudelite/konfiguratsioonide seosed (INCLUDE/EXCLUDE), `discount_redemptions` (snapshot, valmis tellimustele), `discount_validation_attempts` (piirang).
+- **DiscountEngine** (`src/domain/discounts/discount-engine.ts`): üks puhas funktsioon ostukorvile, eelvaatele, testidele ja tulevasele kassale. Toetab protsenti (+ maksimum), fikseeritud summat ja tasuta tarnet. Kontrollib olekut, kehtivusaega serveri kella järgi, kasutuspiirangut, sobivaid ridu, välistusi ja miinimumsummat. Jaotab soodustuse ridadele ning hoiab kokkusumma alati ≥ 0.
+- **Marginaalikaitse:** `minimumAllowedPrice()` hinnastamismootoris kasutab olemasolevat miinimumkasumi reeglit, nii et soodustus ei vii hinda alla lubatud piiri.
+- **Ostukorv:** sooduskoodi väli, kehtiv kood koos summaga ja nupp „Eemalda“, korraga üks kood, kood püsib pärast värskendust. Kui kood enam ei kehti, eemaldatakse see ja kuvatakse põhjus. Summa arvutab server.
+- **Admin:** `/admin/discounts` (otsing, filtrid, järjestus, tegelik staatus), loomine ja muutmine (koodi genereerimine, kehtivusala ja välistused otsinguga, Eesti aeg), aktiveeri / lülita välja / arhiveeri, duplikaat (mustand), eelvaade, töölaua kokkuvõte, audit.
+- **Kasutuste arhitektuur:** `reserveRedemption` / `confirmRedemption` / `cancelRedemption` tehingus koos rea lukuga.
+- **Testid:** 184 → 230.
+- Dokumentatsioon: uus docs/DISCOUNTS.md; uuendatud ADMIN, DATABASE, ARCHITECTURE, PROJECT_PLAN ja README.
+
+**Probleemid ja lahendused**
+
+- **Ajavöönd:** Vercel töötab UTC-s, brauser kohalikus ajas ja admin mõtleb Eesti ajas. Lahendus: andmebaasis `timestamptz` (UTC) ja oma teisendus Europe/Tallinn ↔ UTC (`src/domain/time/tallinn.ts`), mis arvestab suveaja vahetust ja on testitud.
+- **Avaliku koodi olemasolu ei tohi lekkida:** mustand, arhiveeritud ja olematu kood annavad sama vastuse („Sooduskoodi ei leitud.“).
+- **Vorm saadeti enne lehe laadimist GET-päringuna:** kui vormi saata enne, kui React on lehe üle võtnud, saadab brauser vormi tavalise GET-päringuna ja andmed jõuavad URL-i. Lahendus: salvestusnupp on lukus, kuni leht on laaditud (`useSyncExternalStore`).
+- **Marginaalikaitse päris andmetega:** testkoodi `DELL10` (10%) soodustus Dell Latitude 5430-le piirati 48,90 €-lt 41,53 €-ni, sest madalaim lubatud hind (447,47 €) oleks muidu ületatud. See on ootuspärane ja eelvaade näitab seda.
+- **Mobiili ülevool ostukorvis:** ruudustikul puudus `grid-cols-1` (`minmax(0,1fr)`), mistõttu leht oli 375 px ekraanil 397 px lai. Parandatud.
+- **Arendusserveri vahemälu:** uus olekumärk („Aegunud“) kuvati vana moodulina „EXPIRED“. Dev-serveri taaskäivitus lahendas (tootmisbuild ei olnud mõjutatud).
+
 ## 2026-10-11 — PostgreSQL ja admin-liides
 
 **Mis lisati**

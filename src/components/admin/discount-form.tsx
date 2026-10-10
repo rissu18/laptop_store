@@ -2,7 +2,7 @@
 
 import { Wand2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition, type ReactNode } from "react";
+import { useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { cx } from "@/components/ui/class-names";
 import { BRAND_CODES, BRAND_NAMES } from "@/domain/catalog/types";
@@ -112,6 +112,12 @@ export function DiscountForm({
   const [type, setType] = useState(defaults.type);
   const [scope, setScope] = useState(defaults.scope);
   const [code, setCode] = useState(defaults.code);
+  // Enne hüdreerimist on nupp lukus — muidu saadaks brauser vormi tavalise GET päringuna (andmed URL-i)
+  const hydrated = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
 
   return (
     <form
@@ -283,7 +289,7 @@ export function DiscountForm({
 
       <div className="sticky bottom-0 -mx-4 flex items-center justify-end gap-3 border-t border-border bg-surface/95 px-4 py-3 backdrop-blur lg:-mx-8 lg:px-8">
         {Object.keys(errors).length > 0 && <p className="mr-auto text-sm text-danger">Kontrolli märgitud välju</p>}
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending || !hydrated}>
           {pending ? "Salvestan…" : mode === "create" ? "Loo sooduskood" : "Salvesta"}
         </Button>
       </div>

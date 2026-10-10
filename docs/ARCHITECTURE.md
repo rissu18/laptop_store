@@ -48,6 +48,8 @@ src/
     use-cases/            "Leia sobiv" filtrieelistused
     admin/                admini vormide valideerimine, andmekvaliteedi reeglid, hindade eelvaade
     settings/             poe seadete zod-skeemid ja vaikeväärtused
+    discounts/            DiscountEngine, koodi normaliseerimine, admini vormi valideerimine
+    time/                 Eesti aeg ↔ UTC
   server/                 serveripoolsed teenused ja andmepääs ("server-only")
     catalog/              kataloogi teenus (PostgreSQL või mock) + andmebaasi read → poe kirjed
     cart/                 ostukorvi arvutus serveris
@@ -56,6 +58,7 @@ src/
     admin/                admini päringud (DAL) ja server action'id, audit
     settings/             poe seaded andmebaasist (vahemäluga)
     logging/              struktureeritud logi + system_logs
+    discounts/            sooduskoodi laadimine, ostukorvi kontroll, piirang, kasutused (redemptions)
   integrations/           välised süsteemid adapterite taga
     supplier/             SupplierAdapter, normaliseerimine, MockSupplierAdapter
     payment/              PaymentProvider (Phase 6)
@@ -197,6 +200,18 @@ Muudatus algse spetsifikatsiooniga võrreldes: `getStock` ja `getPrice` on ühen
 
 Kui tarnija API on maas: sync märgitakse `FAILED`, pood töötab edasi viimaste andmetega. Kui viimane edukas sync on liiga vana, kuvab admin hoiatuse ja "Laoseis uuendatud X min tagasi" näitab ausat aega.
 
+## Sooduskoodid (DiscountEngine)
+
+```
+brauser:  koodi TEKST + ostukorvi ID-d/kogused ──►  resolveCart(refs, code)  (server action)
+server:   hinnad andmebaasist (catalog-service) → kood andmebaasist (normalized_code)
+          → ostuhinnad + hinnastamise miinimumkasum (marginaali alampiir)
+          → evaluateDiscount(rule, lines, serveri aeg)   ← src/domain/discounts/discount-engine.ts
+          → avalik tulemus (summa, põhjus, teade) + kokkusummad
+```
+
+Sama `evaluateDiscount` funktsiooni kasutavad ostukorv, admini eelvaade, testid ja tulevikus kassa/tellimus. Klient ei saada kunagi summat. Koodi kontrollimine ei suurenda kasutust: kasutus (`discount_redemptions`) tekib tellimusega ja kinnitatakse maksega. Vt [DISCOUNTS.md](DISCOUNTS.md).
+
 ## Hinnastamismootor
 
 Asub `src/domain/pricing/`. Puhas funktsioon, täielikult unit-testitud.
@@ -240,6 +255,7 @@ Idempotentsus:
 | XSS | React escape'ib; `dangerouslySetInnerHTML` ainult JSON-LD jaoks (serialiseeritud, `<` escape'itud) |
 | CSRF | Server Actions kontrollivad Origin päist + oma `assertSameOrigin()` admini toimingutes; admini küpsis SameSite=Strict |
 | Hinna võltsimine | Hind arvutatakse alati serveris |
+| Sooduskoodi võltsimine | Brauser saadab ainult koodi teksti; summa arvutab server. Äraarvamise piirang 10 ebaõnnestunud katset / 10 min / IP |
 | Makse võltsimine | Webhook allkiri + staatus pakkuja API-st |
 | Tarnija võltsimine | Tarnija webhook'il jagatud saladus/allkiri; andmed valideeritakse zod-iga |
 | Admin | Serveripoolne sessioonikontroll (proxy + layout + iga action), scrypt, andmebaasi sessioonid, rate limit (e-post/IP), audit — vt ADMIN.md |

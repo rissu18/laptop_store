@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, count, desc, eq, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm";
 import { EFFECTIVE_DISCOUNT_STATUSES, type EffectiveDiscountStatus } from "@/domain/discounts/discount-engine";
 import { requireAdmin } from "@/server/auth/auth";
 import { effectiveListing, effectiveModel } from "@/server/catalog/db-catalog-mapper";
@@ -102,7 +102,3 @@ export async function getDiscountStatusCounts(): Promise<Record<EffectiveDiscoun
   return result;
 }
 
-export async function getModelLabels(ids: string[]) {
-  if (!ids.length) return [];
-  return getDb().select({ id: productModels.id, family: productModels.family, model: productModels.model }).from(productModels).where(inArray(productModels.id, ids));
-}

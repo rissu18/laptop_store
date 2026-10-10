@@ -15,6 +15,7 @@ Custom veebirakendus — ei kasuta WordPressi, WooCommerce'i, Shopifyd ega muud 
 | 1b — Tootepildid Open Icecatist | ✅ valmis (pildid Git'is; püsiv salvestus ootab valikut) |
 | 2 — Andmebaas (PostgreSQL + Drizzle) | ✅ valmis |
 | 3 — Admin-liides | ✅ valmis — vt [docs/ADMIN.md](docs/ADMIN.md) |
+| 3b — Sooduskoodid | ✅ valmis — vt [docs/DISCOUNTS.md](docs/DISCOUNTS.md) |
 | 4–9 — Tarnija sync (Foxway), checkout, maksed, automaatika, lihvimine, tootmine | planeeritud |
 
 Vt [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md).
@@ -137,17 +138,22 @@ Testitud on äriloogika, mis peab olema kindlasti õige:
 - **Icecat** — vaste prioriteedid ja kindlus, pealkirja kontroll (T14 ≠ T14s), pildivalik ja duplikaadid, klient (tokenid päistes, 404 ei korrata), pildi kontroll (HTML ei lähe pildina läbi), kogu import pipeline (muutumata pilte ei laeta uuesti, Icecat maas → pildid jäävad alles);
 - **andmebaas** — migratsioon, import = allika arvud, idempotentsus, admini muudatused säilivad korduval impordil;
 - **autentimine** — scrypt, nõrgad paroolid, sessioonid, sisselogimise piirang, proxy, CSRF päritolu, open redirect;
-- **admin** — parandused vs tarnija väärtus, pildid, andmekvaliteet, hinnastamine (eelvaade/rakendamine), seaded, audit, toimingud ilma sessioonita, SQL-süst.
+- **admin** — parandused vs tarnija väärtus, pildid, andmekvaliteet, hinnastamine (eelvaade/rakendamine), seaded, audit, toimingud ilma sessioonita, SQL-süst;
+- **sooduskoodid** — tõstutundetus, %, €, maksimum, miinimumsumma, kuupäevad, tootja/mudeli/konfiguratsiooni piirang, välistused, negatiivne summa, marginaalikaitse, kliendi võltsimine, üks kood korraga, kontroll ei suurenda kasutust, piirang, kasutuste reserveerimine/kinnitamine, admini õigused ja audit.
 
 Andmebaasi testid jooksevad päris PostgreSQL-is **ajutises skeemis**, mis testi lõpus kustutatakse. Ilma `DATABASE_URL`-ita jäetakse need vahele. E2E testid (Playwright) lisanduvad koos checkout'iga.
 
 ## Andmebaas
 
-PostgreSQL (Neon) + Drizzle ORM: 12 tabelit, migratsioon `drizzle/0000_init.sql`. Skeem, ORM valiku põhjendus ja impordi tulemused: [docs/DATABASE.md](docs/DATABASE.md).
+PostgreSQL (Neon) + Drizzle ORM: 18 tabelit, migratsioonid `drizzle/0000_init.sql` ja `drizzle/0001_discount_codes.sql`. Skeem, ORM valiku põhjendus ja impordi tulemused: [docs/DATABASE.md](docs/DATABASE.md).
 
 ## Admin
 
 `/admin`: töölaud, mudelid, konfiguratsioonid, pildid ja Icecat, andmekvaliteet, hinnastamine, seaded, tegevuslogi, logid, tervis. Turvalisus, tarnija vs admini andmed, hinnastamine ja audit: [docs/ADMIN.md](docs/ADMIN.md).
+
+## Sooduskoodid
+
+`/admin/discounts`: protsent (+ maksimum), fikseeritud summa, tasuta tarne; kehtivusaeg (Eesti aeg, server otsustab), miinimumsumma, kasutuspiirang, tootja/mudeli/konfiguratsiooni piirang ja välistused, marginaalikaitse. Ostukorvis saab korraga kasutada ühte koodi; brauser saadab ainult koodi teksti ja soodustuse arvutab server. Andmemudel, arvutuse järjekord, turvalisus ja tulevane tellimuste integratsioon: [docs/DISCOUNTS.md](docs/DISCOUNTS.md).
 
 ## Deploy
 

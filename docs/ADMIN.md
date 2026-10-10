@@ -14,6 +14,7 @@ Poe haldusliides aadressil `/admin`. Selles dokumendis on kirjas, kuidas admin o
 | Pildid | `/admin/images` (+ `/[modelId]`) | Pildikate, põhipilt, järjekord, peitmine; Icecati toimingud |
 | Andmekvaliteet | `/admin/data-quality` | Probleemide kategooriad → filtreeritud nimekiri → "Paranda" |
 | Hinnastamine | `/admin/pricing` | Hinnareeglid, eelvaade, eraldi rakendamine kinnitusega |
+| Sooduskoodid | `/admin/discounts` (+ `/new`, `/[id]`) | Koodid, tingimused, kehtivus, piirangud, eelvaade, duplikaat, arhiveerimine — vt §14 ja [DISCOUNTS.md](DISCOUNTS.md) |
 | Seaded | `/admin/settings` | Üldine, pood, tarne, garantii, tagastus, usaldusriba |
 | Tegevuslogi | `/admin/system/activity` | Kes muutis mida ja millal (vana → uus väärtus) |
 | Logid | `/admin/system/logs` | Süsteemilogi (tase, allikas, aeg, otsing) |
@@ -231,3 +232,14 @@ Andmebaasi testid jooksevad **päris PostgreSQL-is ajutises skeemis** (`test_xxx
 4. **Audit samas tehingus:** logi on usaldusväärne, sest muudatus ja selle kirje kas õnnestuvad mõlemad või ebaõnnestuvad mõlemad.
 5. **Eelvaade enne hindade muutmist:** hinnamuudatus mõjutab kõiki tooteid korraga, seega peab admin enne nägema, mis muutub.
 6. **Järkjärguline üleminek:** pood loeb andmebaasist ainult siis, kui `DATABASE_URL` on seadistatud. Ilma selleta kasutatakse mock-andmeid (lokaalne arendus, CI). Andmebaasi viga ei vaheta vaikselt mock-andmetele: see logitakse ja kasutaja näeb veateadet vea ID-ga.
+
+## 14. Sooduskoodid
+
+Täielik kirjeldus: [DISCOUNTS.md](DISCOUNTS.md). Adminis:
+
+- **Nimekiri** (`/admin/discounts`): kood, nimi, tüüp, soodustus, kehtivus (Eesti aeg), kasutus `kinnitatud / piirang` ja **tegelik staatus** (Ajastatud / Aktiivne / Aegunud arvutatakse kuupäevadest). Otsing koodi ja nime järgi, filtrid staatuse ja tüübi järgi, järjestus. Mobiilis kaardid.
+- **Vorm** (`/new`, `/[id]`) jaguneb osadeks: Põhiinfo (kood + „Genereeri“, nimi, märkmed), Soodustus (tüüp, väärtus, maksimum), Tingimused (miinimumsumma, kehtivusala, välistused otsinguga), Kehtivus (Eesti aeg), Kasutus ja kaitse (piirang, marginaalikaitse), loomisel ka Olek (mustand/aktiivne). Valideerimine käib brauseris ja serveris sama skeemiga. Salvestusnupp on lukus, kuni leht on laaditud.
+- **Kiirtoimingud:** muuda, duplikeeri (alati mustand uue koodiga), aktiveeri / lülita välja, arhiveeri (kinnitusega). Kustutamist pole.
+- **Eelvaade** („Testi koodi“): test-summa või valitud konfiguratsioonid → soodustus, lõppsumma, millistele ridadele kood rakendub ja kas marginaalikaitse vähendas soodustust. Mustandit saab testida; eraldi näidatakse, kas kood kehtiks praegu poes.
+- **Audit:** loomine, muutmine (vana → uus, sh valikud), aktiveerimine, väljalülitamine, arhiveerimine, duplikaat.
+- **Töölaud:** aktiivsed / ajastatud / aegunud koodid.

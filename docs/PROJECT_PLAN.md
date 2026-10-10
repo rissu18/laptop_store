@@ -273,9 +273,10 @@ Põhimõtted:
 | **1b Tootepildid** ✅ | Icecati klient, vaste otsimine, pildi import (thumbnail/medium/large), galerii, duplikaadid, peitmine, Data Quality (CLI + arenduse vaade); kogu kataloog: 38 mudelit, 34 pildiga (89,5%) | Pildid kohalikult nähtavad; tootmise salvestusruum ootab otsust (R13) |
 | **2 Andmebaas** ✅ | Neon PostgreSQL, Drizzle skeem (12 tabelit), migratsioon, idempotentne import (38 / 46 / 320 klapib), pood loeb andmebaasist vahemäluga | Leht töötab andmebaasist |
 | **3 Admin** ✅ | Login (scrypt, sessioonid, piirang, CSRF), mudelid, konfiguratsioonid (parandused vs tarnija väärtus), pildid, Icecat, andmekvaliteet, hinnastamine (eelvaade + rakendamine), seaded, audit, logid, tervis | Admin saab hindu ja seadeid muuta; muudatus jõuab poodi kohe |
+| **3b Sooduskoodid** ✅ | DiscountEngine (%, €, tasuta tarne), kehtivusaeg, kasutuspiirang, tootja/mudeli/konfiguratsiooni piirang ja välistused, marginaalikaitse, ostukorvi kood, admin (nimekiri, vorm, eelvaade, duplikaat, arhiveerimine), kasutuste arhitektuur tellimuste jaoks | Kood töötab ostukorvis; summa arvutab server |
 | **4 Tarnija** | `SupplierAdapter`, sync worker, SyncRun log, hinnaajalugu; päris tarnija, kui API info olemas | Sync jookseb ajastatult, logid adminis |
-| **5 Checkout** | Serveripõhine ostukorv, guest checkout, tarneviisid, tellimuse loomine, snapshot | Tellimus tekib andmebaasi |
-| **6 Maksed** | `PaymentProvider` + valitud pakkuja, webhook verifitseerimine | Makse kinnitatakse serveris |
+| **5 Checkout** | Serveripõhine ostukorv, guest checkout, tarneviisid (sh tasuta tarne koodiga), tellimuse loomine, snapshot (ka sooduskoodi), `reserveRedemption` | Tellimus tekib andmebaasi |
+| **6 Maksed** | `PaymentProvider` + valitud pakkuja, webhook verifitseerimine, `confirmRedemption` / `cancelRedemption` | Makse kinnitatakse serveris |
 | **7 Automaatika** | Tarnija tellimus, idempotency, tracking, e-kirjad, vigade taastamine | Tellimus liigub ise tarnijani ja tagasi |
 | **8 Lihvimine** | Laptop finder, "sobib hästi" reeglid, SEO, jõudlus, a11y audit, E2E testid | Lighthouse ja a11y kontroll läbitud |
 | **9 Tootmine** | VPS, Nginx, HTTPS, varukoopiad, monitooring | Pood avalikult üleval |

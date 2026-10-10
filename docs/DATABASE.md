@@ -59,6 +59,18 @@ erDiagram
 
 Lisaks on seosteta tabelid `login_attempts`, `pricing_rules`, `store_settings` ja `system_logs`.
 
+Sooduskoodid (migratsioon `0001_discount_codes.sql`, kirjeldus failis [DISCOUNTS.md](DISCOUNTS.md)):
+
+```mermaid
+erDiagram
+  discount_codes ||--o{ discount_manufacturers : ""
+  discount_codes ||--o{ discount_product_models : "INCLUDE / EXCLUDE"
+  discount_codes ||--o{ discount_supplier_listings : "INCLUDE / EXCLUDE"
+  discount_codes ||--o{ discount_redemptions : "RESTRICT"
+  product_models ||--o{ discount_product_models : "CASCADE"
+  supplier_listings ||--o{ discount_supplier_listings : "CASCADE"
+```
+
 | Tabel | Sisu | Olulised väljad |
 | --- | --- | --- |
 | `admin_users` | Admini kasutajad | `email` (unikaalne), `password_hash` (scrypt), `role`, `is_active`, `last_login_at` |
@@ -72,13 +84,19 @@ Lisaks on seosteta tabelid `login_attempts`, `pricing_rules`, `store_settings` j
 | `pricing_rules` | Juurdehindluse vahemikud | `from_cost_cents`, `to_cost_cents` (NULL = piiranguta), `markup_fixed_cents`, `markup_percent_bps`, `position` |
 | `store_settings` | Poe seaded (võti → JSONB) | `key` (general, store, delivery, warranty, returns, trustBar, pricing), `value` (zod-valideeritud), `updated_by` |
 | `audit_logs` | Tegevuslogi | `admin_email`, `action`, `entity_type`, `entity_id`, `entity_label`, `changes` (`{väli:{from,to}}`) |
+| `discount_codes` | Sooduskoodid | `code` (kuvamiseks), `normalized_code` (UNIQUE), `type`, `value` (bps/sendid), `status`, `active` (tuletatud veerg), `starts_at`, `expires_at`, `minimum_subtotal_cents`, `maximum_discount_cents`, `usage_limit`, `usage_count`, `scope`, `respect_minimum_margin`, `created_by`, `updated_by` |
+| `discount_manufacturers`, `discount_product_models`, `discount_supplier_listings` | Millele kood kehtib / mis on välistatud | `mode` INCLUDE / EXCLUDE, välisvõtmed tootele |
+| `discount_redemptions` | Koodi kasutused tellimustes (valmis tellimuste süsteemiks) | `order_id`, `status` PENDING / CONFIRMED / CANCELLED, snapshot-väljad; UNIQUE (kood, tellimus) |
+| `discount_validation_attempts` | Ebaõnnestunud koodikatsed (piirang) | `ip`, `success`, `created_at` |
 | `system_logs` | Süsteemilogi | `level` (DEBUG / INFO / WARN / ERROR), `source` (APPLICATION / DATABASE / ADMIN / AUTH / ICECAT), `message`, `details`, `error_id` |
 
 `store_settings` on koos `manual_overrides`-iga ainus koht, kus JSON on põhjendatud. Seadeid on vähe, neid ei filtreerita ja iga võtme struktuur valideeritakse zod-skeemiga. Filtreeritavad väärtused (RAM, SSD, seisukord, hind …) on päris veerud.
 
 ## Migratsioonid
 
-- `drizzle/0000_init.sql`: algne skeem (12 tabelit, indeksid, CHECK piirangud, välisvõtmed). Migratsioonide ajalugu on tabelis `public.__drizzle_migrations`.
+- `drizzle/0000_init.sql`: algne skeem (12 tabelit, indeksid, CHECK piirangud, välisvõtmed).
+- `drizzle/0001_discount_codes.sql`: sooduskoodid (6 tabelit). Lisab ainult uusi tabeleid, olemasolevaid ei muuda. Kokku on 18 tabelit.
+- Migratsioonide ajalugu on tabelis `public.__drizzle_migrations`.
 - Uus muudatus: muuda `schema.ts` → `npm run db:generate` → vaata genereeritud SQL üle → `npm run db:migrate`.
 - Migratsiooni SQL commit'itakse Git'i (`.gitignore`-is on erand `!/drizzle/*.sql`).
 
@@ -119,7 +137,7 @@ Pildikirjed ja Icecati vasted on andmebaasis (`product_images`, `icecat_metadata
 Andmemudel on valmis neid vastu võtma (UUID võtmed, `supplier` veerg, snapshot-põhimõte):
 
 - `suppliers`, `sync_runs`, `sync_errors`: tarnija ühendus ja sync (Foxway)
-- `customers`, `orders`, `order_items` (hinna- ja spetsifikatsiooni **snapshot**, ei sõltu hiljem kataloogist), `payments`
+- `customers`, `orders`, `order_items` (hinna- ja spetsifikatsiooni **snapshot**, ei sõltu hiljem kataloogist), `payments`. Tellimus salvestab ka sooduskoodi snapshot'i ja `discount_redemptions.order_id` saab välisvõtme
 - `supplier_orders` (idempotentsusvõti duplikaatide vastu), `shipments`, `tracking_events`
 - `price_history`, `stock_history` (ainult lisatavad)
 
