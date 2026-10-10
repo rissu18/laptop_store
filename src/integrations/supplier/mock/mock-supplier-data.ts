@@ -11,6 +11,9 @@
 
 export interface MockSupplierRecord {
   sku: string;
+  /** Testandmetes puuduvad; päris tarnija feed annab need (Icecati vaste jaoks) */
+  ean?: string | null;
+  mpn?: string | null;
   manufacturer: string;
   model_name: string;
   cpu: string;

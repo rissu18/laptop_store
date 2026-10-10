@@ -1,0 +1,15 @@
+{
+  "_comment": "Mudelite Icecati identifikaatorid, mida tarnija feed (veel) ei anna. Kogutud käsitsi Icecati avalikelt tootelehtedelt (URL-i kujul /p/<brand>/<mpn>/...-<icecatId>.html) 10.10.2026. Iga kood on ÜKS konkreetne konfiguratsioon, kuid pildid on kogu mudelile ühised. confirmedIcecatId = admini kinnitus, rejectedIcecatIds = admini tagasilükkamine. Tarnija feed'i GTIN/MPN kasutatakse alati enne neid.",
+  "models": {
+    "dell-latitude-5420": { "gtins": [], "mpns": ["5420-0457"], "icecatIds": ["95037175"] },
+    "dell-latitude-5430": { "gtins": ["0884116437888"], "mpns": ["KDJ4P"], "icecatIds": ["103427438"] },
+    "dell-latitude-7420": { "gtins": [], "mpns": ["23DH1"], "icecatIds": ["96024841"] },
+    "hp-elitebook-840-g8": { "gtins": ["0196068302726"], "mpns": ["3C7Z0EA", "5Z612EA", "3C6B6ES", "7J1K0PA"], "icecatIds": ["92708302", "111731698", "99884348"] },
+    "hp-elitebook-845-g8": { "gtins": ["0196786546242"], "mpns": ["6F741EA", "5C3N4PA", "5P6P0EA", "5Z621EA"], "icecatIds": ["99954859", "95800801"] },
+    "hp-elitebook-850-g8": { "gtins": [], "mpns": [], "icecatIds": ["93345844"] },
+    "hp-probook-450-g8": { "gtins": [], "mpns": ["3C2W7ES"], "icecatIds": ["89552415"] },
+    "lenovo-thinkpad-t14-gen-2": { "gtins": [], "mpns": [], "icecatIds": ["96871343"] },
+    "lenovo-thinkpad-t14-gen-3": { "gtins": ["0196801582675"], "mpns": ["21AH00HNGE"], "icecatIds": [] },
+    "lenovo-thinkpad-x1-carbon-gen-9": { "gtins": [], "mpns": ["20XW004JUS", "20XW004GUS", "20XW0027UK"], "icecatIds": [] }
+  }
+}

@@ -1,4 +1,5 @@
 import { BRAND_NAMES, type CatalogItem, type CatalogProduct, type CatalogVariant } from "@/domain/catalog/types";
+import type { ProductImageView } from "@/domain/images/product-image";
 import { buildSearchText } from "@/domain/catalog/search";
 import type { SearchableItem } from "@/domain/catalog/filtering";
 import { PricingError, calculatePrice, type PricingConfig } from "@/domain/pricing/pricing-engine";
@@ -17,6 +18,8 @@ export interface CatalogBuildOptions {
   delivery: { minDays: number; maxDays: number };
   /** Viimase eduka sync'i aeg; `null`, kui päris sync pole jooksnud. */
   lastSyncedAt: string | null;
+  /** Mudelipildid (ProductModel ID → pildid), nt Icecati import */
+  modelImages?: Record<string, ProductImageView[]>;
 }
 
 export interface CatalogBuildIssue {
@@ -30,7 +33,7 @@ export interface BuiltCatalog {
   issues: CatalogBuildIssue[];
 }
 
-function productFromOffer(offer: NormalizedOffer): CatalogProduct {
+export function productFromOffer(offer: NormalizedOffer): CatalogProduct {
   const title = `${BRAND_NAMES[offer.brand]} ${offer.series.replace(/ P$/, "")} ${offer.model}`;
   const slug = slugify(title);
   return {
@@ -45,6 +48,7 @@ function productFromOffer(offer: NormalizedOffer): CatalogProduct {
     ports: { usbA: offer.usbAPorts, usbC: offer.usbCPorts },
     wifi: offer.wifi,
     bluetooth: offer.bluetooth,
+    images: [],
   };
 }
 
@@ -81,8 +85,8 @@ function variantFromOffer(offer: NormalizedOffer, saleCents: number, options: Ca
     firstSeenAt: offer.listedAt ?? "1970-01-01T00:00:00Z",
     lastSyncedAt: options.lastSyncedAt,
     isFeatured: options.featuredExternalIds.includes(offer.externalId),
+    // Tarnija fotod konkreetsest ühikust (ACTUAL_UNIT) lisanduvad, kui tarnija neid annab
     images: [],
-    imagesAreIllustrative: offer.imagesAreIllustrative,
   };
 }
 
@@ -105,8 +109,8 @@ export function buildCatalog(source: SupplierCatalogResult, options: CatalogBuil
     }
 
     const draft = productFromOffer(offer);
-    // Sama mudeli esimene pakkumine määrab mudeli andmed
-    const product = products.get(draft.slug) ?? draft;
+    // Sama mudeli esimene pakkumine määrab mudeli andmed; pildid on mudeli tasemel
+    const product = products.get(draft.slug) ?? { ...draft, images: options.modelImages?.[draft.slug] ?? [] };
     products.set(product.slug, product);
 
     const item: CatalogItem = { product, variant: variantFromOffer(offer, saleCents, options) };

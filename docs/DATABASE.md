@@ -120,17 +120,51 @@ model ProductVariant {                // müüdav konfiguratsioon
   @@index([firstSeenAt])
 }
 
-model ProductImage {
-  id           String  @id @default(cuid())
-  productId    String
-  variantId    String?               // täidetud, kui foto on konkreetsest ühikust
-  url          String                // meie serveris (mitte tarnija hotlink)
-  sourceUrl    String?
-  alt          String
-  width        Int
-  height       Int
-  position     Int
-  isIllustrative Boolean @default(true)
+model ProductImage {                  // pildid kuuluvad MUDELILE; kõik konfiguratsioonid jagavad neid
+  id                String      @id @default(cuid())
+  productModelId    String                 // = Product.id
+  variantId         String?                // ainult ACTUAL_UNIT fotodel (konkreetne seade)
+  source            ImageSource            // ICECAT | MANUAL | SUPPLIER | PLACEHOLDER
+  sourceId          String                 // nt Icecati galerii pildi ID — uuendamiseks ja duplikaatide vältimiseks
+  type              ImageType              // MODEL_GENERIC (illustratiivne) | ACTUAL_UNIT | PLACEHOLDER
+  position          Int
+  isMain            Boolean @default(false)
+  thumbnailUrl      String                 // 300×300 WebP, meie salvestusruumis
+  mediumUrl         String                 // ≤700 px WebP
+  largeUrl          String                 // ≤2000 px WebP
+  width             Int                    // large variandi mõõdud
+  height            Int
+  alt               String
+  originalSourceUrl String                 // Icecati originaal (ainult viide, frontend seda ei kasuta)
+  sourceUpdatedAt   String?                // Icecati "Updated" — kui sama, ei laeta uuesti alla
+  downloadedAt      DateTime
+  storageKeys       String[]               // salvestusruumi võtmed kustutamiseks
+  @@unique([productModelId, source, sourceId])
+  @@index([productModelId, position])
+}
+
+model IcecatMatch {                   // Data Quality: iga mudeli Icecati vaste
+  productModelId String  @id
+  status         IcecatMatchStatus       // MATCHED | NEEDS_REVIEW | NOT_FOUND | NO_IDENTIFIERS | DOWNLOAD_FAILED | REJECTED
+  matchType      IcecatMatchType?        // GTIN | MPN | ICECAT_ID | MODEL_NAME | MANUAL
+  confidence     Decimal? @db.Decimal(3,2) // 1.0 / 0.95 / 0.9 / 0.7; live'i ainult ≥ 0.9 + kontrollitud pealkiri
+  icecatId       String?
+  icecatTitle    String?
+  matchedBy      String?                 // nt "GTIN 0196801582675"
+  titleVerified  Boolean?
+  imageCount     Int     @default(0)
+  checkedAt      DateTime
+  error          String?
+  @@index([status])
+}
+
+model ModelIdentifier {               // GTIN/MPN/Icecat ID mudeli kohta (tarnija feed + käsitsi + admini otsused)
+  id             String @id @default(cuid())
+  productModelId String
+  kind           String                  // GTIN | MPN | ICECAT_ID | CONFIRMED_ICECAT_ID | REJECTED_ICECAT_ID
+  value          String
+  source         String                  // SUPPLIER | CURATED | ADMIN
+  @@unique([productModelId, kind, value])
 }
 
 model ProductAttribute {              // haruldased omadused
@@ -331,6 +365,18 @@ model PricingRule {
 - Indeks: `CREATE INDEX ... USING gin (search_text gin_trgm_ops)` (`pg_trgm` laiendus).
 - Päring jagab sisendi sõnadeks; iga sõna peab leiduma (AND). "840 g8" → leiab "HP EliteBook 840 G8"; "t14 16 512" → T14 + 16 GB + 512 GB.
 - Prototüübis on sama loogika TypeScriptis (`src/domain/catalog/search.ts`) ja unit-testitud.
+
+## Pildid enne PostgreSQL-i (praegu)
+
+Kuni Phase 2-ni hoitakse pildiandmeid JSON failides sama liidese (`ProductImageRepository`) taga:
+
+| Fail | Sisu | Git |
+| --- | --- | --- |
+| `data/media/product-images.json` | ProductImage kirjed (viitavad kohalikele failidele) | ei (nagu `public/media/`) |
+| `data/icecat/matches.json` | IcecatMatch kirjed (Data Quality) | jah — saladusi ega pilte pole |
+| `data/icecat/model-identifiers.json` | käsitsi kogutud GTIN/MPN/Icecat ID + admini otsused | jah |
+
+Paralleelsed impordid kirjutavad faile järjekorras (lukk faili kohta) ja atomaarse ümbernimetamisega.
 
 ## Migratsioonid ja seed
 

@@ -5,6 +5,7 @@ import { getVisibleTrustItems, storeConfig } from "@/config/store";
 import { formatSpecLine } from "@/domain/catalog/format";
 import { CONFIGURATION_PARAM, productHref, productPath } from "@/domain/catalog/urls";
 import { BRAND_NAMES, type CatalogItem } from "@/domain/catalog/types";
+import { imagesForDisplay } from "@/domain/images/product-image";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { BuyBox, StickyBuyBar } from "@/components/product/buy-box";
 import { ProductGallery } from "@/components/product/product-gallery";
@@ -37,6 +38,9 @@ function productJsonLd({ product }: CatalogItem, variants: CatalogItem["variant"
     "@type": "Product",
     name: product.title,
     brand: { "@type": "Brand", name: BRAND_NAMES[product.brand] },
+    ...(product.images.length > 0 && {
+      image: product.images.slice(0, 5).map((image) => new URL(image.largeUrl, storeConfig.siteUrl).toString()),
+    }),
     url: new URL(productPath(product.slug), storeConfig.siteUrl).toString(),
     offers: variants.map((variant) => ({
       "@type": "Offer",
@@ -73,14 +77,13 @@ async function ProductDetail({ params, searchParams }: PageProps<"/toode/[slug]"
         ]}
       />
 
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,55fr)_minmax(0,45fr)] lg:gap-12">
-        <div className="lg:sticky lg:top-[124px] lg:self-start">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,55fr)_minmax(0,45fr)] lg:gap-12">
+        <div className="min-w-0 lg:sticky lg:top-[124px] lg:self-start">
           <ProductGallery
-            key={variant.id}
-            images={variant.images}
+            key={variant.images.length > 0 ? variant.id : data.product.slug}
+            images={imagesForDisplay(item)}
             title={data.product.title}
             screenSizeIn={data.product.screenSizeIn}
-            illustrative={variant.imagesAreIllustrative}
           />
         </div>
         <BuyBox item={item} variants={data.variants} showSecurePayment={showSecurePayment} />

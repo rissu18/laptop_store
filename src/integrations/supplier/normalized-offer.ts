@@ -15,6 +15,9 @@ import type {
 export interface NormalizedOffer {
   supplierCode: string;
   externalId: string;
+  /** GTIN/EAN ja tootja kood (MPN), kui tarnija need annab — Icecati vaste jaoks kõige täpsemad */
+  gtin: string | null;
+  mpn: string | null;
 
   // Mudel (Product)
   brand: BrandCode;

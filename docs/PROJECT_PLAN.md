@@ -171,9 +171,17 @@ Phase 1 hoiab ostukorvi ja võrdlust brauseri `localStorage`-is (ainult toote ID
 
 Admin-kasutajaid on vähe. Plaan: andmebaasipõhised sessioonid (`AdminSession` tabel), httpOnly + Secure + SameSite=Lax cookie, paroolid **argon2id** räsina, login'i rate limit, kontroll igas serveri action'is ja `/admin` layout'is (mitte ainult React'i tingimuslik kuvamine). Kliendikontot MVP-s ei ole — tellimust saab vaadata tellimuse numbri + e-postiga.
 
-### 🟡 R11. Pildid
+### 🟡 R11. Pildid — ✅ lahendatud Icecatiga (vt ARCHITECTURE.md "Tootepildid")
 
-Tarnija pildid laaditakse sync'i käigus **meie serverisse** (ei viita otse tarnija serverile), et vältida hotlinking'ut ja tarnija downtime'i mõju. Next.js `<Image>` teeb WebP/AVIF variandid. Kui pilt on illustratiivne, kuvatakse hoiatus. Prototüübis kasutame neutraalset SVG-illustratsiooni — **mitte võltsitud tootefotosid**.
+Mudelipildid tulevad Open Icecatist, laaditakse alla, töödeldakse (300 / 700 / 2000 px WebP) ja hostitakse meie salvestusruumis — mitte hotlink. Pildid kuuluvad mudelile. Kui vaste pole kindel, pilti live'i ei panda. Kui pilte pole, kuvatakse neutraalne illustratsioon — **mitte võltsitud tootefotod**.
+
+### 🔴 R13. Piltide püsiv salvestusruum tootmises
+
+Vercelis ei saa pilte runtime'is failisüsteemi salvestada. Online-piltide jaoks on vaja S3-ühilduvat salvestusruumi. **Vajab sinu otsust** (soovitus: Cloudflare R2). Kuni otsuseni töötavad pildid ainult kohalikus arenduses; Verceli testkeskkond näitab placeholderit.
+
+### 🔴 R14. Tarnija feed peab andma GTIN-i või tootja koodi (MPN)
+
+Icecati JSON API ei otsi nime järgi. Ilma GTIN/MPN-ita ei saa uusi mudeleid automaatselt Icecatiga siduda. Küsi hulgilaolt, kas feed sisaldab EAN-i ja tootja part number'it.
 
 ### 🟡 R12. Prisma versioon
 
@@ -262,6 +270,7 @@ Põhimõtted:
 | --- | --- | --- |
 | **0 Analüüs** ✅ | Plaan, arhitektuur, andmemudel | Need dokumendid |
 | **1 UI prototüüp** ✅ (1. versioon) | Layout, avaleht, nimekiri, filtrid, otsing, tooteleht, ostukorv, võrdlus — mock-andmetel | Kõik põhilehed töötavad mobiilis ja desktopil |
+| **1b Tootepildid** ✅ | Icecati klient, vaste otsimine, pildi import (thumbnail/medium/large), galerii, Data Quality CLI; 10 mudeli test (9 leitud) | Pildid kohalikult nähtavad; tootmise salvestusruum ootab otsust (R13) |
 | **2 Andmebaas** | Docker Compose + PostgreSQL, Prisma skeem, migratsioonid, seed, repository'd; mock-repositoorium asendatakse | Leht töötab andmebaasist |
 | **3 Admin** | Login, tooted, hinnareeglid, seaded, sync dashboard | Admin saab hindu ja seadeid muuta |
 | **4 Tarnija** | `SupplierAdapter`, sync worker, SyncRun log, hinnaajalugu; päris tarnija, kui API info olemas | Sync jookseb ajastatult, logid adminis |
@@ -278,3 +287,5 @@ Põhimõtted:
 3. Ettevõtte andmed (nimi, registrikood) ja garantii/tagastuse tingimused (R2).
 4. Käibemaksukäsitlus (R1) — raamatupidajaga.
 5. Poe nimi ja domeen (praegu kasutan ajutist nime "Sülearvutipood").
+6. Piltide salvestusruumi valik tootmiseks (R13).
+7. Kas tarnija feed sisaldab EAN-i ja tootja koodi (R14).

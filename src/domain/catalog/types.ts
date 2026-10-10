@@ -1,5 +1,6 @@
 import type { Cents } from "@/domain/money/money";
 import type { GradeCode } from "@/domain/grade/grades";
+import type { ProductImageView } from "@/domain/images/product-image";
 
 /**
  * Kataloogi normaliseeritud andmemudel.
@@ -63,13 +64,6 @@ export const FEATURE_KEYS = [
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
 export type FeatureFlags = Record<FeatureKey, boolean | null>;
 
-export interface ProductImage {
-  url: string;
-  alt: string;
-  width: number;
-  height: number;
-}
-
 /** Mudel: "Lenovo ThinkPad T14 Gen 3". Stabiilne, oma URL-iga. */
 export interface CatalogProduct {
   id: string;
@@ -84,6 +78,8 @@ export interface CatalogProduct {
   ports: { usbA: number | null; usbC: number | null };
   wifi: string | null;
   bluetooth: string | null;
+  /** Mudeli pildid (nt Icecat) — ühised kõigile selle mudeli konfiguratsioonidele */
+  images: ProductImageView[];
 }
 
 /** Müüdav konfiguratsioon. Filtrid töötavad selle tasemel. */
@@ -127,8 +123,8 @@ export interface CatalogVariant {
   /** ISO kuupäev, viimane edukas sync. `null` = sync pole veel töötanud. */
   lastSyncedAt: string | null;
   isFeatured: boolean;
-  images: ProductImage[];
-  imagesAreIllustrative: boolean;
+  /** Pildid konkreetsest müüdavast seadmest (ACTUAL_UNIT), kui tarnija neid annab */
+  images: ProductImageView[];
 }
 
 /** Nimekirja kirje: mudel + üks konfiguratsioon. */

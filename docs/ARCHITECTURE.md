@@ -72,6 +72,45 @@ Phase 2+:
 
 Prototüüp läbib juba praegu sama ahela (tarnija toorandmed → normaliseerimine → hinnastamine → kataloog). Phase 2-s vahetatakse ainult `CatalogRepository` implementatsioon; lehed ja komponendid ei muutu.
 
+## Tootepildid (Icecat)
+
+Pildid kuuluvad **mudelile** (ProductModel, nt "Lenovo ThinkPad T14 Gen 3"), mitte tarnija pakkumisele — kõik sama mudeli konfiguratsioonid kasutavad samu pilte. Tulevikus lisanduvad konkreetse seadme fotod (`ACTUAL_UNIT`) eelistatakse mudelipiltidele.
+
+```
+ProductModel (+ tarnija GTIN/MPN + data/icecat/model-identifiers.json)
+  → IcecatMatcher      GTIN → MPN + bränd → Icecat ID → (bränd + mudel: ainult käsitsi ülevaatus)
+  → pealkirja kontroll Icecati Title peab sisaldama meie bränd + mudelinime (tervete sõnadena)
+  → IcecatImageResolver põhipilt (Image) + galerii (Gallery), duplikaadid ja mitte-tootefotod välja
+  → allalaadimine      timeout, piiratud retry, Content-Type + faili sisu (magic bytes) kontroll
+  → ImageProcessor     sharp: thumbnail 300×300 (contain), medium ≤700, large ≤2000 — WebP, ei suurenda
+  → ImageStorageAdapter LocalImageStorageAdapter (arendus) / S3-ühilduv (tootmine, valimata)
+  → ProductImageRepository JSON fail (Phase 2: PostgreSQL)
+  → frontend           ainult meie URL-id, <img srcset>; pilte pole → placeholder
+```
+
+| Moodul | Fail |
+| --- | --- |
+| Icecati klient (ainult server, tokenid päistes) | `src/integrations/icecat/icecat-client.ts` |
+| Vaste otsimine ja kindlus | `src/integrations/icecat/icecat-matcher.ts`, `src/domain/images/icecat-match.ts` |
+| Pildivalik ja variandid | `src/integrations/icecat/icecat-image-resolver.ts` |
+| Kontroll ja töötlus | `src/server/images/image-processor.ts` |
+| Salvestusruum | `src/server/images/storage/` |
+| Import pipeline | `src/server/images/icecat-image-import.ts` |
+| Data Quality | `src/server/images/data-quality.ts` |
+| Käsurida | `scripts/icecat-images.ts` (`npm run icecat -- …`) |
+
+**Põhimõtted**
+
+- **Vale pilt on hullem kui placeholder.** Automaatselt läheb live'i ainult vaste kindlusega ≥ 0,9 *ja* kontrollitud pealkirjaga. Muu → `NEEDS_REVIEW`.
+- **Icecati JSON API ei toeta nimepõhist otsingut** (ainult GTIN, Brand + ProductCode, icecat_id). Seetõttu on GTIN/MPN tarnija feed'ist kriitilise tähtsusega. Kuni neid pole, kasutatakse käsitsi kogutud koode failis `data/icecat/model-identifiers.json`.
+- **Ei hotlinkita.** Icecat nõuab, et pood laeks pildid alla ja hostiks ise; Icecati lingid võivad olla IP-piiratud.
+- **Muutumata pilte uuesti alla ei laadita**: võrreldakse Icecati pildi ID-d ja `Updated` aega. Kadunud pildid kustutatakse; teise pildi kasutuses olevat faili üle ei kirjutata.
+- **Icecat maas → olemasolevad pildid jäävad alles.** Ajutine viga ei eemalda midagi live'ist.
+- **Kontrollitud paralleelsus**: 3 mudelit × 2 pilti korraga; retry ainult 408/429/5xx/võrguvigadel, 404 kunagi.
+- **Saladused**: `ICECAT_API_TOKEN` / `ICECAT_CONTENT_TOKEN` ainult HTTP päistes; logger peidab kõik `token|password|secret|key` väljad.
+
+**Salvestusruum ja Vercel.** Verceli runtime failisüsteem ei ole püsiv, seega `LocalImageStorageAdapter` sobib ainult arenduseks. Tootmises on vaja püsivat S3-ühilduvat salvestusruumi (`S3CompatibleImageStorageAdapter`, nt Cloudflare R2). Kuni see on valimata, pole pildid Verceli testkeskkonnas nähtavad — sealt puuduvad nii failid kui ka `data/media/product-images.json`, ja leht kuvab placeholderit.
+
 ## Hulgilao integratsioon
 
 ```ts

@@ -8,6 +8,8 @@ import { searchScore, tokenize } from "@/domain/catalog/search";
 import type { CatalogItem, CatalogProduct, CatalogVariant } from "@/domain/catalog/types";
 import { MockSupplierAdapter } from "@/integrations/supplier/mock/mock-supplier-adapter";
 import { MOCK_FEATURED_SKUS } from "@/integrations/supplier/mock/mock-supplier-data";
+import { toImageView, type ProductImageView } from "@/domain/images/product-image";
+import { readImageManifestSync } from "@/server/images/image-repository";
 import { buildCatalog, type BuiltCatalog } from "./build-catalog";
 
 /**
@@ -20,6 +22,15 @@ import { buildCatalog, type BuiltCatalog } from "./build-catalog";
 
 let catalogPromise: Promise<BuiltCatalog> | null = null;
 
+/**
+ * Mudelipildid salvestusruumist (Phase 1–2: JSON fail, mille kirjutab `npm run icecat`).
+ * Kui pilte pole (nt Vercelis enne püsiva salvestusruumi seadistamist), kuvatakse placeholder.
+ */
+function loadModelImages(): Record<string, ProductImageView[]> {
+  const manifest = readImageManifestSync();
+  return Object.fromEntries(Object.entries(manifest).map(([modelId, records]) => [modelId, records.map(toImageView)]));
+}
+
 async function loadCatalog(): Promise<BuiltCatalog> {
   const adapter = new MockSupplierAdapter();
   const source = await adapter.getProducts();
@@ -28,6 +39,7 @@ async function loadCatalog(): Promise<BuiltCatalog> {
     featuredExternalIds: MOCK_FEATURED_SKUS,
     delivery: storeConfig.delivery,
     lastSyncedAt: null, // päris sync puudub → "Laoseis uuendatud …" ei kuvata
+    modelImages: loadModelImages(),
   });
   if (catalog.issues.length && process.env.NODE_ENV === "development") {
     // Phase 4-s salvestatakse need SyncError tabelisse ja kuvatakse adminis

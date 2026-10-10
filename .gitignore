@@ -54,6 +54,11 @@ service-account*.json
 *.sql.gz
 /backups/
 
+# kohalikult salvestatud tootepildid (LocalImageStorageAdapter) ja nende kirjed
+# productionis tulevad pildid püsivast salvestusruumist (S3-ühilduv), mitte Git'ist
+/public/media/
+/data/media/
+
 # testide väljund
 /playwright-report/
 /test-results/

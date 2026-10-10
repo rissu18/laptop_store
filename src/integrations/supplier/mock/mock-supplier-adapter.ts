@@ -25,6 +25,8 @@ import { MOCK_SUPPLIER_RECORDS, type MockSupplierRecord } from "./mock-supplier-
 /** Tarnija vastuse skeem — päris API vastust ei usaldata kunagi pimesi. */
 const mockRecordSchema = z.object({
   sku: z.string().min(1),
+  ean: z.string().regex(/^\d{8,14}$/).nullish(),
+  mpn: z.string().max(40).nullish(),
   manufacturer: z.string().min(1),
   model_name: z.string().min(1),
   cpu: z.string().min(1),
@@ -95,6 +97,8 @@ export function normalizeMockRecord(record: MockSupplierRecord, supplierCode: st
   return {
     supplierCode,
     externalId: record.sku,
+    gtin: record.ean ?? null,
+    mpn: record.mpn ?? null,
     brand,
     series: names.series,
     model: names.model,
