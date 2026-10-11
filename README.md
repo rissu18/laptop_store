@@ -18,7 +18,8 @@ Custom veebirakendus — ei kasuta WordPressi, WooCommerce'i, Shopifyd ega muud 
 | 3b — Sooduskoodid | ✅ valmis — vt [docs/DISCOUNTS.md](docs/DISCOUNTS.md) |
 | 5a — Kassa ja tellimused (ilma makseta, testtellimused) | ✅ valmis — vt [docs/ORDERS.md](docs/ORDERS.md) |
 | 4a — Päris kataloog Laptopid.ee API-st (sync → PostgreSQL) | ✅ valmis — vt [docs/LAPTOPID_SYNC.md](docs/LAPTOPID_SYNC.md) |
-| 4–9 — Foxway, 5-min ajastaja, maksed, automaatika, lihvimine, tootmine | planeeritud |
+| Laptopid.ee automaatne sync iga 5 min (Upstash QStash) | ✅ töötab |
+| 4–9 — Foxway, maksed, automaatika, lihvimine, tootmine | planeeritud |
 
 Vt [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md).
 
@@ -166,7 +167,7 @@ PostgreSQL (Neon) + Drizzle ORM: 25 tabelit, migratsioonid `drizzle/0000_init.sq
 
 ## Päris kataloog (Laptopid.ee)
 
-Laptopid.ee API → valideerimine → normaliseerimine → sync → PostgreSQL → sama kataloogiteenus kõigile lehtedele (pood, otsing, ostukorv, kassa). Pood ja kassa ei küsi kunagi API-st otse. Laptopid annab ainult saadavuse (mitte kogust): poes "Kohe saadaval", tellida saab 1 tk rea kohta. Müügihind tuleb tarnijalt (admin saab parandada), ostuhind on teadmata. Puuduvad tooted võetakse maha ainult usaldusväärse täieliku nimekirjaga. Pildid on Laptopid.ee kaug-URL-id läbi Next/Image (Git'i neid ei laeta). Sync: admin → Tarnijad → **Sync now**, `npm run laptopid:sync` või kaitstud cron-otspunkt `/api/cron/laptopid-sync` (välisele 5-min ajastajale; Vercel Hobby enda cron kord päevas). Vt [docs/LAPTOPID_SYNC.md](docs/LAPTOPID_SYNC.md).
+Laptopid.ee API → valideerimine → normaliseerimine → sync → PostgreSQL → sama kataloogiteenus kõigile lehtedele (pood, otsing, ostukorv, kassa). Pood ja kassa ei küsi kunagi API-st otse. Laptopid annab ainult saadavuse (mitte kogust): poes "Kohe saadaval", tellida saab 1 tk rea kohta. Müügihind tuleb tarnijalt (admin saab parandada), ostuhind on teadmata. Puuduvad tooted võetakse maha ainult usaldusväärse täieliku nimekirjaga. Pildid on Laptopid.ee kaug-URL-id läbi Next/Image (Git'i neid ei laeta). Sync: admin → Tarnijad → **Sync now**, `npm run laptopid:sync` või kaitstud cron-otspunkt `/api/cron/laptopid-sync` (Upstash QStash iga 5 min; Vercel Hobby enda cron kord päevas varuks). Vt [docs/LAPTOPID_SYNC.md](docs/LAPTOPID_SYNC.md).
 
 ## Kassa ja tellimused
 
