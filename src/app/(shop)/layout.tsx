@@ -1,3 +1,4 @@
+import { COMPANY } from "@/config/company";
 import { storeConfig } from "@/config/store";
 import { CompareBar } from "@/components/compare/compare-bar";
 import { PrototypeNotice } from "@/components/layout/prototype-notice";
@@ -24,14 +25,24 @@ export default async function ShopLayout({ children }: LayoutProps<"/">) {
       <main id="sisu" className="flex-1">
         {children}
       </main>
-      <SiteFooter storeName={general.storeName} legalName={general.companyName} registryCode={general.registryCode} />
+      <SiteFooter storeName={general.storeName} />
       <CompareBar />
       <JsonLd
         data={{
           "@context": "https://schema.org",
           "@type": "Organization",
           name: general.storeName,
+          legalName: COMPANY.legalName,
           url: storeConfig.siteUrl,
+          email: COMPANY.email,
+          telephone: "+3726835543",
+          address: {
+            "@type": "PostalAddress",
+            streetAddress: COMPANY.address.street,
+            postalCode: COMPANY.address.postalCode,
+            addressLocality: COMPANY.address.city,
+            addressCountry: "EE",
+          },
         }}
       />
     </div>

@@ -5,6 +5,15 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 ---
 
+## 2026-10-11 — Juriidiline info, garantii ja kontaktid (Laptopid.ee live-lehe põhjal)
+
+- **Müüja andmed** ühes kohas (`src/config/company.ts`): Sülearvutid OÜ, registrikood 11740579, Tartu mnt 83, 10115 Tallinn, tel (+372) 6 835 543, mobiil (+372) 56 665 943, lahtiolekuajad E–R 10–18. Kontrollitud Laptopid.ee live-lehelt (jalus, Kontakt, E-poe tingimused). **E-post ainult info@sylearvutid.ee** — Laptopid.ee e-posti ei kasutata.
+- **Infolehed** (`src/config/info-pages.ts`, sektsioonid + lingid): E-poe tingimused (Laptopid.ee live "E-Poe tingimused" + müügitingimused + lisainfo), Garantii (live Garantii leht), Kontakt, Tarne, Tagastamine ja taganemine, Isikuandmed ja privaatsus. Kohandatud ainult bränd, e-post ja viited; Laptopid.ee kaubamärgi väide ja "Laptopid.ee kleeps" jäeti välja / neutraalseks. Prototüübirežiimis märkus: tellimused testtellimused, makseviisid lisanduvad poe avamisel.
+- **Jalus:** aadress (Google Maps), telefon, mobiil, e-post, "Sülearvutid OÜ · Registrikood 11740579"; lingid E-poe tingimused ja Isikuandmed ja privaatsus. Organization JSON-LD sai rekvisiidid. Kassa väiketekstis link E-poe tingimustele.
+- Tootelehe konkreetne garantiiaeg tuleb endiselt tarnija andmetest (`guarantee`), üldine Garantii leht ainult selgitab poliitikat.
+- **Allikate vastuolud (kasutaja otsus):** tolmust puhastamine 35 € (Garantii leht) vs 25 € (E-poe tingimused); tarneaeg 1–10 tööpäeva (e-poe tingimused) vs 2 tööpäeva (müügitingimused); viidatud "lisa nr 1" (pretensioonide kord, remondi teostajad) live-lehel puudub; p 7.5 lause on allikas poolik. Laptopid.ee lehed 44–46 (privaatsus, õiguslik teatis, küpsised) on Laptopas SLU (Hispaania) mallid, mida live-leht ei lingi — ei kasutatud; isikuandmete leht põhineb tingimuste punktil 9.
+- **Testid:** 341 → 349 (`src/config/info-pages.test.ts`).
+
 ## 2026-10-11 — Production-cleanup ja automaatse sync'i ettevalmistus
 
 - **Prototüübiriba:** ei väida enam, et tooted, hinnad ja laoseisud on testandmed (need tulevad Laptopid.ee sync'ist). Uus tekst: "Prototüüp: toodete, hindade ja saadavuse andmed on live. Tellimused on testtellimused — makseid ei võeta ja tellimusi ei täideta." Riba jääb alles.

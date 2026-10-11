@@ -66,7 +66,7 @@ export function SettingsEditor({ settings }: { settings: Settings }) {
   const { general, store, delivery, warranty, returns, trustBar } = settings;
   return (
     <div className="flex flex-col gap-6">
-      <SettingsGroupForm group="general" title="Üldine" description="Poe nimi ja ettevõtte andmed (jalus, kontaktid). Tühi väli = ei kuvata.">
+      <SettingsGroupForm group="general" title="Üldine" description="Poe nimi. NB: müüja rekvisiidid ja kontaktid poe jaluses, Kontakt-lehel ja tingimustes tulevad failist src/config/company.ts (üks allikas koos E-poe tingimustega) — siinseid ettevõtte välju poes ei kuvata.">
         {(e) => (
           <>
             <TextField name="storeName" label="Poe nimi" defaultValue={general.storeName} error={e.storeName} />

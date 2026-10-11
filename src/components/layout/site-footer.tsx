@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { COMPANY, COMPANY_ADDRESS_LINE } from "@/config/company";
 import { Container } from "@/components/ui/container";
 
 const COLUMNS = [
@@ -26,13 +27,14 @@ const COLUMNS = [
     links: [
       { href: "/info/meist", label: "Meist" },
       { href: "/info/kontakt", label: "Kontakt" },
-      { href: "/info/muugitingimused", label: "Müügitingimused" },
-      { href: "/info/privaatsus", label: "Privaatsuspoliitika" },
+      { href: "/info/muugitingimused", label: "E-poe tingimused" },
+      { href: "/info/privaatsus", label: "Isikuandmed ja privaatsus" },
     ],
   },
 ];
 
-export function SiteFooter({ storeName, legalName, registryCode }: { storeName: string; legalName: string | null; registryCode: string | null }) {
+/** Müüja andmed tulevad src/config/company.ts-ist (sama allikas mis Kontakt-lehel ja E-poe tingimustes). */
+export function SiteFooter({ storeName }: { storeName: string }) {
   return (
     <footer className="mt-auto border-t border-border bg-surface-alt">
       <Container className="py-12">
@@ -42,6 +44,30 @@ export function SiteFooter({ storeName, legalName, registryCode }: { storeName: 
             <p className="mt-2 max-w-xs text-sm text-muted">
               Kasutatud äriklassi sülearvutid: Lenovo ThinkPad, Dell Latitude ja HP EliteBook.
             </p>
+            <address className="mt-4 space-y-1 text-sm not-italic text-muted">
+              <p>
+                <a href={COMPANY.mapsUrl} target="_blank" rel="noopener noreferrer" className="hover:text-text hover:underline">
+                  {COMPANY_ADDRESS_LINE}
+                </a>
+              </p>
+              <p>
+                Tel{" "}
+                <a href={COMPANY.phone.href} className="hover:text-text hover:underline">
+                  {COMPANY.phone.label}
+                </a>
+              </p>
+              <p>
+                Mobiil{" "}
+                <a href={COMPANY.mobile.href} className="hover:text-text hover:underline">
+                  {COMPANY.mobile.label}
+                </a>
+              </p>
+              <p>
+                <a href={`mailto:${COMPANY.email}`} className="hover:text-text hover:underline">
+                  {COMPANY.email}
+                </a>
+              </p>
+            </address>
           </div>
           {COLUMNS.map((column) => (
             <nav key={column.title} aria-label={column.title}>
@@ -59,8 +85,9 @@ export function SiteFooter({ storeName, legalName, registryCode }: { storeName: 
           ))}
         </div>
         <div className="mt-10 flex flex-col gap-2 border-t border-border pt-6 text-xs text-muted sm:flex-row sm:justify-between">
-          {/* TODO: REAL PROVIDER DATA REQUIRED — ettevõtte ametlik nimi ja registrikood */}
-          <p>{legalName && registryCode ? `${legalName} · Registrikood ${registryCode}` : "Ettevõtte andmed lisatakse"}</p>
+          <p>
+            {COMPANY.legalName} · Registrikood {COMPANY.registryCode} · {COMPANY_ADDRESS_LINE}
+          </p>
           <p>Kasutame ainult tehniliselt vajalikke küpsiseid.</p>
         </div>
       </Container>

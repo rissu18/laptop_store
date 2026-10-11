@@ -43,6 +43,7 @@ docs/                            PROJECT_PLAN, ARCHITECTURE, DATABASE, ADMIN, DI
 | **4a Laptopid.ee päris kataloog** (sync, saadavus, tarnija hind + parandus, pildid, admin Tarnijad) | ✅ |
 | Poe värvisüsteem indigo-sinine (`.storefront` tokenid), avalehe hero pilt `public/brand/hero.png` | ✅ |
 | Järelparandus: seisukord "Uus", Lenovo V-seeria, `LAPTOPID_API_BASE_URL` | ✅ |
+| Juriidiline info / garantii / kontaktid Laptopid.ee live-lehe põhjal (`src/config/company.ts`, `src/config/info-pages.ts`; e-post ainult info@sylearvutid.ee) | ✅ |
 | Production-cleanup: prototüübiriba (kataloog live), ausad maksetekstid, cron-otspunkt + `CRON_SECRET` Vercelis, admini stale-sync hoiatus | ✅ |
 | 4 Foxway, 5b tarneteenused, 6 maksed, 7 automaatika, 8–9 | ⏳ (ära alusta ise) |
 
@@ -85,7 +86,7 @@ Täielik kirjeldus: **docs/LAPTOPID_SYNC.md**.
 
 ## 8. Testid ja kontrollid
 
-- **341 testi / 34 faili — kõik läbivad** (`npm test`, DB testidega ~45 s).
+- **349 testi / 35 faili — kõik läbivad** (`npm test`, DB testidega ~45 s).
 - `npm run typecheck` ✅ · `npm run lint` ✅ · `npm run build` ✅ (Git Bashis: `set -a; . ./.env.development.local; . ./.env.local; set +a; npm run build`).
 - Dev-serveri vana CSS/moodul (Turbopacki vahemälu) → peata server, kustuta `.next`, käivita uuesti.
 - Brauseripaan on sageli peidetud → React ei hüdreeru / Suspense segmendid jäävad `hidden` alla; kasuta `textContent`/`find`, mitte `innerText`, või tee enne kuvatõmmis.
@@ -112,7 +113,7 @@ Viimane edukas Vercel production deploy enne seda handoff'i: `a77e106` → **Rea
 - `battery_hours` salvestatakse, aga ei kuvata (tähendus kinnitamata).
 - Seisukordade A+/A/B/C kirjeldused on veel näidistekstid (`isPlaceholder`).
 - `npm run icecat` CLI kasutab veel JSON-faile; püsiv pildisalvestus (R13) puudub.
-- Privaatsuspoliitika, ettevõtte andmed, garantii/tagastus, tarnehind (6,99 € näidis) — täitmata.
+- Juriidilised lehed täidetud Laptopid.ee live-sisu põhjal; lahtised vastuolud allikas (puhastus 35 € vs 25 €, tarneaeg 1–10 vs 2 tööpäeva, puuduv "lisa nr 1", poolik p 7.5) — vt CHANGELOG. Tarnehind kassas (6,99 €) on endiselt näidis. Admini "Üldine" ettevõtte väljad poes ei kuvata (allikas `src/config/company.ts`). "Meist" leht on veel kohatäide.
 - Live'is on 1 vana testtellimus ja 1 arhiveeritud testkood (vt §6).
 
 ## 11. Mida järgmine sessioon EI TOHI omal algatusel alustada

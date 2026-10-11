@@ -389,7 +389,14 @@ export function CheckoutView() {
         </Button>
         {quote.mode === "TEST" && <p className="text-center text-xs text-muted">Testtellimus salvestatakse, aga makset ei võeta ja tellimust ei täideta.</p>}
         <p className="text-center text-xs text-muted">
-          Tellimuse esitamisel töödeldakse sinu andmeid tellimuse täitmiseks. <Link href="/info/privaatsus" className="underline">Privaatsus</Link>
+          Tellimuse esitamisel töödeldakse sinu andmeid tellimuse täitmiseks.{" "}
+          <Link href="/info/muugitingimused" className="underline">
+            E-poe tingimused
+          </Link>{" "}
+          ·{" "}
+          <Link href="/info/privaatsus" className="underline">
+            Isikuandmed ja privaatsus
+          </Link>
         </p>
       </aside>
     </form>
