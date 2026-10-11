@@ -102,7 +102,7 @@ export const INFO_PAGES: InfoPage[] = [
       {
         heading: "Hooldus",
         paragraphs: [
-          "Sülearvuti vajab nagu autogi hooldust ja seda tolmust puhastamise näol. Vead, mis on põhjustatud üleliigsest tolmust, ei pruugi garantii alla minna. Soovituslik on aastas 1 kord arvuti ära puhastada, meie juures maksab see 35 €.",
+          "Sülearvuti vajab nagu autogi hooldust ja seda tolmust puhastamise näol. Vead, mis on põhjustatud üleliigsest tolmust, ei pruugi garantii alla minna. Soovituslik on aastas 1 kord arvuti ära puhastada.",
         ],
       },
       {
@@ -383,7 +383,7 @@ export const INFO_PAGES: InfoPage[] = [
           `Meilt ostetud vanad ja kasutud sülearvutid võtame tasuta tagasi poes ${COMPANY.address.street}.`,
           "Akude garantii on 6 kuud, kuna aku on kulumaterjal. Akude tööaeg on märgitud kodulehel „kuni”, see tähendab maksimaalset aku tööaega ideaalsetes tingimustes ostuhetkel, näiteks lennukis madala ekraani heledusega Wordis töö tegemisel. Põhjus on selles, et iga inimene kasutab sülearvutit erinevalt ja keskmist aega ei ole olemas. Kui sama arvutiga üks inimene töötleb videosid, peab temal aku vastu 2 tundi, teine inimene käib netis ja temal peab samal arvutil aku vastu 6 tundi, kolmas inimene vaatab videot ja tema saab aku ajaks samal arvutil 10 tundi. Seetõttu ongi meil märgitud aku ajad „kuni”. Kui aku ei pea vastu lubatud aega ostu hetkel, siis vahetame aku ringi.",
           `Garantii ei laiene tarkvarale ning füüsilistele vigastustele. Garantiijuhtumi puhul peab klient ise oma tarkvara varundama, ${COMPANY.legalName} ei vastuta, kui garantii käigus andmed kaotsi lähevad. Garantii alla ei kuulu Windowsi, BIOS-e jms tarkvara uuenduste tõttu tekkinud vead.`,
-          "Sülearvuti vajab nagu autogi hooldust ja seda tolmust puhastamise näol. Vead, mis on põhjustatud üleliigsest tolmust, ei pruugi garantii alla minna. Soovituslik on aastas 1 kord arvuti ära puhastada, meie juures maksab see 25 €.",
+          "Sülearvuti vajab nagu autogi hooldust ja seda tolmust puhastamise näol. Vead, mis on põhjustatud üleliigsest tolmust, ei pruugi garantii alla minna. Soovituslik on aastas 1 kord arvuti ära puhastada.",
           "Vedelikukahjustuse defekteerimise tasu on 50 €.",
           "Microsoft Office ei ole tasuta ühegi arvutiga kaasas. Täispakett Word, Excel, Outlook maksab 259 €, ilma Outlookita eraisikutele mõeldud variant 139 €. Tasuta on võimalik paigaldada analoogne programm LibreOffice.",
           "Osadel vähekasutatud sülearvutitel võivad olla eelmise omaniku poolt paigaldatud kleebise jäljed korpusel. Mõnel üksikul juhul ei ole hulgiladu saanud tugeva liimiga paigaldatud kleebist maha teisiti, kui korpust antud kohalt kriimustades. Nendele kohtadele oleme lisanud kleepsu, mille võib igaüks enda kleepsuga asendada. Töö tegemist need ei sega ning on ainult visuaalsed, kriimustunud osa suurus jääb mõne cm piiresse. Kui on kindel soov ilma kleebise jäljeta kasutatud sülearvuti ostuks, tuleks see eelnevalt üle küsida meilt.",
