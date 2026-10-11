@@ -73,7 +73,7 @@ export function ProductGallery({ images, title, screenSizeIn }: { images: Produc
               aria-label={`Ava täisekraanil: ${label(slide, i)}`}
               tabIndex={i === index ? 0 : -1}
             >
-              <SlideView slide={slide} screenSizeIn={screenSizeIn} sizes="(min-width: 1024px) 55vw, 100vw" priority={i === 0} />
+              <SlideView slide={slide} screenSizeIn={screenSizeIn} sizes="(min-width: 1360px) 690px, (min-width: 1024px) 55vw, 100vw" priority={i === 0} />
             </button>
           ))}
         </div>

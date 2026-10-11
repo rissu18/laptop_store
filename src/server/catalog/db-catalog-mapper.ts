@@ -20,10 +20,34 @@ import type { listingImages, productImages, productModels, supplierListings } fr
  *   (product_images, nt Icecat) → product.images. Kuvamisel eelistatakse pakkumise pilte.
  */
 
-type ModelRow = typeof productModels.$inferSelect;
-type ListingRow = typeof supplierListings.$inferSelect;
-type ImageRow = typeof productImages.$inferSelect;
-type ListingImageRow = typeof listingImages.$inferSelect;
+/**
+ * Veerud, mida see mapper loeb. Poe kataloogipäring (db-catalog.ts) valib andmebaasist AINULT need — tarnija
+ * toorandmed (`raw_data`), ostuhind jms jäävad välja. Kui mapper hakkab uut välja lugema, lisa see ka siia.
+ * Kassa, admin ja testid võivad anda täisridu (need sobivad nende tüüpidega).
+ */
+export const STOREFRONT_MODEL_COLUMNS = [
+  "id", "slug", "status", "manualOverrides", "featured",
+  "manufacturer", "family", "model", "screenSizeIn", "weightKg", "usbAPorts", "usbCPorts", "wifi", "bluetooth",
+] as const;
+export const STOREFRONT_LISTING_COLUMNS = [
+  "id", "productModelId", "supplier", "supplierProductId", "sku", "status", "manualOverrides", "priceSource",
+  "cpu", "cpuFamily", "cpuGeneration", "ramGb", "ramType", "storageGb", "gpu", "gpuDedicated",
+  "screenSizeIn", "resolution", "resolutionLabel", "panel", "touchscreen", "keyboard", "grade", "features",
+  "operatingSystem", "warrantyMonths", "batteryHealthPct", "chargerIncluded", "weightKg", "conditionNotes", "details",
+  "stock", "available", "deliveryMinDays", "deliveryMaxDays",
+  "salePriceCents", "referencePriceCents", "vatScheme", "firstSeenAt", "lastSyncedAt",
+] as const;
+export const STOREFRONT_IMAGE_COLUMNS = [
+  "productModelId", "position", "isHidden", "type", "thumbnailPath", "mediumPath", "largePath", "width", "height", "alt",
+] as const;
+export const STOREFRONT_LISTING_IMAGE_COLUMNS = [
+  "supplierListingId", "position", "isHidden", "thumbnailUrl", "mediumUrl", "largeUrl", "width", "height", "alt",
+] as const;
+
+type ModelRow = Pick<typeof productModels.$inferSelect, (typeof STOREFRONT_MODEL_COLUMNS)[number]>;
+type ListingRow = Pick<typeof supplierListings.$inferSelect, (typeof STOREFRONT_LISTING_COLUMNS)[number]>;
+type ImageRow = Pick<typeof productImages.$inferSelect, (typeof STOREFRONT_IMAGE_COLUMNS)[number]>;
+type ListingImageRow = Pick<typeof listingImages.$inferSelect, (typeof STOREFRONT_LISTING_IMAGE_COLUMNS)[number]>;
 
 export interface IncompleteListing {
   sku: string;
@@ -35,11 +59,11 @@ const isGrade = (v: string | null): v is GradeCode => v !== null && (GRADE_CODES
 const isKeyboard = (v: string | null): v is KeyboardLayout => v !== null && (KEYBOARD_LAYOUTS as readonly string[]).includes(v);
 const VAT_SCHEMES: VatScheme[] = ["STANDARD", "MARGIN", "UNKNOWN"];
 
-export function effectiveModel(model: ModelRow): ModelRow {
+export function effectiveModel<T extends Pick<ModelRow, "manualOverrides">>(model: T): T {
   return applyOverrides(model, model.manualOverrides, MODEL_OVERRIDABLE_FIELDS);
 }
 
-export function effectiveListing(listing: ListingRow): ListingRow {
+export function effectiveListing<T extends Pick<ListingRow, "manualOverrides" | "priceSource">>(listing: T): T {
   return applyOverrides(listing, listing.manualOverrides, listingOverridableFields(listing.priceSource));
 }
 

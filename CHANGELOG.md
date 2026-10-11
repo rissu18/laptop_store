@@ -5,6 +5,13 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 ---
 
+## 2026-10-11 — Optimeerimine: kataloogipäring ja pildilaiused
+
+- **Poe kataloogipäring** (`db-catalog.ts` → `queryStorefrontCatalogRows`): enne `select *` neljast tabelist (sh `raw_data` ja arhiveeritud mock-pakkumised). Nüüd ainult mapperi veerud (`STOREFRONT_*_COLUMNS`; tüübid kontrollivad, et mapper muud ei loe) ja SQL-filter `status = 'ACTIVE'` (mudel + pakkumine), `available IS NOT FALSE`, peidetud pildid välja. `stock` on admini parandatav, seega kogusekontroll jääb mapperisse. Live'is: 351 → 305 pakkumist, 46 → 40 veergu; nelja päringu JSON-maht ~2,34 MB → ~1,20 MB (`supplier_listings` 1,29 → 0,56 MB). Vana ja uue päringu põhjal tekkinud poe kataloog on identne (kontrollitud live-andmebaasiga, ainult lugemine). Kassa, admin ja sync muutmata.
+- **Pildilaiused:** `next.config.ts` `deviceSizes`/`imageSizes` 15 → 9 laiust (vähem eri pilditeisendusi Verceli Hobby limiidi vastu), valitud mõõdetud kuvalaiuste põhjal. `sizes` parandatud: toote galerii (`690px` laiemal kui 1360 px, enne 55vw) ja leidja tulemused (`270px` alates 1024 px, enne 30vw).
+- **Hero:** mõõdetud live'is — 1,6 MB PNG serveeritakse Next/Image'i kaudu 640 px WebP-na (~14 KB), preload algab ~47 ms. Muutmine polnud vajalik.
+- **Testid:** 386 → 390 (uus `db-catalog.db.test.ts`: sama kataloog kui täisridadest, `raw_data` puudub, ARCHIVED / `available = false` / peidetud mudel välja, ACTIVE + saadaval sisse, admini kogusparandus kehtib).
+
 ## 2026-10-11 — Storefronti UX: kaardi pildid, mobiilne võrdlus, filtrid, Lenovo G-nimed
 
 - **Tootekaart:** mitme pildiga kaardil mobiilis pühkimine (scroll-snap; vertikaalne kerimine ja puudutus → tooteleht jäävad), desktopil hover-nooled (klõps vahetab pilti, ei ava tootelehte), ringiga, punktid ≤ 8 pildi korral. Laetakse nähtav pilt + naabrid. Ühe pildiga kaart muutmata (`ProductImage`). Pildid samast allikast (`imagesForDisplay`).

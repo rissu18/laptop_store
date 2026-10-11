@@ -128,6 +128,7 @@ Tulemus (2026-10-10):
 `src/server/catalog/catalog-service.ts` on ainus koht, kust poe lehed andmeid küsivad:
 
 - Kui `DATABASE_URL` on seadistatud: andmebaas → `db-catalog-mapper.ts` (efektiivsed väärtused, nähtavus, saadavus, kohustuslikud väljad, pakkumise pildid) → `'use cache'` + `cacheTag('catalog')`.
+- Poe kataloogipäring (`queryStorefrontCatalogRows` failis `db-catalog.ts`) valib ainult mapperi vajatud veerud (`STOREFRONT_*_COLUMNS` — mitte `raw_data`, ostuhinda ega Icecati tehnilisi välju) ja jätab SQL-is välja read, mida pood kunagi ei näita: mudel või pakkumine pole `ACTIVE`, `available = false`, peidetud pildid. Filter kasutab ainult välju, mida `manual_overrides` muuta ei saa; kogus (`stock`, admini parandatav) ja kohustuslikud andmed kontrollitakse edasi mapperis. Kassa, admin ja sync loevad oma päringutega täisridu. Mõõdetud 11.10.2026 (live): 351 → 305 pakkumist, 46 → 40 veergu, poe nelja päringu JSON-maht ~2,34 MB → ~1,20 MB; poe kataloog identne.
 - Päris kataloog (Laptopid.ee) jõuab andmebaasi sync'iga — pood ei loe API-d otse. Vt [LAPTOPID_SYNC.md](LAPTOPID_SYNC.md).
 - Kui ei ole (lokaalne arendus ilma DB-ta, CI): mock-tarnija mälus.
 - Andmebaasi viga **ei vaheta vaikselt mock-andmetele**: see logitakse (`system_logs`, vea ID) ja kasutaja näeb veateadet.

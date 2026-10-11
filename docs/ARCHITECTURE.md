@@ -151,6 +151,7 @@ Icecati vaste on tihti üks konkreetne SKU (nt Saksa klaviatuur, puuteekraan, te
 - kõigil piltidel `width`/`height` ja fikseeritud kuvasuhtega pildiala → CLS 0;
 - avaleht LCP 340 ms; nimekirja algne pildimaht ~54 KB; tooteleht ~98 KB (põhipilt, 2000 px WebP).
 - Tootepiltide jaoks kasutatakse `<img srcset>`, mitte `next/image`'it: variandid on juba serveris optimeeritud ja tulevikus asuvad välises salvestusruumis. `unoptimized` ei ole globaalselt sisse lülitatud; logo kasutab `next/image`'it.
+- **Tarnija kaugpildid (Laptopid.ee) ja hero/logo** käivad läbi `next/image` → iga erinev laius on eraldi Verceli pilditeisendus. `next.config.ts` piirab laiused 9-ni (vaikimisi 15): `imageSizes` 64/128/256/384, `deviceSizes` 640/828/1200/1920/2560. Valik tuleneb mõõdetud kuvalaiustest (11.10.2026): kaart 322 px (desktop) / 341 px (375 px mobiil), galerii 684 px (1440 px), hero 555 px, pisipildid 56–96 px, täisekraan 100vw. 1×/2×/3× DPR saab alati vähemalt sama laia faili kui kuvatakse; 2048/3840 eemaldati (enamik tarnija originaale on ≤ 2000 px ja suuremaks ei venitata). `sizes` peab vastama tegelikule laiusele (galerii `≥1360px → 690px`, leidja `≥1024px → 270px`).
 
 **Põhimõtted**
 

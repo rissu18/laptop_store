@@ -66,7 +66,7 @@ function ResultCard({ label, result }: { label: string; result: ScoredItem }) {
   return (
     <article className="flex flex-col overflow-hidden rounded-lg border border-border bg-surface">
       <p className="bg-primary px-4 py-2 text-xs font-bold uppercase tracking-wide text-on-primary">{label}</p>
-      <ProductImage item={item} sizes="(min-width: 768px) 30vw, 100vw" />
+      <ProductImage item={item} sizes="(min-width: 1024px) 270px, (min-width: 768px) 30vw, 100vw" />
       <div className="flex flex-1 flex-col gap-3 p-4">
         <div>
           <h3 className="font-semibold leading-snug">
