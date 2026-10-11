@@ -63,13 +63,33 @@ const SECTIONS: FormSection[] = [
 
 const EURO_FIELDS = new Set(["supplierPriceCents", "salePriceCents"]);
 
+/**
+ * Tarnija hinnaga pakkumine (price_source = SUPPLIER, nt Laptopid.ee): müügihind on tarnija väli ja admini hind
+ * salvestub parandusena (sync uuendab tarnija hinda, parandus jääb kehtima kuni "Taasta").
+ */
+function sectionsFor(priceSource: string): FormSection[] {
+  if (priceSource !== "SUPPLIER") return SECTIONS;
+  return SECTIONS.map((section) =>
+    section.title !== "Hind ja nähtavus"
+      ? section
+      : {
+          ...section,
+          description: "Müügihind tuleb tarnijalt. Sinu hind salvestub parandusena — järgmine sync uuendab ainult tarnija hinda. Ostuhinda tarnija ei anna (marginaal teadmata).",
+          fields: section.fields.map((field) =>
+            field.name === "salePriceCents" ? { ...field, overridable: true, hint: "Tarnija müügihind; muutmisel kehtib sinu hind" } : field,
+          ),
+        },
+  );
+}
+
 export default async function ListingDetailPage({ params }: PageProps<"/admin/products/listings/[id]">) {
   const id = uuidParam((await params).id);
   if (!id) notFound();
   const data = await getListingDetail(id);
   if (!data) notFound();
   const { effective: listing, supplier, overrides, model } = data;
-  const fields = SECTIONS.flatMap((s) => s.fields);
+  const sections = sectionsFor(listing.priceSource);
+  const fields = sections.flatMap((s) => s.fields);
   const defaults = Object.fromEntries(fields.map((f) => [f.name, toInput((listing as Record<string, unknown>)[f.name], EURO_FIELDS.has(f.name) ? "euro" : undefined)]));
   const supplierDisplay = Object.fromEntries(fields.filter((f) => f.overridable).map((f) => [f.name, toDisplay((supplier as Record<string, unknown>)[f.name], EURO_FIELDS.has(f.name) ? "euro" : undefined)]));
   const issues = listingIssuesOf(listing);
@@ -99,7 +119,7 @@ export default async function ListingDetailPage({ params }: PageProps<"/admin/pr
           key={listing.updatedAt.toISOString()}
           entity="listing"
           id={listing.id}
-          sections={SECTIONS}
+          sections={sections}
           defaults={defaults}
           supplier={supplierDisplay}
           overridden={Object.keys(overrides)}
@@ -124,6 +144,9 @@ export default async function ListingDetailPage({ params }: PageProps<"/admin/pr
               items={[
                 { label: "Tarnija", value: listing.supplier },
                 { label: "Tarnija SKU", value: listing.supplierSku },
+                { label: "Saadavus", value: listing.available === null ? null : listing.available ? (listing.stock === null ? "Saadaval (kogus teadmata)" : "Saadaval") : "Ei ole saadaval (puudus tarnija nimekirjast)" },
+                { label: "Hinna allikas", value: listing.priceSource === "SUPPLIER" ? "Tarnija müügihind" : "Hinnastamine (ostuhinnast)" },
+                { label: "Viimati tarnija nimekirjas", value: fmtDateTime(listing.lastSeenAt) },
                 { label: "Käibemaksu režiim", value: listing.vatScheme },
                 { label: "Tarneaeg", value: listing.deliveryMinDays !== null ? `${listing.deliveryMinDays}–${listing.deliveryMaxDays} päeva` : null },
                 { label: "Marginaal (müük − ost)", value: fmtCents(margin) },

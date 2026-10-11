@@ -4,6 +4,7 @@ import { Minus, Plus, ShieldCheck, ShoppingBag, Trash2, Truck } from "lucide-rea
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { removeFromCart, setAppliedDiscountCode, setCartQuantity, useAppliedDiscountCode, useCart } from "@/client/cart-store";
+import { UNKNOWN_QUANTITY_LIMIT_MESSAGE } from "@/domain/catalog/availability";
 import { formatDeliveryDays, formatSpecLine } from "@/domain/catalog/format";
 import { productHref } from "@/domain/catalog/urls";
 import { formatEur } from "@/domain/money/money";
@@ -24,12 +25,17 @@ export function CartView() {
   const [cart, setCart] = useState<ResolvedCart | null>(null);
   const [discountError, setDiscountError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  /** Read, mille juures näidata "täpne laokogus pole teada" teadet */
+  const [limitNotices, setLimitNotices] = useState<ReadonlySet<string>>(new Set());
   const key = JSON.stringify([refs, appliedCode]);
 
   useEffect(() => {
     startTransition(async () => {
       const result = await resolveCart(refs, appliedCode ?? undefined);
       setCart(result);
+      // Server piiras kogust, sest täpne laokogus pole teada → selgita kliendile
+      const unknown = result.lines.filter((line) => line.quantityLimited && line.quantityUnknown).map((line) => line.item.variant.id);
+      if (unknown.length) setLimitNotices((prev) => new Set([...prev, ...unknown]));
       // Salvestatud kood ei kehti enam (nt aegus või ostukorv muutus) → eemalda ja ütle miks
       if (appliedCode && result.discount && !result.discount.valid) {
         setAppliedDiscountCode(null);
@@ -40,10 +46,17 @@ export function CartView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
-  // Eemalda korvist tooted, mida enam ei müüda
+  // Eemalda korvist tooted, mida enam ei müüda; liiga suur kogus → server piiras, salvesta piiratud kogus
   useEffect(() => {
     cart?.unavailableIds.forEach(removeFromCart);
+    const limited = cart?.lines.filter((line) => line.quantityLimited) ?? [];
+    for (const line of limited) setCartQuantity(line.item.variant.id, line.maxQuantity);
   }, [cart]);
+
+  function increase(line: ResolvedCart["lines"][number]) {
+    if (line.quantity < line.maxQuantity) setCartQuantity(line.item.variant.id, line.quantity + 1);
+    else if (line.quantityUnknown) setLimitNotices((prev) => new Set([...prev, line.item.variant.id]));
+  }
 
   const applyDiscount = (code: string) =>
     startTransition(async () => {
@@ -83,7 +96,9 @@ export function CartView() {
           </p>
         )}
         <ul className="divide-y divide-border border-y border-border">
-          {cart.lines.map(({ item, quantity, maxQuantity, lineTotalCents }) => (
+          {cart.lines.map((line) => {
+            const { item, quantity, maxQuantity, quantityUnknown, lineTotalCents } = line;
+            return (
             <li key={item.variant.id} className="flex gap-4 py-5">
               <Link href={productHref(item)} className="w-24 shrink-0 overflow-hidden rounded-md sm:w-32">
                 <ProductImage item={item} sizes="128px" />
@@ -118,8 +133,9 @@ export function CartView() {
                     </span>
                     <button
                       type="button"
-                      onClick={() => setCartQuantity(item.variant.id, quantity + 1)}
-                      disabled={quantity >= maxQuantity}
+                      onClick={() => increase(line)}
+                      // Teadmata laokoguse korral jääb nupp aktiivseks: klikk selgitab, miks rohkem ei saa
+                      disabled={quantity >= maxQuantity && !quantityUnknown}
                       className="flex size-9 items-center justify-center hover:bg-surface-sunken disabled:opacity-40"
                       aria-label="Suurenda kogust"
                     >
@@ -135,9 +151,15 @@ export function CartView() {
                     Eemalda
                   </button>
                 </div>
+                {limitNotices.has(item.variant.id) && (
+                  <p role="status" className="text-sm text-warning">
+                    {UNKNOWN_QUANTITY_LIMIT_MESSAGE}
+                  </p>
+                )}
               </div>
             </li>
-          ))}
+            );
+          })}
         </ul>
       </div>
 

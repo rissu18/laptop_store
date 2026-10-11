@@ -192,6 +192,13 @@ const SERIES_LABELS: Record<string, string> = {
   elitebook: "HP EliteBook",
   probook: "HP ProBook",
   zbook: "HP ZBook",
+  thinkbook: "Lenovo ThinkBook",
+  yoga: "Lenovo Yoga",
+  xps: "Dell XPS",
+  lifebook: "Fujitsu LifeBook",
+  "galaxy-book": "Samsung Galaxy Book",
+  "macbook-air": "Apple MacBook Air",
+  "macbook-pro": "Apple MacBook Pro",
 };
 
 export function seriesLabel(slug: string): string {

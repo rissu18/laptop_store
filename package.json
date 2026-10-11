@@ -18,7 +18,9 @@
     "db:verify-catalog": "tsx --conditions=react-server scripts/db-verify-catalog.ts",
     "admin:create": "tsx --conditions=react-server scripts/admin-create.ts",
     "admin:delete": "tsx --conditions=react-server scripts/admin-delete.ts",
-    "db:counts": "tsx --conditions=react-server scripts/db-counts.ts"
+    "db:counts": "tsx --conditions=react-server scripts/db-counts.ts",
+    "laptopid:sync": "tsx --conditions=react-server scripts/laptopid-sync.ts",
+    "catalog:archive-mock": "tsx --conditions=react-server scripts/catalog-archive-mock.ts"
   },
   "engines": {
     "node": ">=22"

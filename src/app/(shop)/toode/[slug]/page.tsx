@@ -34,13 +34,15 @@ export async function generateMetadata({ params }: PageProps<"/toode/[slug]">): 
 }
 
 function productJsonLd({ product }: CatalogItem, variants: CatalogItem["variant"][]) {
+  // Mudeli pildid; kui neid pole, esimese konfiguratsiooni (tarnija) pildid
+  const images = product.images.length > 0 ? product.images : (variants.find((v) => v.images.length > 0)?.images ?? []);
   return {
     "@context": "https://schema.org",
     "@type": "Product",
     name: product.title,
     brand: { "@type": "Brand", name: BRAND_NAMES[product.brand] },
-    ...(product.images.length > 0 && {
-      image: product.images.slice(0, 5).map((image) => new URL(image.largeUrl, storeConfig.siteUrl).toString()),
+    ...(images.length > 0 && {
+      image: images.slice(0, 5).map((image) => new URL(image.largeUrl, storeConfig.siteUrl).toString()),
     }),
     url: new URL(productPath(product.slug), storeConfig.siteUrl).toString(),
     offers: variants.map((variant) => ({
@@ -49,7 +51,7 @@ function productJsonLd({ product }: CatalogItem, variants: CatalogItem["variant"
       price: (variant.price.saleCents / 100).toFixed(2),
       priceCurrency: "EUR",
       itemCondition: "https://schema.org/UsedCondition",
-      availability: variant.stock.quantity > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      availability: variant.stock.available ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
       url: new URL(productHref({ product, variant }), storeConfig.siteUrl).toString(),
     })),
   };
@@ -62,7 +64,7 @@ async function ProductDetail({ params, searchParams }: PageProps<"/toode/[slug]"
 
   const requested = search[CONFIGURATION_PARAM];
   const variant =
-    data.variants.find((v) => v.id === requested) ?? data.variants.find((v) => v.stock.quantity > 0) ?? data.variants[0];
+    data.variants.find((v) => v.id === requested) ?? data.variants.find((v) => v.stock.available) ?? data.variants[0];
   const item: CatalogItem = { product: data.product, variant };
   const related = await getSimilarItems(item, 4);
   const showSecurePayment = visibleTrustItems(await getSettings()).some((t) => t.key === "payment");

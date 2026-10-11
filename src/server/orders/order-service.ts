@@ -99,7 +99,7 @@ export async function placeOrder(db: Database, input: PlaceOrderInput, deps: { n
   // 3. Kas klient nägi täpselt seda, mida me nüüd tellimusse paneksime?
   const priceChanges = detectPriceChanges(quote, input.acknowledged.lines);
   const messages: string[] = [];
-  for (const issue of quote.issues) messages.push(issue.kind === "INSUFFICIENT_STOCK" ? `${issue.title}: ${issue.message} (saadaval ${issue.available})` : issue.message);
+  for (const issue of quote.issues) messages.push(issue.kind === "INSUFFICIENT_STOCK" ? `${issue.title}: ${issue.message}${issue.quantityKnown ? ` (saadaval ${issue.available})` : ""}` : issue.message);
   if (priceChanges.length) messages.push(priceChanges.length === 1 ? "Ühe toote hind on pärast ostukorvi lisamist muutunud." : "Mõne toote hind on pärast ostukorvi lisamist muutunud.");
   if (quote.discountError) messages.push(`Sooduskood: ${quote.discountError}`);
   if (!priceChanges.length && !quote.issues.length && !quote.discountError) {

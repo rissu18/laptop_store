@@ -12,6 +12,9 @@ const BRAND_INTROS: Record<BrandCode, string> = {
   lenovo: "ThinkPad on üks tuntumaid äriklassi sülearvutite seeriaid, mida tuntakse hea klaviatuuri ja vastupidavuse poolest.",
   dell: "Dell Latitude on äriklassi sülearvutite seeria igapäevaseks kontoritööks; Precision on mõeldud nõudlikumaks tööks.",
   hp: "HP EliteBook on HP äriklassi tippseeria, ProBook soodsam äriklassi valik ja ZBook mobiilne tööjaam.",
+  fujitsu: "Fujitsu LifeBook on Fujitsu äriklassi sülearvutite seeria.",
+  samsung: "Samsung Galaxy Book on Samsungi õhukeste sülearvutite seeria.",
+  apple: "Apple MacBook Air ja MacBook Pro on macOS-iga sülearvutid.",
 };
 
 function isBrand(value: string): value is BrandCode {

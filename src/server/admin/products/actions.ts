@@ -12,7 +12,7 @@ import {
   modelEditSchema,
   zodFieldErrors,
 } from "@/domain/admin/product-edit";
-import { LISTING_OVERRIDABLE_FIELDS, MODEL_OVERRIDABLE_FIELDS, mergeOverrides } from "@/domain/catalog/overrides";
+import { LISTING_OVERRIDABLE_FIELDS, MODEL_OVERRIDABLE_FIELDS, listingOverridableFields, mergeOverrides } from "@/domain/catalog/overrides";
 import { CATALOG_CACHE_TAG } from "@/server/cache-tags";
 import { effectiveListing, effectiveModel } from "@/server/catalog/db-catalog-mapper";
 import { getDb } from "@/server/db/client";
@@ -26,6 +26,7 @@ import { runAdminAction } from "../run-action";
  * - Tarnija väljad salvestatakse PARANDUSENA (manual_overrides) — tarnija väärtus jääb alles ja järgmine
  *   sync ei kirjuta parandust üle.
  * - Admini väljad (staatus, esiletõstmine, kirjeldus, müügihind) salvestatakse otse veergu.
+ *   Erand: tarnija müügihinnaga pakkumisel (price_source = SUPPLIER) on müügihind tarnija väli → parandusena.
  * - Iga muudatus: serveripoolne valideerimine → transaktsioon (muudatus + audit) → poe vahemälu tühjendus.
  */
 
@@ -69,10 +70,12 @@ export async function updateListingAction(id: string, _prev: ActionResult | null
     const result = await getDb().transaction(async (tx) => {
       const [current] = await tx.select().from(supplierListings).where(eq(supplierListings.id, id)).for("update");
       if (!current) return fail("Konfiguratsiooni ei leitud");
-      const overrides = mergeOverrides(current, (current.manualOverrides ?? {}) as Record<string, unknown>, pick(input, LISTING_OVERRIDABLE_FIELDS), LISTING_OVERRIDABLE_FIELDS);
+      const allowed = listingOverridableFields(current.priceSource);
+      const overrides = mergeOverrides(current, (current.manualOverrides ?? {}) as Record<string, unknown>, pick(input, allowed), allowed);
+      const supplierPriced = current.priceSource === "SUPPLIER";
       const [updated] = await tx
         .update(supplierListings)
-        .set({ salePriceCents: input.salePriceCents, status: input.status, manualOverrides: overrides })
+        .set({ ...(supplierPriced ? {} : { salePriceCents: input.salePriceCents }), status: input.status, manualOverrides: overrides })
         .where(eq(supplierListings.id, id))
         .returning();
 
@@ -91,13 +94,15 @@ export async function updateListingAction(id: string, _prev: ActionResult | null
 export async function clearOverrideAction(entity: "model" | "listing", id: string, field: string): Promise<ActionResult> {
   return runAdminAction(`${entity}.clear_override`, async (admin) => {
     if (!uuid.safeParse(id).success) return fail("Vigane ID");
-    const allowed: readonly string[] = entity === "model" ? MODEL_OVERRIDABLE_FIELDS : LISTING_OVERRIDABLE_FIELDS;
+    const allowed: readonly string[] = entity === "model" ? MODEL_OVERRIDABLE_FIELDS : listingOverridableFields("SUPPLIER");
     if (!allowed.includes(field)) return fail("Seda välja ei saa taastada");
     const table = entity === "model" ? productModels : supplierListings;
 
     const result = await getDb().transaction(async (tx) => {
       const [current] = await tx.select().from(table).where(eq(table.id, id)).for("update");
       if (!current) return fail("Kirjet ei leitud");
+      // Müügihinna parandus on olemas ainult tarnija hinnaga pakkumisel
+      if (field === "salePriceCents" && !("priceSource" in current && current.priceSource === "SUPPLIER")) return fail("Seda välja ei saa taastada");
       const overrides = { ...((current.manualOverrides ?? {}) as Record<string, unknown>) };
       if (!(field in overrides)) return ok("Parandust polnud.");
       const from = overrides[field];

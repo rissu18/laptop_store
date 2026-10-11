@@ -125,6 +125,8 @@ Prototüüp (Phase 1) on juba selle mudeli järgi ehitatud. **Palun kinnita**, e
 
 ### 🔴 R4. Tarnija API võimekus on teadmata
 
+> **Laptopid.ee (2026-10-11):** API annab ainult saadavuse (mitte kogust), müügihinna (mitte ostuhinda) ja täieliku nimekirja ilma "snapshot_complete" markerita. Lahendused: [LAPTOPID_SYNC.md](LAPTOPID_SYNC.md) §6, §7, §9.
+
 Kogu automaatika sõltub tarnija API-st. Enne Phase 4 on vaja teada:
 
 - Kas on tellimuste API (`createOrder`)? Kas see toetab meie viidet / idempotency võtit?
@@ -274,7 +276,8 @@ Põhimõtted:
 | **2 Andmebaas** ✅ | Neon PostgreSQL, Drizzle skeem (12 tabelit), migratsioon, idempotentne import (38 / 46 / 320 klapib), pood loeb andmebaasist vahemäluga | Leht töötab andmebaasist |
 | **3 Admin** ✅ | Login (scrypt, sessioonid, piirang, CSRF), mudelid, konfiguratsioonid (parandused vs tarnija väärtus), pildid, Icecat, andmekvaliteet, hinnastamine (eelvaade + rakendamine), seaded, audit, logid, tervis | Admin saab hindu ja seadeid muuta; muudatus jõuab poodi kohe |
 | **3b Sooduskoodid** ✅ | DiscountEngine (%, €, tasuta tarne), kehtivusaeg, kasutuspiirang, tootja/mudeli/konfiguratsiooni piirang ja välistused, marginaalikaitse, ostukorvi kood, admin (nimekiri, vorm, eelvaade, duplikaat, arhiveerimine), kasutuste arhitektuur tellimuste jaoks | Kood töötab ostukorvis; summa arvutab server |
-| **4 Tarnija** | `SupplierAdapter`, sync worker, SyncRun log, hinnaajalugu; päris tarnija, kui API info olemas | Sync jookseb ajastatult, logid adminis |
+| **4a Laptopid.ee kataloog** ✅ | Päris kataloog Laptopid.ee API-st: valideerimine, normaliseerimine, sync andmebaasi (lukk, üks tehing, idempotentne), usaldusväärse snapshot'i kontroll, saadavus ilma koguseta, tarnija hind + admini parandus, pakkumise pildid (Next/Image), admin "Sync now" — vt [LAPTOPID_SYNC.md](LAPTOPID_SYNC.md) | 285 pakkumist poes; Hobby plaanil automaatne sync kord päevas (vajab CRON_SECRET), 5-min ajastaja järgmine etapp |
+| **4 Tarnija (Foxway)** | `SupplierAdapter`, sync worker, hinnaajalugu, laoseisu reserveerimine; päris tarnija, kui API info olemas | Sync jookseb ajastatult, logid adminis |
 | **5a Kassa + tellimused** ✅ | Külalisost (`/kassa`), serveripoolne arvutus, hinnamuutuse/laoseisu/koodi ülevaatus, idempotentsus, snapshot, testtellimused, kinnitusleht, tellimuse otsing, admini tellimused (tühistamine, märkmed, ajalugu), tarne seadetest — vt ORDERS.md | Testtellimus tekib andmebaasi |
 | **5b Tarneteenused** | Pakiautomaadid (Omniva/DPD/SmartPOST), päris tarnehinnad | Klient valib pakiautomaadi |
 | **6 Maksed** | `PaymentProvider` + valitud pakkuja, webhook verifitseerimine, `confirmRedemption` / `cancelRedemption` | Makse kinnitatakse serveris |

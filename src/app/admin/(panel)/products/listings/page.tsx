@@ -47,7 +47,7 @@ const columns: Column<Row>[] = [
   { key: "cpu", header: "CPU", cell: ({ effective }) => effective.cpu ?? <Missing /> },
   { key: "ram", header: "RAM / SSD", cell: ({ effective }) => `${fmtGb(effective.ramGb) ?? "?"} / ${fmtGb(effective.storageGb) ?? "?"}` },
   { key: "grade", header: "Seisukord", cell: ({ effective }) => effective.grade ?? <Missing /> },
-  { key: "stock", header: "Laos", align: "right", cell: ({ effective }) => effective.stock ?? <Missing /> },
+  { key: "stock", header: "Laos", align: "right", cell: ({ effective }) => effective.stock ?? (effective.available === true ? "saadaval" : effective.available === false ? "ei" : <Missing />) },
   { key: "cost", header: "Ostuhind", align: "right", mobile: "hidden", cell: ({ effective }) => fmtCents(effective.supplierPriceCents) ?? <Missing /> },
   { key: "price", header: "Müügihind", align: "right", cell: ({ effective }) => fmtCents(effective.salePriceCents) ?? <Missing /> },
   { key: "status", header: "Staatus", cell: ({ effective }) => <StatusBadge status={effective.status} /> },

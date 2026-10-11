@@ -34,7 +34,8 @@ export function ProductBadges({
   className,
 }: {
   firstSeenAt: string;
-  stockQuantity: number;
+  /** Täpne kogus; null = teadmata (siis "Ainult 1 tk" märki EI näidata) */
+  stockQuantity: number | null;
   hasPriceDrop: boolean;
   className?: string;
 }) {

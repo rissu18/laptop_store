@@ -60,7 +60,7 @@ export function ProductCard({ item, priority }: { item: CatalogItem; priority?: 
         </div>
 
         <div className="flex gap-2">
-          <AddToCartButton variantId={variant.id} disabled={variant.stock.quantity < 1} className="flex-1" />
+          <AddToCartButton variantId={variant.id} disabled={!variant.stock.available} className="flex-1" />
           <ButtonLink href={href} variant="outline" className="relative z-10 shrink-0" aria-label={`Vaata lähemalt: ${product.title}`}>
             Vaata
           </ButtonLink>

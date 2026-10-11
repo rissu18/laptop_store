@@ -5,6 +5,7 @@ import { DEFAULT_SETTINGS } from "@/domain/settings/settings";
 import { availableShippingMethods } from "@/domain/shipping/shipping";
 import { readSettings } from "@/server/settings/read-settings";
 import type { CatalogItem } from "@/domain/catalog/types";
+import { orderQuantityLimit } from "@/domain/catalog/availability";
 import { getItemsByVariantIds } from "@/server/catalog/catalog-service";
 import { getClientMeta } from "@/server/auth/auth";
 import { getDb, isDatabaseConfigured } from "@/server/db/client";
@@ -25,8 +26,12 @@ const cartInputSchema = z
 export interface ResolvedCartLine {
   item: CatalogItem;
   quantity: number;
-  /** Kogus piiratakse laoseisuga */
+  /** Kogus piiratakse laoseisuga; teadmata laokoguse korral 1 (vt domain/catalog/availability.ts) */
   maxQuantity: number;
+  /** Laokogus pole teada — rohkem kui 1 tk tellimiseks tuleb ühendust võtta */
+  quantityUnknown: boolean;
+  /** Klient soovis rohkem, kui automaatselt lubatud (kogus vähendati) */
+  quantityLimited: boolean;
   lineTotalCents: number;
 }
 
@@ -94,13 +99,20 @@ export async function resolveCart(input: unknown, discountCode?: unknown): Promi
   const unavailableIds: string[] = [];
   for (const ref of refs) {
     const item = byId.get(ref.variantId);
-    if (!item || item.variant.stock.quantity < 1) {
+    const maxQuantity = item ? orderQuantityLimit(item.variant.stock) : 0;
+    if (!item || maxQuantity < 1) {
       unavailableIds.push(ref.variantId);
       continue;
     }
-    const maxQuantity = Math.min(item.variant.stock.quantity, 10);
     const quantity = Math.min(ref.quantity, maxQuantity);
-    lines.push({ item, quantity, maxQuantity, lineTotalCents: item.variant.price.saleCents * quantity });
+    lines.push({
+      item,
+      quantity,
+      maxQuantity,
+      quantityUnknown: item.variant.stock.quantity === null,
+      quantityLimited: ref.quantity > maxQuantity,
+      lineTotalCents: item.variant.price.saleCents * quantity,
+    });
   }
 
   const delivery = isDatabaseConfigured() ? (await readSettings(getDb())).delivery : DEFAULT_SETTINGS.delivery;

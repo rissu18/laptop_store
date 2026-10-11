@@ -21,11 +21,15 @@ export async function loadPricingState(db: Reader) {
   return { settings, bands, config: toPricingConfig(settings, bands) };
 }
 
-/** Kõik pakkumised hinnastamise jaoks (efektiivne ostuhind — admini parandus arvestatakse). */
+/**
+ * Kõik pakkumised hinnastamise jaoks (efektiivne ostuhind — admini parandus arvestatakse).
+ * Tarnija müügihinnaga pakkumisi (price_source = SUPPLIER, nt Laptopid.ee) hinnastamine EI puuduta:
+ * nende hind tuleb tarnijalt ja ostuhind on teadmata.
+ */
 export async function loadPricingCandidates(db: Reader): Promise<PricingCandidate[]> {
   const rows = await db.select().from(supplierListings).orderBy(asc(supplierListings.sku));
   return rows
-    .filter((row) => row.status !== "ARCHIVED")
+    .filter((row) => row.status !== "ARCHIVED" && row.priceSource !== "SUPPLIER")
     .map((row) => {
       const listing = effectiveListing(row);
       return { id: listing.id, sku: listing.sku, costCents: listing.supplierPriceCents, vatScheme: listing.vatScheme ?? "UNKNOWN", currentCents: listing.salePriceCents };

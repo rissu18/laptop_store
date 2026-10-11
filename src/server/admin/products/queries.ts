@@ -38,7 +38,8 @@ export function listingIssueCondition(issue: ListingIssue): SQL {
     case "missing-sale-price":
       return isNull(supplierListings.salePriceCents);
     case "missing-stock":
-      return sql`${listingEff("stock")} IS NULL`;
+      // Saadavusega tarnija (available true/false, kogus teadmata) ei ole "puuduv laoseis"
+      return sql`${listingEff("stock")} IS NULL AND ${supplierListings.available} IS NULL`;
   }
 }
 

@@ -1,5 +1,6 @@
 import { inArray, sql } from "drizzle-orm";
 import { resolveCheckoutMode, type CheckoutMode } from "@/domain/checkout/checkout-mode";
+import { UNKNOWN_QUANTITY_LIMIT_MESSAGE, availableForOrder } from "@/domain/catalog/availability";
 import { formatSpecLine } from "@/domain/catalog/format";
 import type { CatalogItem } from "@/domain/catalog/types";
 import { evaluateDiscount, type DiscountEvaluation, type DiscountRule } from "@/domain/discounts/discount-engine";
@@ -8,7 +9,8 @@ import { availableShippingMethods, quoteShipping, type ShippingQuote } from "@/d
 import type { Settings } from "@/domain/settings/settings";
 import { mapCatalogRows } from "@/server/catalog/db-catalog-mapper";
 import type { Database } from "@/server/db/client";
-import { productImages, productModels, supplierListings } from "@/server/db/schema";
+import { listingImages, productImages, productModels, supplierListings } from "@/server/db/schema";
+import { imagesForDisplay } from "@/domain/images/product-image";
 import { findDiscountByNormalizedCode, toDiscountRule } from "@/server/discounts/discount-repository";
 import { toDiscountCartLines } from "@/server/discounts/discount-service";
 import { getConfiguredPaymentProvider } from "@/server/payments/payment-provider";
@@ -31,7 +33,17 @@ export interface CheckoutItemInput {
 
 export type CheckoutIssue =
   | { kind: "UNAVAILABLE"; variantId: string; message: string }
-  | { kind: "INSUFFICIENT_STOCK"; variantId: string; title: string; requested: number; available: number; message: string };
+  | {
+      kind: "INSUFFICIENT_STOCK";
+      variantId: string;
+      title: string;
+      requested: number;
+      /** Automaatselt tellitav kogus (teadmata laokoguse korral 1 — EI tähenda "laos 1 tk") */
+      available: number;
+      /** false = tarnija täpset laokogust ei anna; kogust kliendile ei näidata */
+      quantityKnown: boolean;
+      message: string;
+    };
 
 export interface QuoteLine {
   variantId: string;
@@ -79,11 +91,16 @@ async function loadItems(db: Pick<Database, "select">, variantIds: string[]) {
     .from(supplierListings)
     .where(inArray(sql`lower(${supplierListings.supplier} || '-' || ${supplierListings.supplierProductId})`, variantIds.map((id) => id.toLowerCase())));
   const modelIds = [...new Set(listings.map((l) => l.productModelId))];
-  const [models, images] = modelIds.length
-    ? await Promise.all([db.select().from(productModels).where(inArray(productModels.id, modelIds)), db.select().from(productImages).where(inArray(productImages.productModelId, modelIds))])
-    : [[], []];
-  // Sama teisendus mis poes: ainult ACTIVE mudelid/pakkumised, laos, täielike andmetega
-  const { items } = mapCatalogRows(models, listings, images);
+  const listingIds = listings.map((l) => l.id);
+  const [models, images, unitImages] = modelIds.length
+    ? await Promise.all([
+        db.select().from(productModels).where(inArray(productModels.id, modelIds)),
+        db.select().from(productImages).where(inArray(productImages.productModelId, modelIds)),
+        db.select().from(listingImages).where(inArray(listingImages.supplierListingId, listingIds)),
+      ])
+    : [[], [], []];
+  // Sama teisendus mis poes: ainult ACTIVE mudelid/pakkumised, saadaval, täielike andmetega
+  const { items } = mapCatalogRows(models, listings, images, unitImages);
   const listingBySku = new Map(listings.map((l) => [l.sku, l]));
   const result = new Map<string, { item: CatalogItem; listingId: string; productModelId: string }>();
   for (const searchable of items) {
@@ -113,9 +130,11 @@ export async function computeCheckout(db: Pick<Database, "select">, input: { ite
       issues.push({ kind: "UNAVAILABLE", variantId, message: "Toode ei ole enam saadaval." });
       continue;
     }
-    const available = entry.item.variant.stock.quantity;
+    // Automaatselt tellitav kogus; teadmata laokoguse korral 1 (see EI tähenda "laos 1 tk")
+    const available = availableForOrder(entry.item.variant.stock);
     if (quantity > available) {
-      issues.push({ kind: "INSUFFICIENT_STOCK", variantId, title: entry.item.product.title, requested: quantity, available, message: "Valitud kogus ei ole enam saadaval." });
+      const message = entry.item.variant.stock.quantity === null ? UNKNOWN_QUANTITY_LIMIT_MESSAGE : "Valitud kogus ei ole enam saadaval.";
+      issues.push({ kind: "INSUFFICIENT_STOCK", variantId, title: entry.item.product.title, requested: quantity, available, quantityKnown: entry.item.variant.stock.quantity !== null, message });
       continue;
     }
     valid.push({ ...entry, quantity, discountCents: 0 });
@@ -162,7 +181,7 @@ export async function computeCheckout(db: Pick<Database, "select">, input: { ite
         title: item.product.title,
         specLine: formatSpecLine(item),
         grade: item.variant.grade,
-        imageUrl: item.product.images[0]?.thumbnailUrl ?? null,
+        imageUrl: imagesForDisplay(item)[0]?.thumbnailUrl ?? null,
         unitPriceCents: item.variant.price.saleCents,
         quantity,
         lineSubtotalCents,

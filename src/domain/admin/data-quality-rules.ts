@@ -36,6 +36,8 @@ export function listingIssuesOf(listing: {
   keyboard: string | null;
   salePriceCents: number | null;
   stock: number | null;
+  /** Tarnija saadavus ilma koguseta (nt Laptopid.ee) — siis puuduv kogus ei ole viga */
+  available?: boolean | null;
 }): ListingIssue[] {
   const issues: ListingIssue[] = [];
   if (!listing.cpu) issues.push("missing-cpu");
@@ -45,6 +47,6 @@ export function listingIssuesOf(listing: {
   if (!listing.grade) issues.push("missing-grade");
   if (!listing.keyboard) issues.push("unknown-keyboard");
   if (listing.salePriceCents === null) issues.push("missing-sale-price");
-  if (listing.stock === null) issues.push("missing-stock");
+  if (listing.stock === null && (listing.available ?? null) === null) issues.push("missing-stock");
   return issues;
 }

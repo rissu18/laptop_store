@@ -2,13 +2,13 @@ import "server-only";
 import { asc } from "drizzle-orm";
 import type { SearchableItem } from "@/domain/catalog/filtering";
 import { getDb } from "@/server/db/client";
-import { productImages, productModels, supplierListings } from "@/server/db/schema";
+import { listingImages, productImages, productModels, supplierListings } from "@/server/db/schema";
 import { errorMessage, newErrorId, writeSystemLog } from "@/server/logging/system-log";
 import { mapCatalogRows } from "./db-catalog-mapper";
 
 /**
- * Poe kataloog PostgreSQL-ist. Kolm lihtsat päringut (mudelid, pakkumised, pildid) ja teisendus mälus —
- * kataloog on väike (kümned/sajad pakkumised); filtreerimine ja tahud töötavad sama koodiga mis enne.
+ * Poe kataloog PostgreSQL-ist. Neli lihtsat päringut (mudelid, pakkumised, mudeli pildid, pakkumiste pildid)
+ * ja teisendus mälus — kataloog on väike (sajad pakkumised); filtreerimine ja tahud töötavad sama koodiga.
  *
  * Viga EI peideta mock-andmete taha: see logitakse (konsool + system_logs) ja visatakse edasi,
  * et leht näitaks veateadet (error.tsx), mitte valesid tooteid.
@@ -16,12 +16,13 @@ import { mapCatalogRows } from "./db-catalog-mapper";
 export async function loadDbCatalogItems(): Promise<SearchableItem[]> {
   try {
     const db = getDb();
-    const [models, listings, images] = await Promise.all([
+    const [models, listings, images, unitImages] = await Promise.all([
       db.select().from(productModels),
       db.select().from(supplierListings).orderBy(asc(supplierListings.sku)),
       db.select().from(productImages).orderBy(asc(productImages.productModelId), asc(productImages.position)),
+      db.select().from(listingImages).orderBy(asc(listingImages.supplierListingId), asc(listingImages.position)),
     ]);
-    const { items, incomplete } = mapCatalogRows(models, listings, images);
+    const { items, incomplete } = mapCatalogRows(models, listings, images, unitImages);
     if (incomplete.length) {
       // Puudulikud pakkumised ei jõua poodi; admin näeb neid Data Quality all
       console.warn(JSON.stringify({ level: "warn", scope: "catalog", message: "Puudulikud pakkumised jäeti poest välja", count: incomplete.length }));

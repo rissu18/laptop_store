@@ -123,7 +123,7 @@ export function CompareTable() {
                         size="sm"
                         fullWidth
                         className="mt-2 px-2"
-                        disabled={item.variant.stock.quantity < 1}
+                        disabled={!item.variant.stock.available}
                       />
                     </div>
                   </th>

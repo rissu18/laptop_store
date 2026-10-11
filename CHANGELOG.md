@@ -5,6 +5,55 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 ---
 
+## 2026-10-11 — Päris kataloog Laptopid.ee API-st
+
+**Mis lisati**
+
+- **Sync:** Laptopid.ee API (products.php + images.php) → zod-valideerimine → normaliseerimine → sync → PostgreSQL → olemasolev catalog-service. Pood, otsing, ostukorv ja kassa loevad ainult andmebaasi. Sync võtab luku (`catalog_sync_runs`), teeb kõik võrgutööd enne tehingut ja kirjutab kõik ühes tehingus. Sama vastus kaks korda ei muuda midagi (päris andmetega: 285 uut, siis 285 muutmata).
+- **Andmebaas** (migratsioon `0003_laptopid_sync.sql`, ainult lisav):
+  - uued tabelid `listing_images` ja `catalog_sync_runs`;
+  - `supplier_listings` uued veerud `available`, `price_source`, `weight_kg`, `condition_notes`, `details` ja `last_seen_at`.
+  - Arvud enne ja pärast samad (38 / 46 / 320).
+- **Identiteet:** `supplier = 'laptopid'` + Laptopid toote ID (olemasolev UNIQUE). Slug ei ole identiteet.
+- **Mudelid:** vaste kanoonilise nime järgi (ThinkPad "G3" → "Gen 3", "2in1" → "2-in-1"). Kui vastet pole, luuakse uus mudel. Sama mudeli konfiguratsioonid jäävad eraldi pakkumisteks. Tulemus: 122 uut mudelit ja 21 olemasolevat mudelit leiti.
+- **Laoseis:** saadavus (`available`) on eraldi täpsest kogusest (`stock`). Laptopid annab ainult saadavuse, seega:
+  - poes kuvatakse "Kohe saadaval" (mitte "1 tk");
+  - tellida saab 1 tk rea kohta; rohkema korral kuvatakse selgitus.
+  - Tulevane tarnija saab anda ka täpse koguse.
+- **Hinnad:** `sale_price` on tarnija müügihind (`price_source = SUPPLIER`). Admini hind salvestub parandusena ja sync uuendab ainult tarnija väärtust. `new_price` on ainult kontekst. Ostuhind jääb NULL-iks ja hinnastamismootor neid pakkumisi ei puuduta.
+- **Täielik snapshot:** puuduv toode võetakse maha (`available = false`) ainult usaldusväärse vastusega ja tagasi tulles taastub. API viga, vigane või tühi vastus, korduvad ID-d või palju skeemivigu → kataloog jääb samaks. Ebaloogiliselt suur kadu → puuduvaid maha ei võeta (admin saab teadlikult lubada).
+- **Pildid:** Laptopid.ee pildid on pakkumise tasemel kaug-URL-idena (small/medium/original) ja kuvatakse Next/Image kaudu. `remotePatterns` lubab ainult `laptopid.ee/images/product/**`. Mõõdud loetakse HTTP Range päringuga. Git'i pilte ei laeta. Icecat jääb mudeli piltide varuallikaks.
+- **Pood:**
+  - uued tootjad (Fujitsu, Samsung, Apple) ja seeriad (XPS, ThinkBook, Yoga, LifeBook, Galaxy Book, MacBook);
+  - tehnilistes andmetes konfiguratsiooni pordid, kaal, DisplayPort, privaatsusekraan, värskendussagedus, TrackPoint ja veebikaamera;
+  - tarnija defektimärkus ("Märkus: Üks USB-C ei tööta").
+- **Admin:**
+  - uus leht **Tarnijad** (`/admin/suppliers`): viimane sync, arvud, vahele jäetud tooted, käivituste ajalugu, **Sync now**, "Luba suur muutus";
+  - konfiguratsiooni lehel saadavus, hinna allikas ja tarnija hinna parandus koos "Taasta" nupuga;
+  - süsteemilogi uus allikas LAPTOPID.
+- **Ajastamine:**
+  - `GET /api/cron/laptopid-sync` (kaitstud `CRON_SECRET`-iga, ilma selleta ei käivitu);
+  - `vercel.json` igapäevane cron;
+  - CLI `npm run laptopid:sync`;
+  - mock-andmete arhiveerimine `npm run catalog:archive-mock`.
+- **Testid:** 265 → 305.
+- Dokumentatsioon: uus docs/LAPTOPID_SYNC.md; uuendatud README, ARCHITECTURE, DATABASE, ADMIN, PROJECT_PLAN ja AGENTS.md.
+
+**Probleemid ja lahendused**
+
+- **Verceli `LAPTOPID_API_URL` vastas 404.** Töötavad otspunktid leiti GitHubis lisatud `route.ts` failist (products.php + images.php, päis `X-API-Key`). Need on nüüd koodis konstandid.
+- **Avalik `/api/products`:**
+  - see avaldas võtmega kaitstud tarnija voo kõigile (CDN `s-maxage=300`);
+  - see mõtles välja väärtusi (`wifi: true`, `bluetooth: true`, puuduv USB → 0).
+  - Nüüd on see ainult admini diagnostika, kasutab sama jagatud laadijat ja `no-store` vahemälu.
+- **Laptopid ei anna laokogust.** "Nimekirjas = 1 tk" oleks olnud vale väide. Lahendus: eraldi saadavus ja kogus; teadmata koguse korral tellitav 1 tk koos selgitusega.
+- **5-minutiline automaatne sync:** Vercel Hobby lubab cron'i kõige rohkem kord päevas. Võltslahendust ei tehtud: on "Sync now", kaitstud otspunkt ja dokumenteeritud järgmine etapp (Pro või väline ajastaja).
+- **Konfiguratsiooni pildid ja mudeli pildid:** kui Laptopid.ee pildid oleks pandud mudeli piltide tabelisse, oleks admini ja Icecati järjestamine need ümber nummerdanud. Seepärast on neil eraldi tabel `listing_images`.
+- **Kassa kogusepiir:** esimene versioon piiras kassas ka teadaoleva laokoguse 10-ni (ostukorvi piir). Olemasolev test tuvastas selle. Lahendus: kassa kasutab laoseisu (`availableForOrder`), ostukorv oma 10 tk piiri.
+- **Tellimuse ülevaate teade "(saadaval 1)"** oleks teadmata koguse korral väitnud, et laos on 1 tk. Lisati `quantityKnown` ja kogust kuvatakse ainult siis, kui see on teada.
+- **4 Laptopid.ee pilti vastavad 404:** pilti ei lisata, toode jääb korda ja järgmine sync proovib uuesti.
+- **20 toodet jäeti vahele:** 13 × "New", 5 × "Demo", 1 × "Outlet" (meie seisukorraklassid on A+/A/B/C) ja 1 × tundmatu seeria (V330). Seisukorra vastet ei mõeldud välja; lahendus vajab otsust.
+
 ## 2026-10-11 — Kassa ja tellimused (ilma makseta)
 
 **Mis lisati**

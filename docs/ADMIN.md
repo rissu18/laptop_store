@@ -13,6 +13,7 @@ Poe haldusliides aadressil `/admin`. Selles dokumendis on kirjas, kuidas admin o
 | Konfiguratsioonid | `/admin/products/listings` (+ `/[id]`) | Tarnija pakkumised; riistvara, seisukorra, laoseisu, ostu- ja müügihinna parandamine |
 | Pildid | `/admin/images` (+ `/[modelId]`) | Pildikate, põhipilt, järjekord, peitmine; Icecati toimingud |
 | Andmekvaliteet | `/admin/data-quality` | Probleemide kategooriad → filtreeritud nimekiri → "Paranda" |
+| Tarnijad | `/admin/suppliers` | Laptopid.ee sync: viimane edukas sync, saadud / uued / muutunud / maha võetud / vigased, vahele jäetud tooted, käivituste ajalugu, **Sync now** — vt §16 ja [LAPTOPID_SYNC.md](LAPTOPID_SYNC.md) |
 | Hinnastamine | `/admin/pricing` | Hinnareeglid, eelvaade, eraldi rakendamine kinnitusega |
 | Sooduskoodid | `/admin/discounts` (+ `/new`, `/[id]`) | Koodid, tingimused, kehtivus, piirangud, eelvaade, duplikaat, arhiveerimine — vt §14 ja [DISCOUNTS.md](DISCOUNTS.md) |
 | Seaded | `/admin/settings` | Üldine, pood, tarne, garantii, tagastus, usaldusriba |
@@ -20,7 +21,7 @@ Poe haldusliides aadressil `/admin`. Selles dokumendis on kirjas, kuidas admin o
 | Logid | `/admin/system/logs` | Süsteemilogi (tase, allikas, aeg, otsing) |
 | Tervis | `/admin/system/health` | Andmebaasi ühendus ja latentsus, migratsioonid, vead 24 h, keskkond |
 
-Kliendid ja Tarnijad on menüüs märgitud **"Tulekul"**. Need ei ole klikitavad ega teeskle töötavat funktsiooni. **Tellimused** on aktiivne (§15).
+Kliendid on menüüs märgitud **"Tulekul"**. Need ei ole klikitavad ega teeskle töötavat funktsiooni. **Tellimused** on aktiivne (§15).
 
 ## 2. Autentimine ja turvalisus
 
@@ -124,7 +125,7 @@ efektiivne väärtus = väli on manual_overrides'is ? parandus : tarnija väärt
 
 | Tarnija kontrollitud (admin saab parandada) | Ainult admin |
 | --- | --- |
-| **Konfiguratsioon:** CPU, CPU pere, CPU põlvkond, RAM, RAM tüüp, SSD, GPU, eraldi GPU, ekraan, resolutsioon, paneel, puuteekraan, klaviatuur, seisukord, laoseis, ostuhind, OS, garantii (kuud), aku seisukord, laadija | **Konfiguratsioon:** müügihind, staatus |
+| **Konfiguratsioon:** CPU, CPU pere, CPU põlvkond, RAM, RAM tüüp, SSD, GPU, eraldi GPU, ekraan, resolutsioon, paneel, puuteekraan, klaviatuur, seisukord, laoseis, ostuhind, OS, garantii (kuud), aku seisukord, laadija; **tarnija müügihinnaga pakkumisel (Laptopid.ee) ka müügihind** | **Konfiguratsioon:** müügihind (hinnastamisega pakkumisel), staatus |
 | **Mudel:** tootja, seeria, mudel, põlvkond, ekraan, kaal | **Mudel:** staatus, esiletõstmine, kirjeldus |
 | | **Pildid:** põhipilt, järjekord, peitmine |
 | | **Seaded**, hinnareeglid |
@@ -133,7 +134,7 @@ Nimekirjad on koodis: `src/domain/catalog/overrides.ts`.
 
 ### Nähtavus (staatus)
 
-`ACTIVE`: poes nähtav. `HIDDEN`: peidetud, aga andmed alles. `ARCHIVED`: arhiveeritud. Poes on pakkumine nähtav ainult siis, kui mudel ja pakkumine on mõlemad `ACTIVE`, laoseis on > 0 ja kõik poe kohustuslikud andmed on olemas (CPU, RAM, SSD, seisukord, müügihind, ekraan, tootja). Puudulik pakkumine ei kao andmebaasist: see jääb Andmekvaliteedi alla parandamiseks.
+`ACTIVE`: poes nähtav. `HIDDEN`: peidetud, aga andmed alles. `ARCHIVED`: arhiveeritud. Poes on pakkumine nähtav ainult siis, kui mudel ja pakkumine on mõlemad `ACTIVE`, pakkumine on saadaval (laoseis > 0 või tarnija kinnitab saadavuse ilma koguseta — Laptopid.ee) ja kõik poe kohustuslikud andmed on olemas (CPU, RAM, SSD, seisukord, müügihind, ekraan, tootja). Puudulik pakkumine ei kao andmebaasist: see jääb Andmekvaliteedi alla parandamiseks.
 
 **Kustutamist adminis pole** (ka mitte bulk-toimingutes). Peitmine on alati tagasi pööratav ja ajalugu jääb alles.
 
@@ -146,6 +147,8 @@ Adminis on kolm eraldi sammu:
 1. **Reeglid:** kulud, kaitsepiirid (min kasum €/%, min müügihind), ümardus ja juurdehindluse vahemikud ostuhinna järgi. Vahemikud valideeritakse: algus 0 €-st, ilma aukude ja kattumisteta, ainult viimane võib olla ülemise piirita. **Salvestamine ei muuda ühtegi hinda.**
 2. **Eelvaade:** tabel veergudega SKU, ostuhind, praegune hind, arvutatud hind, erinevus ja kasum (marginaal). Pakkumised, mida ei saa hinnastada (puudub ostuhind või käibemaksu režiim), on näidatud põhjusega ja jäetakse vahele.
 3. **Rakenda hinnad:** eraldi nupp kinnitusdialoogiga, mis näitab muutuvate hindade arvu. Rakendamine käib ühes tehingus ja iga hinnamuutus läheb tegevuslogisse (`pricing.apply`, vana → uus).
+
+**Tarnija müügihinnaga pakkumisi (Laptopid.ee, `price_source = SUPPLIER`) hinnastamine ei puuduta** — nende hind tuleb tarnijalt ja ostuhind on teadmata.
 
 Müügihinda saab muuta ka käsitsi konfiguratsiooni lehel. Järgmine "Rakenda hinnad" arvutab selle siiski reeglite järgi üle. Nii on hinnad alati reeglitega kooskõlas, ja kui erand on vajalik, tuleb seda arvestada.
 
@@ -255,3 +258,13 @@ Täielik kirjeldus: [ORDERS.md](ORDERS.md#12-admin).
 - **Töölaud:** testtellimusi täna ja kokku ning päris tellimused eraldi. Käivet ei näidata.
 - **Seaded → Tarne:** tarneviisi nimi ja hind (kassa „Standardtarne“) ning tasuta tarne piir.
 
+
+## 16. Tarnijad (Laptopid.ee sync)
+
+Täielik kirjeldus: [LAPTOPID_SYNC.md](LAPTOPID_SYNC.md).
+
+- **`/admin/suppliers`:** API võtme olek, viimane edukas sync ja selle arvud (saadud, uued, muutunud, maha võetud, vigased), pakkumiste arv andmebaasis (saadaval / mitte saadaval), teiste tarnijate aktiivsed pakkumised, automaatse sync'i olek, viimases sync'is vahele jäetud tooted koos põhjusega ja viimase 10 käivituse tabel.
+- **Sync now:** sama kaitse nagu teistel admini toimingutel (`runAdminAction`: sessioon + päritolu). Vahemälu tühjendatakse alati (`updateTag('catalog')`). Valik **"Luba suur muutus"** lubab maha võtta rohkem tooteid, kui ohutuspiir lubab (kui need on Laptopid.ee-st päriselt kadunud).
+- **Audit:** `laptopid.sync` (käivitaja, tulemus, kas suur muutus lubati). Detailid on süsteemilogis (allikas LAPTOPID).
+- **Konfiguratsiooni leht:** Laptopid pakkumisel näidatakse saadavust ("Saadaval (kogus teadmata)"), hinna allikat ja viimast nimekirjas olemise aega. Müügihinda saab parandada (tarnija väärtus jääb nähtavale, "Taasta" viib tagasi).
+- **Andmekvaliteet:** "Puudub laoseis" ei rakendu pakkumistele, mille saadavuse tarnija kinnitab ilma koguseta.

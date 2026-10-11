@@ -78,7 +78,7 @@ export function findSimilarItems(current: CatalogItem, candidates: CatalogItem[]
       (candidate) =>
         candidate.variant.id !== current.variant.id &&
         candidate.product.slug !== current.product.slug &&
-        candidate.variant.stock.quantity > 0 &&
+        candidate.variant.stock.available &&
         isWithinPriceRange(current, candidate), // 1. hind ±25% — kohustuslik
     )
     .map((item) => ({ item, score: similarityScore(current, item) }))

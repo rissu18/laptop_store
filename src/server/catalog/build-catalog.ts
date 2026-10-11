@@ -79,12 +79,15 @@ function variantFromOffer(offer: NormalizedOffer, saleCents: number, options: Ca
       referenceCents: null,
       vatScheme: offer.vatScheme,
     },
-    stock: { quantity: offer.stockQuantity },
+    stock: { available: offer.stockQuantity > 0, quantity: offer.stockQuantity },
     // Tarneaeg tuleb tarnija pakkumisest; puudumisel null (poe vaikeväärtust ei panda)
     delivery: offer.deliveryDays,
     firstSeenAt: offer.listedAt ?? "1970-01-01T00:00:00Z",
     lastSyncedAt: options.lastSyncedAt,
     isFeatured: options.featuredExternalIds.includes(offer.externalId),
+    weightKg: null,
+    conditionNotes: null,
+    details: {},
     // Tarnija fotod konkreetsest ühikust (ACTUAL_UNIT) lisanduvad, kui tarnija neid annab
     images: [],
   };

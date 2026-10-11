@@ -24,7 +24,7 @@ export function BuyBox({
   showSecurePayment: boolean;
 }) {
   const { product, variant } = item;
-  const inStock = variant.stock.quantity > 0;
+  const inStock = variant.stock.available;
 
   const assurances = [
     variant.warrantyMonths && { icon: ShieldCheck, text: `Garantii ${variant.warrantyMonths} kuud` },
@@ -43,6 +43,12 @@ export function BuyBox({
         <div className="mt-3">
           <GradeExplainer grade={variant.grade} />
         </div>
+        {variant.conditionNotes && (
+          <p className="mt-2 whitespace-pre-line text-sm text-muted">
+            <span className="font-medium text-text">Märkus: </span>
+            {variant.conditionNotes}
+          </p>
+        )}
       </div>
 
       <QuickSpecs item={item} />
@@ -85,7 +91,7 @@ export function StickyBuyBar({ item }: { item: CatalogItem }) {
           <p className="truncate text-xs text-muted">{product.title}</p>
           <p className="tabular text-xl font-bold">{formatEur(variant.price.saleCents)}</p>
         </div>
-        <AddToCartButton variantId={variant.id} disabled={variant.stock.quantity < 1} size="lg" />
+        <AddToCartButton variantId={variant.id} disabled={!variant.stock.available} size="lg" />
       </div>
     </div>
   );

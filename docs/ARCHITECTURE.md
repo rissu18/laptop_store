@@ -62,8 +62,10 @@ src/
     checkout/             kassa arvutus (computeCheckout) ja server action'id
     orders/               tellimuse loomine (idempotentne tehing), avalik vaade, otsing, teavitused (Noop)
     payments/             PaymentProvider liides (praegu ühtegi pakkujat pole)
+    catalog-sync/         tarnija sync (Laptopid.ee): lukk + käivitused, pildi mõõdud, ajastatud otspunkti kaitse
   integrations/           välised süsteemid adapterite taga
     supplier/             SupplierAdapter, normaliseerimine, MockSupplierAdapter
+    laptopid/             Laptopid.ee API klient (server-only), skeem, normaliseerimine, snapshot'i kontroll
     payment/              PaymentProvider (Phase 6)
     email/                EmailProvider (Phase 7)
     shipping/             ShippingProvider (Phase 5)
@@ -172,6 +174,23 @@ Icecati vaste on tihti üks konkreetne SKU (nt Saksa klaviatuur, puuteekraan, te
 
 Tootmises on vaja püsivat S3-ühilduvat salvestusruumi (`S3CompatibleImageStorageAdapter`). Teenus on valimata (vajab omaniku otsust, vt PROJECT_PLAN.md R13). Import jookseb siis serveris/arvutis, failid lähevad salvestusruumi ja kirjed (Phase 2-s) andmebaasi.
 
+## Laptopid.ee kataloog (päris andmed)
+
+Päris kataloog tuleb Laptopid.ee API-st **sync'iga andmebaasi**, mitte otse lehtedele:
+
+```
+Laptopid.ee API → valideerimine → normaliseerimine → sync (lukk, üks tehing) → PostgreSQL
+  → catalog-service (sama kõigile lehtedele) → pood / otsing / ostukorv / kassa / tellimused
+```
+
+- Identiteet: `supplier = 'laptopid'` + Laptopid toote ID (UNIQUE). Slug ei ole identiteet.
+- Laoseis: `available` (saadavus) + `stock` (täpne kogus; Laptopid puhul NULL = teadmata). Teadmata koguse korral tellitav 1 tk rea kohta, poes "Kohe saadaval" — vt `src/domain/catalog/availability.ts`.
+- Hind: tarnija müügihind (`price_source = SUPPLIER`), admini hind on parandus; ostuhind NULL.
+- Puuduvad tooted võetakse maha ainult usaldusväärse täieliku snapshot'iga.
+- Pakkumise pildid eraldi tabelis `listing_images` (kaug-URL-id, Next/Image), mudeli pildid (Icecat) `product_images`.
+
+Täpsemalt: [LAPTOPID_SYNC.md](LAPTOPID_SYNC.md).
+
 ## Hulgilao integratsioon
 
 ```ts
@@ -191,6 +210,8 @@ Muudatus algse spetsifikatsiooniga võrreldes: `getStock` ja `getPrice` on ühen
 `SupplierProduct` on **tarnija toorandmed** (zod-skeemiga valideeritud). Iga adapter tõlgib oma tarnija formaadi meie normaliseeritud kujule (`NormalizedOffer`) — ülejäänud rakendus tarnija formaati ei näe.
 
 ### Sync (Phase 4)
+
+> Laptopid.ee jaoks on sync tehtud (vt [LAPTOPID_SYNC.md](LAPTOPID_SYNC.md)): `catalog_sync_runs` (lukk + ajalugu), usaldusväärse snapshot'i kontroll, `available = false` (mitte MISSING/laoseis 0), ühe tehinguga kirjutamine, `updateTag`/`revalidateTag('catalog')`. Ajastaja (pg-boss worker) ja hinnaajalugu on veel tegemata; Vercel Hobby lubab cron'i kord päevas.
 
 1. Worker käivitab `catalog.sync` töö seadistatud intervalliga (`SystemSetting.syncIntervalMinutes`), singleton-režiimis (kaks sync'i korraga ei jookse).
 2. Luuakse `SyncRun` (status `RUNNING`).

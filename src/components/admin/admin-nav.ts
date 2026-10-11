@@ -44,6 +44,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       { label: "Konfiguratsioonid", href: "/admin/products/listings", icon: Boxes },
       { label: "Pildid", href: "/admin/images", icon: ImageIcon },
       { label: "Andmekvaliteet", href: "/admin/data-quality", icon: ClipboardCheck },
+      { label: "Tarnijad", href: "/admin/suppliers", icon: Truck },
     ],
   },
   {
@@ -66,7 +67,6 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     label: "Tulekul",
     items: [
       { label: "Kliendid", href: "#kliendid", icon: Users, comingSoon: true },
-      { label: "Tarnijad", href: "#tarnijad", icon: Truck, comingSoon: true },
     ],
   },
 ];

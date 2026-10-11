@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import type { ListingDetails } from "@/domain/catalog/listing-details";
 import {
   bigserial,
   boolean,
@@ -37,6 +38,9 @@ const timestamps = {
     .defaultNow()
     .$onUpdate(() => new Date()),
 };
+
+export const PRICE_SOURCES = ["PRICING", "SUPPLIER"] as const;
+export type PriceSource = (typeof PRICE_SOURCES)[number];
 
 export const CATALOG_STATUSES = ["ACTIVE", "HIDDEN", "ARCHIVED"] as const;
 export type CatalogStatus = (typeof CATALOG_STATUSES)[number];
@@ -192,20 +196,45 @@ export const supplierListings = pgTable(
     /** Aku seisukord % (tarnija teatatud) */
     batteryHealthPct: integer("battery_health_pct"),
     chargerIncluded: boolean("charger_included"),
+    /** Täpne laokogus; NULL = tarnija ei anna kogust (vt `available`) */
     stock: integer("stock"),
+    /**
+     * Saadavus tarnija andmetel, sõltumata kogusest (vt docs/LAPTOPID_SYNC.md):
+     *   true  = tarnija kinnitab, et laos on (kogus võib olla teadmata — `stock` NULL)
+     *   false = tarnija viimases usaldusväärses täielikus snapshot'is toodet polnud
+     *   NULL  = tarnija annab ainult koguse (`stock`) — vana käitumine (mock)
+     */
+    available: boolean("available"),
     deliveryMinDays: integer("delivery_min_days"),
     deliveryMaxDays: integer("delivery_max_days"),
+    /** Ostuhind (meie kulu). NULL = teadmata — müügihinda ega viitehinda siia EI panda. */
     supplierPriceCents: integer("supplier_price_cents"),
     vatScheme: text("vat_scheme"),
     // Meie hind (hinnastamismootor / admin)
     salePriceCents: integer("sale_price_cents"),
     referencePriceCents: integer("reference_price_cents"),
+    /**
+     * Kust müügihind tuleb:
+     *   PRICING  = hinnastamismootor ostuhinnast (sale_price_cents on admini/hinnastamise väli)
+     *   SUPPLIER = tarnija jaehind (sale_price_cents on TARNIJA väli, sync kirjutab; admini parandus
+     *              läheb manual_overrides.salePriceCents alla ja sync seda ei puutu)
+     */
+    priceSource: text("price_source", { enum: PRICE_SOURCES }).notNull().default("PRICING"),
+    /** Konfiguratsiooni kaal (tarnija), kui tarnija annab selle pakkumise tasemel */
+    weightKg: numeric("weight_kg", { precision: 4, scale: 2, mode: "number" }),
+    /** Tarnija märkus seisukorra/defektide kohta lihttekstina (HTML eemaldatud) */
+    conditionNotes: text("condition_notes"),
+    /** Struktureeritud lisaandmed, millele filtrit pole (pordid, värskendussagedus …) — vt ListingDetails */
+    details: jsonb("details").$type<ListingDetails>().notNull().default({}),
     status: text("status", { enum: CATALOG_STATUSES }).notNull().default("ACTIVE"),
     manualOverrides: jsonb("manual_overrides").$type<Record<string, unknown>>().notNull().default({}),
     /** Tarnija toorandmed silumiseks — äriloogika neid ei loe */
     rawData: jsonb("raw_data"),
     firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    /** Viimane kord, kui sync selle rea andmeid kinnitas või muutis */
     lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    /** Viimane usaldusväärne snapshot, kus pakkumine oli olemas */
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
     ...timestamps,
   },
   (t) => [
@@ -214,6 +243,74 @@ export const supplierListings = pgTable(
     index("supplier_listings_model_idx").on(t.productModelId),
     index("supplier_listings_status_idx").on(t.status),
     statusCheck("supplier_listings_status_ck", "status"),
+    check("supplier_listings_price_source_ck", sql`price_source in ('PRICING', 'SUPPLIER')`),
+  ],
+);
+
+/**
+ * Konkreetse pakkumise (konfiguratsiooni) pildid tarnijalt — nt Laptopid.ee iga toote oma galerii.
+ * Eraldi tabel, sest product_images on MUDELI pildid (Icecat), mida admin järjestab mudeli kaupa.
+ * Pildid on kaugel (HTTPS); Git'i neid ei laeta.
+ */
+export const listingImages = pgTable(
+  "listing_images",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    supplierListingId: uuid("supplier_listing_id")
+      .notNull()
+      .references(() => supplierListings.id, { onDelete: "cascade" }),
+    /** Allikas, nt "LAPTOPID" */
+    source: text("source").notNull(),
+    /** Allika pildi ID */
+    sourceId: text("source_id").notNull(),
+    position: integer("position").notNull(),
+    /** Admini otsus — sync ei muuda */
+    isHidden: boolean("is_hidden").notNull().default(false),
+    thumbnailUrl: text("thumbnail_url").notNull(),
+    mediumUrl: text("medium_url").notNull(),
+    largeUrl: text("large_url").notNull(),
+    /** Originaali mõõdud (loetud pildifaili päisest) */
+    width: integer("width").notNull(),
+    height: integer("height").notNull(),
+    alt: text("alt").notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("listing_images_source_uq").on(t.supplierListingId, t.source, t.sourceId),
+    index("listing_images_listing_idx").on(t.supplierListingId, t.position),
+  ],
+);
+
+export const SYNC_RUN_STATUSES = ["RUNNING", "SUCCESS", "FAILED"] as const;
+export const SYNC_RUN_TRIGGERS = ["ADMIN", "CRON", "CLI", "TEST"] as const;
+
+/**
+ * Kataloogi sync'i käivitused: andmebaasipõhine lukk (üks RUNNING rida allika kohta — osaline
+ * UNIQUE indeks) ja tulemuste ajalugu adminis.
+ */
+export const catalogSyncRuns = pgTable(
+  "catalog_sync_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** "LAPTOPID" */
+    source: text("source").notNull(),
+    status: text("status", { enum: SYNC_RUN_STATUSES }).notNull(),
+    trigger: text("trigger", { enum: SYNC_RUN_TRIGGERS }).notNull(),
+    triggeredBy: text("triggered_by"),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    /** Lukk aegub (nt katkenud serverless-funktsioon) — siis võib järgmine käivitus selle üle võtta */
+    leaseUntil: timestamp("lease_until", { withTimezone: true }).notNull(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    /** received, valid, rejected, created, updated, unchanged, madeUnavailable, reactivated … */
+    stats: jsonb("stats").$type<Record<string, unknown>>().notNull().default({}),
+    /** Kas snapshot oli usaldusväärne täielik nimekiri (puuduvad märgiti mitte saadavaks) */
+    snapshotTrusted: boolean("snapshot_trusted"),
+    error: text("error"),
+  },
+  (t) => [
+    uniqueIndex("catalog_sync_runs_running_uq").on(t.source).where(sql`status = 'RUNNING'`),
+    index("catalog_sync_runs_source_idx").on(t.source, t.startedAt),
+    check("catalog_sync_runs_status_ck", sql`status in ('RUNNING', 'SUCCESS', 'FAILED')`),
   ],
 );
 
@@ -325,7 +422,7 @@ export const auditLogs = pgTable(
 );
 
 export const LOG_LEVELS = ["DEBUG", "INFO", "WARN", "ERROR"] as const;
-export const LOG_SOURCES = ["APPLICATION", "DATABASE", "ADMIN", "AUTH", "ICECAT"] as const;
+export const LOG_SOURCES = ["APPLICATION", "DATABASE", "ADMIN", "AUTH", "ICECAT", "LAPTOPID"] as const;
 
 export const systemLogs = pgTable(
   "system_logs",

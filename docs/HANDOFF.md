@@ -4,6 +4,8 @@
 > Live: <https://laptop-store-rouge.vercel.app> · GitHub: <https://github.com/rissu18/laptop_store>
 > Kasutaja kirjutab eesti keeles; vasta eesti keeles. Projekt on 12. klassi praktiline lõputöö — dokumentatsioon (docs/, CHANGELOG.md) on osa tööst.
 
+> **Uuendus (2026-10-11, hiljem):** valmis **päris kataloog Laptopid.ee API-st** (sync → PostgreSQL) — vt [LAPTOPID_SYNC.md](LAPTOPID_SYNC.md) ja CHANGELOG. 25 tabelit (migratsioon 0003), 305 testi. Admin → **Tarnijad** → Sync now; `npm run laptopid:sync`. Mock-pakkumised arhiveeritakse `npm run catalog:archive-mock -- --confirm`. Allpool olev tekst kirjeldab seisu enne seda tööd.
+
 ## 1. Eesmärk
 
 Custom e-pood **kasutatud äriklassi sülearvutitele** (Lenovo ThinkPad, Dell Latitude, HP EliteBook), mis põhineb automaatselt sünkroniseeritaval hulgilaol (tulevikus **Foxway**). Ilma WordPressi/Shopify jms platvormita. Tooted praegu **mock-tarnijast** (46 pakkumist, 38 mudelit), mis on imporditud PostgreSQL-i. Pood on **prototüübirežiimis**: hoiatusriba, noindex, ainult testtellimused.

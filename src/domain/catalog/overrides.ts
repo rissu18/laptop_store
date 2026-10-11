@@ -36,6 +36,15 @@ export const LISTING_OVERRIDABLE_FIELDS = [
 ] as const;
 export type ListingOverridableField = (typeof LISTING_OVERRIDABLE_FIELDS)[number];
 
+/**
+ * Kui müügihind tuleb TARNIJALT (price_source = SUPPLIER, nt Laptopid.ee sale_price), on sale_price_cents
+ * tarnija väli ja admini hind on parandus: tarnija 549 €, admin 519 € → kehtib 519 €, kuni admin vajutab
+ * "Taasta". Sync uuendab ainult tarnija väärtust. PRICING-pakkumistel on müügihind admini/hinnastamise väli.
+ */
+export function listingOverridableFields(priceSource: string | null | undefined): readonly string[] {
+  return priceSource === "SUPPLIER" ? [...LISTING_OVERRIDABLE_FIELDS, "salePriceCents"] : LISTING_OVERRIDABLE_FIELDS;
+}
+
 /** Mudeli väljad, mis tulevad tarnijast/normaliseerimisest, aga mida admin tohib parandada. */
 export const MODEL_OVERRIDABLE_FIELDS = ["manufacturer", "family", "model", "generation", "screenSizeIn", "weightKg"] as const;
 export type ModelOverridableField = (typeof MODEL_OVERRIDABLE_FIELDS)[number];

@@ -43,7 +43,13 @@ function section(title: string, rows: (SpecRow | null)[]): SpecSection | null {
 
 export function buildSpecSections({ product, variant }: CatalogItem): SpecSection[] {
   const f = variant.features;
+  const d = variant.details;
   const count = (n: number | null) => (n === null ? null : n > 0 ? `${n} tk` : null);
+  // Konfiguratsiooni (pakkumise) andmed on täpsemad kui mudeli üldandmed — neid eelistatakse
+  const usbA = d.usbA ?? product.ports.usbA;
+  const usbC = d.usbC ?? product.ports.usbC;
+  const weightKg = variant.weightKg ?? product.weightKg;
+  const thunderbolt = d.thunderbolt ? `Jah (Thunderbolt ${d.thunderbolt.replace("+", " ja ")})` : yesNo(f.thunderbolt);
 
   return [
     // Protsessor, RAM ja SSD on juba tootelehe kiirinfo kastides — siin neid ei korrata
@@ -62,13 +68,17 @@ export function buildSpecSections({ product, variant }: CatalogItem): SpecSectio
       ),
       row("Paneel", variant.display.panel),
       row("Puuteekraan", yesNo(variant.display.touch)),
+      row("Värskendussagedus", d.refreshRateHz && d.refreshRateHz > 60 ? `${d.refreshRateHz} Hz` : null),
+      row("Privaatsusekraan", d.privacyScreen ? "Jah" : null),
       row("360° pööratav", f.convertible ? "Jah" : null),
     ]),
     section("Ühendused", [
-      row("USB-A", count(product.ports.usbA)),
-      row("USB-C", count(product.ports.usbC)),
-      row("Thunderbolt", yesNo(f.thunderbolt)),
+      row("USB-A", count(usbA)),
+      row("USB-C", count(usbC)),
+      row("Thunderbolt", thunderbolt),
       row("HDMI", yesNo(f.hdmi)),
+      row("DisplayPort", d.displayPort ? "Jah" : null),
+      row("VGA", d.vga ? "Jah" : null),
       row("LAN (RJ45)", yesNo(f.lan)),
       row("SD-kaardilugeja", yesNo(f["sd-reader"])),
       row("Wi-Fi", product.wifi),
@@ -76,16 +86,18 @@ export function buildSpecSections({ product, variant }: CatalogItem): SpecSectio
       row("Mobiilne internet", f["5g"] ? "5G" : f.lte ? "4G / LTE" : null),
     ]),
     section("Füüsilised omadused", [
-      row("Kaal", product.weightKg ? formatWeight(product.weightKg) : null),
-      row("Klaviatuur", variant.keyboardLayout),
+      row("Kaal", weightKg ? formatWeight(weightKg) : null),
+      row("Klaviatuur", variant.keyboardLayout ?? d.keyboardRaw),
       row("Klaviatuuri taustavalgus", yesNo(f.backlit)),
       row("Numbriklahvistik", yesNo(f.numpad)),
+      row("TrackPoint (osutuskang)", d.pointingStick ? "Jah" : null),
     ]),
     section("Turvalisus", [
       row("Sõrmejäljelugeja", yesNo(f.fingerprint)),
       row("IR-kaamera", yesNo(f["ir-camera"])),
       // "Smart Card lugeja", mitte "ID-kaardilugeja": Eesti ID-kaardi tuge pole kinnitatud
       row(FEATURE_LABELS.smartcard, yesNo(f.smartcard)),
+      row("Veebikaamera", yesNo(d.webcam ?? null)),
     ]),
     section("Muu", [
       row("Operatsioonisüsteem", variant.os),
@@ -93,6 +105,7 @@ export function buildSpecSections({ product, variant }: CatalogItem): SpecSectio
       row("Laadija komplektis", yesNo(variant.chargerIncluded)),
       row("Garantii", variant.warrantyMonths ? `${variant.warrantyMonths} kuud` : null),
       row("Seisukord", `${variant.grade} · ${GRADES[variant.grade].label}`),
+      row("Märkus seisukorra kohta", variant.conditionNotes),
       row("Tootja", BRAND_NAMES[product.brand]),
       row("SKU", variant.sku),
     ]),

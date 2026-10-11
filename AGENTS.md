@@ -7,3 +7,10 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## Kataloogi reeglid (Laptopid.ee sync)
+
+- Pood, otsing, ostukorv ja kassa loevad kataloogi AINULT PostgreSQL-ist (catalog-service / computeCheckout). Ära tee runtime päringuid Laptopid.ee API-sse — andmed tulevad sync'iga (docs/LAPTOPID_SYNC.md).
+- Laoseis: `available` + `stock` (NULL = kogus teadmata). Teadmata kogust ära kuva ega käsitle kui "1 tk"; kasuta `src/domain/catalog/availability.ts`.
+- Laptopid `sale_price`/`new_price` ei ole ostuhind — `supplier_price_cents` jääb NULL. Sync ei puuduta `manual_overrides`, `status` ega admini välju.
+

@@ -214,7 +214,7 @@ export function finderCatalogHref(answers: FinderAnswers): string {
  *   VÕIMSAIM SOBIV   — suurim jõudlusindeks, mille skoor on vähemalt 50% parimast
  */
 export function recommendLaptops(items: CatalogItem[], answers: FinderAnswers): FinderResult {
-  const eligible = items.filter((item) => item.variant.stock.quantity > 0 && inBudget(item, answers.budget));
+  const eligible = items.filter((item) => item.variant.stock.available && inBudget(item, answers.budget));
   const scored = eligible
     .map((item) => scoreItem(item, answers))
     .sort((a, b) => b.score - a.score || a.item.variant.price.saleCents - b.item.variant.price.saleCents || a.item.variant.sku.localeCompare(b.item.variant.sku));

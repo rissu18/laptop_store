@@ -1,24 +1,28 @@
 import { BRAND_CODES, BRAND_NAMES, KEYBOARD_LAYOUTS, type BrandCode, type CatalogItem, type CpuFamily, type FeatureFlags, type KeyboardLayout, type VatScheme } from "@/domain/catalog/types";
+import { resolveStock } from "@/domain/catalog/availability";
 import { buildSearchText } from "@/domain/catalog/search";
 import type { SearchableItem } from "@/domain/catalog/filtering";
-import { LISTING_OVERRIDABLE_FIELDS, MODEL_OVERRIDABLE_FIELDS, applyOverrides } from "@/domain/catalog/overrides";
+import { MODEL_OVERRIDABLE_FIELDS, applyOverrides, listingOverridableFields } from "@/domain/catalog/overrides";
 import { GRADE_CODES, type GradeCode } from "@/domain/grade/grades";
 import type { ProductImageView } from "@/domain/images/product-image";
 import { publicListingId } from "@/server/db/seed/seed-catalog";
-import type { productImages, productModels, supplierListings } from "@/server/db/schema";
+import type { listingImages, productImages, productModels, supplierListings } from "@/server/db/schema";
 
 /**
  * Andmebaasi read → poe kataloogi kirjed (CatalogItem).
  * - Kasutab EFEKTIIVSEID väärtusi (admini parandus ?? tarnija väärtus).
- * - Poes näidatakse ainult ACTIVE mudelite ACTIVE pakkumisi, mis on laos ja millel on kõik poe jaoks
- *   kohustuslikud andmed (CPU, RAM, SSD, seisukord, müügihind, ekraan). Puudulikud pakkumised ei kao
- *   andmebaasist — need on adminis Data Quality all parandamiseks.
+ * - Poes näidatakse ainult ACTIVE mudelite ACTIVE pakkumisi, mis on saadaval (vt domain/catalog/availability.ts)
+ *   ja millel on kõik poe jaoks kohustuslikud andmed (CPU, RAM, SSD, seisukord, müügihind, ekraan).
+ *   Puudulikud pakkumised ei kao andmebaasist — need on adminis Data Quality all parandamiseks.
  * - Puuduvaid väärtusi ei asendata võltsitud vaikeväärtustega.
+ * - Pildid: pakkumise oma pildid (listing_images, nt Laptopid.ee) → variant.images; mudeli pildid
+ *   (product_images, nt Icecat) → product.images. Kuvamisel eelistatakse pakkumise pilte.
  */
 
 type ModelRow = typeof productModels.$inferSelect;
 type ListingRow = typeof supplierListings.$inferSelect;
 type ImageRow = typeof productImages.$inferSelect;
+type ListingImageRow = typeof listingImages.$inferSelect;
 
 export interface IncompleteListing {
   sku: string;
@@ -35,7 +39,7 @@ export function effectiveModel(model: ModelRow): ModelRow {
 }
 
 export function effectiveListing(listing: ListingRow): ListingRow {
-  return applyOverrides(listing, listing.manualOverrides, LISTING_OVERRIDABLE_FIELDS);
+  return applyOverrides(listing, listing.manualOverrides, listingOverridableFields(listing.priceSource));
 }
 
 /** Poe jaoks kohustuslikud väljad, mis pakkumisel puuduvad. */
@@ -63,10 +67,27 @@ export function imageRowToView(image: ImageRow): ProductImageView {
   };
 }
 
+/**
+ * Tarnija pildid konkreetsest pakkumisest. Tüüp MODEL_GENERIC (mitte ACTUAL_UNIT): pole kinnitatud, et foto on
+ * täpselt müüdavast eksemplarist — seega kuvatakse "illustratiivne" märge (ei väida rohkem, kui teame).
+ */
+export function listingImageRowToView(image: ListingImageRow): ProductImageView {
+  return {
+    thumbnailUrl: image.thumbnailUrl,
+    mediumUrl: image.mediumUrl,
+    largeUrl: image.largeUrl,
+    width: image.width,
+    height: image.height,
+    alt: image.alt,
+    type: "MODEL_GENERIC",
+  };
+}
+
 export function mapCatalogRows(
   models: ModelRow[],
   listings: ListingRow[],
   images: ImageRow[],
+  listingImageRows: ListingImageRow[] = [],
 ): { items: SearchableItem[]; incomplete: IncompleteListing[] } {
   const modelById = new Map(models.map((m) => [m.id, effectiveModel(m)]));
   const imagesByModel = new Map<string, ProductImageView[]>();
@@ -75,6 +96,13 @@ export function mapCatalogRows(
     const list = imagesByModel.get(image.productModelId) ?? [];
     list.push(imageRowToView(image));
     imagesByModel.set(image.productModelId, list);
+  }
+  const imagesByListing = new Map<string, ProductImageView[]>();
+  for (const image of [...listingImageRows].sort((a, b) => a.position - b.position)) {
+    if (image.isHidden) continue;
+    const list = imagesByListing.get(image.supplierListingId) ?? [];
+    list.push(listingImageRowToView(image));
+    imagesByListing.set(image.supplierListingId, list);
   }
 
   const products = new Map<string, CatalogItem["product"]>();
@@ -85,7 +113,8 @@ export function mapCatalogRows(
     const model = modelById.get(raw.productModelId);
     if (!model || model.status !== "ACTIVE" || raw.status !== "ACTIVE") continue;
     const listing = effectiveListing(raw);
-    if ((listing.stock ?? 0) <= 0) continue;
+    const stock = resolveStock({ stock: listing.stock, available: listing.available });
+    if (!stock.available) continue;
 
     const missing = missingStorefrontFields(model, listing);
     if (missing.length) {
@@ -137,7 +166,7 @@ export function mapCatalogRows(
           referenceCents: listing.referencePriceCents,
           vatScheme: VAT_SCHEMES.includes(listing.vatScheme as VatScheme) ? (listing.vatScheme as VatScheme) : "UNKNOWN",
         },
-        stock: { quantity: listing.stock ?? 0 },
+        stock,
         delivery:
           listing.deliveryMinDays !== null && listing.deliveryMaxDays !== null
             ? { minDays: listing.deliveryMinDays, maxDays: listing.deliveryMaxDays }
@@ -145,7 +174,10 @@ export function mapCatalogRows(
         firstSeenAt: listing.firstSeenAt.toISOString(),
         lastSyncedAt: listing.lastSyncedAt ? listing.lastSyncedAt.toISOString() : null,
         isFeatured: model.featured,
-        images: [],
+        weightKg: listing.weightKg,
+        conditionNotes: listing.conditionNotes,
+        details: listing.details ?? {},
+        images: imagesByListing.get(listing.id) ?? [],
       },
     };
     items.push({ ...item, searchText: buildSearchText(item) });

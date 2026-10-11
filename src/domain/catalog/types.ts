@@ -1,6 +1,8 @@
 import type { Cents } from "@/domain/money/money";
 import type { GradeCode } from "@/domain/grade/grades";
 import type { ProductImageView } from "@/domain/images/product-image";
+import type { StockInfo } from "./availability";
+import type { ListingDetails } from "./listing-details";
 
 /**
  * Kataloogi normaliseeritud andmemudel.
@@ -8,13 +10,16 @@ import type { ProductImageView } from "@/domain/images/product-image";
  * Seetõttu ei ole siin ostuhinda ega tarnija andmeid (vt server/catalog).
  */
 
-export const BRAND_CODES = ["lenovo", "dell", "hp"] as const;
+export const BRAND_CODES = ["lenovo", "dell", "hp", "fujitsu", "samsung", "apple"] as const;
 export type BrandCode = (typeof BRAND_CODES)[number];
 
 export const BRAND_NAMES: Record<BrandCode, string> = {
   lenovo: "Lenovo",
   dell: "Dell",
   hp: "HP",
+  fujitsu: "Fujitsu",
+  samsung: "Samsung",
+  apple: "Apple",
 };
 
 export const CPU_FAMILIES = [
@@ -116,7 +121,8 @@ export interface CatalogVariant {
     referenceCents: Cents | null;
     vatScheme: VatScheme;
   };
-  stock: { quantity: number };
+  /** Saadavus + täpne kogus (`null` = tarnija ei anna kogust). Vt domain/catalog/availability.ts */
+  stock: StockInfo;
   /** Tarneaeg tarnija andmetest; `null` = teadmata → UI ei kuva tarneaega. Vaikeväärtust EI panda. */
   delivery: { minDays: number; maxDays: number } | null;
   /** ISO kuupäev, millal toode esimest korda meie süsteemi tuli */
@@ -124,6 +130,12 @@ export interface CatalogVariant {
   /** ISO kuupäev, viimane edukas sync. `null` = sync pole veel töötanud. */
   lastSyncedAt: string | null;
   isFeatured: boolean;
+  /** Konfiguratsiooni kaal, kui tarnija annab selle pakkumise tasemel (muidu kehtib mudeli kaal) */
+  weightKg: number | null;
+  /** Tarnija märkus seisukorra kohta (lihttekst) */
+  conditionNotes: string | null;
+  /** Struktureeritud lisaandmed (pordid jms) — vt ListingDetails */
+  details: ListingDetails;
   /** Pildid konkreetsest müüdavast seadmest (ACTUAL_UNIT), kui tarnija neid annab */
   images: ProductImageView[];
 }
