@@ -37,7 +37,7 @@ Täielik kirjeldus: **docs/LAPTOPID_SYNC.md**.
 - Sync: DB-lukk (`catalog_sync_runs`; samaaegne → BUSY), võrgutööd enne tehingut, üks tehing, idempotentne; API viga / vigane vastus → kataloog jääb samaks; puuduvad tooted maha ainult usaldusväärse snapshot'iga.
 - **Automaatne sync: Upstash QStash, prototüübi ressursisäästlik ajastus (Eesti aeg, `CRON_TZ=Europe/Tallinn`):** 08:00–23:30 iga 30 min (schedule `scd_696gjRsEk4PkPVQdGeFCn4qGKqco`, `*/30 8-23 * * *`) ja 00:00–06:00 iga 2 h (`scd_76f6zhpjE9tY9t4yedt6aR67Q94x`, `0 0-6/2 * * *`) — 36 käivitust ööpäevas (enne iga 5 min = 288), et säästa Neoni compute'i; enne päris poe avamist vaata sagedus üle. → `GET /api/cron/laptopid-sync` päisega `Authorization: Bearer <CRON_SECRET>` (401 vale/puuduv, 503 seadistamata, 200 SUCCESS/BUSY, 502 FAILED), korduskatseid 0. **Verceli igapäevane cron** (`vercel.json`, 03:00 UTC) on varuvõrk.
 - `CRON_SECRET` on Vercelis Secret-tüüpi (roteeritud 2026-10-11, väärtust ei saa lugeda). QStashi token (`QSTASH_TOKEN`, `QSTASH_URL`) on ainult kohalikus `.env.local` failis schedule'i haldamiseks.
-- Käsitsi: admin → Tarnijad → **Sync now** (tühjendab ka poe vahemälu) või `npm run laptopid:sync`. Admin → Tarnijad → "Sync'i seis" näitab hoiatust "Automaatne sünkroonimine ei ole ajakohane.", kui edukast sync'ist on üle 15 min (ainult adminis) — praeguse 30 min / 2 h ajastusega on see enamasti nähtav ja ootuspärane.
+- Käsitsi: admin → Tarnijad → **Sync now** (tühjendab ka poe vahemälu) või `npm run laptopid:sync`. Admin → Tarnijad → "Sync'i seis" näitab hoiatust "Automaatne sünkroonimine ei ole ajakohane.", kui edukas sync on Eesti aja järgi päeval (08–00) üle 45 min või öösel (00–08) üle 150 min vana (ainult adminis).
 
 ## 5. Storefront, kassa, sisu
 
@@ -53,7 +53,7 @@ Täielik kirjeldus: **docs/LAPTOPID_SYNC.md**.
 
 ## 6. Testid ja kontrollid
 
-- **390 testi / 41 testifaili — kõik läbivad** (`npm test`, DB testid päris Neonis ajutises skeemis `test_xxxx`, ~45 s).
+- **393 testi / 41 testifaili — kõik läbivad** (`npm test`, DB testid päris Neonis ajutises skeemis `test_xxxx`, ~45 s).
 - `npm run typecheck` ✅ · `npm run lint` ✅ · `npm run build` ✅ (Git Bashis: `set -a; . ./.env.development.local; . ./.env.local; set +a; npm run build`).
 - Viimane production deploy (`be11d1d`): **Ready**.
 - Dev-serveri vana CSS (Turbopacki vahemälu) → peata server, kustuta `.next`, käivita uuesti. `next start` ei loe `.env.development.local` faili (kassa/DB ei tööta) — brauseris testimiseks kasuta `dev`. Brauseripaan on sageli peidetud → Suspense jääb `hidden` alla ja `requestAnimationFrame`/kerimissündmused ei käi; tee enne kuvatõmmis.

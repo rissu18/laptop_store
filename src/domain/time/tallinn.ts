@@ -22,6 +22,11 @@ function wallClockParts(date: Date) {
   return { year: +parts.year, month: +parts.month, day: +parts.day, hour: +parts.hour, minute: +parts.minute, second: +parts.second };
 }
 
+/** Eesti kohalik tund (0–23) antud hetkel — suve-/talveaeg arvestatud (Intl, mitte fikseeritud nihe). */
+export function tallinnHour(date: Date): number {
+  return wallClockParts(date).hour;
+}
+
 /** Ajavööndi nihe millisekundites antud hetkel (nt +3 h suvel). */
 function offsetAt(utcMs: number): number {
   const p = wallClockParts(new Date(utcMs));

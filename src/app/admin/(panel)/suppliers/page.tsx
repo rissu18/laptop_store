@@ -3,7 +3,7 @@ import Link from "next/link";
 import { DataTable, type Column } from "@/components/admin/data-table";
 import { fmtDateTime } from "@/components/admin/format";
 import { SyncNowButton } from "@/components/admin/sync-now-button";
-import { SYNC_STALE_AFTER_MS, SYNC_STALE_MESSAGE } from "@/domain/catalog/sync-health";
+import { SYNC_STALE_MESSAGE } from "@/domain/catalog/sync-health";
 import { Badge, Card, DefinitionList, PageHeader } from "@/components/admin/ui";
 import { getSupplierOverview } from "@/server/admin/suppliers/queries";
 import type { SyncRunRow } from "@/server/catalog-sync/sync-runs";
@@ -63,7 +63,7 @@ export default async function SuppliersPage() {
               <p className="font-semibold">{SYNC_STALE_MESSAGE}</p>
               <p className="mt-1">
                 {health.lastSuccessAt
-                  ? `Viimane edukas sync oli ${health.ageLabel} (oodatud iga ~5 min, hoiatus üle ${SYNC_STALE_AFTER_MS / 60_000} min).`
+                  ? `Viimane edukas sünkroonimine: ${health.ageLabel} (automaatne sync päeval iga 30 min, öösel iga 2 h; hoiatus praegu üle ${health.staleAfterMs / 60_000} min).`
                   : "Edukat sync'i pole veel olnud."}{" "}
                 Pood näitab viimast edukat andmebaasi seisu. Kontrolli välist ajastajat ja CRON_SECRET-i või vajuta „Sync now“.
               </p>

@@ -276,7 +276,7 @@ Authorization: Bearer <CRON_SECRET>
 
 ### Seis adminis (stale-sync hoiatus)
 
-Admin → Tarnijad → **"Sync'i seis"**: viimane edukas sync (aeg + vanus), viimase käivituse tulemus, saadud / muutunud / maha võetud / vead. Kui viimasest edukast sync'ist on **üle 15 minuti** (`SYNC_STALE_AFTER_MS`, `src/domain/catalog/sync-health.ts`), kuvatakse hoiatus **"Automaatne sünkroonimine ei ole ajakohane."** Ainult adminis — poes kliendile mitte. Kuni välist ajastajat pole, on hoiatus ootuspäraselt nähtav.
+Admin → Tarnijad → **"Sync'i seis"**: viimane edukas sync (aeg + vanus), viimase käivituse tulemus, saadud / muutunud / maha võetud / vead. Kui viimane edukas sync on vanem kui Eesti kohaliku aja (`Europe/Tallinn`) järgi kehtiv piir — **päeval (08:00–00:00) 45 min, öösel (00:00–08:00) 150 min** (`syncStaleAfterMs`, `src/domain/catalog/sync-health.ts`; QStashi 30 min / 2 h intervall + varu) —, kuvatakse hoiatus **"Automaatne sünkroonimine ei ole ajakohane."** Ainult adminis — poes kliendile mitte. Kuni välist ajastajat pole, on hoiatus ootuspäraselt nähtav.
 
 ### Aktiivne ajastaja: Upstash QStash (2026-10-11)
 
@@ -285,7 +285,7 @@ Admin → Tarnijad → **"Sync'i seis"**: viimane edukas sync (aeg + vanus), vii
   - öö `scd_76f6zhpjE9tY9t4yedt6aR67Q94x` (label `laptopid-nighttime-sync`): `CRON_TZ=Europe/Tallinn 0 0-6/2 * * *` → 00:00, 02:00, 04:00, 06:00 (08:00 teeb päevane);
   - kokku 36 käivitust ööpäevas (enne 288). Mõlemal sama: `GET https://laptop-store-rouge.vercel.app/api/cron/laptopid-sync`, edastatud päis `Authorization: Bearer <CRON_SECRET>` (`Upstash-Forward-Authorization`), korduskatseid 0, timeout 300 s. Eesti aja vahetus (suve-/talveaeg) on QStashi poolt arvestatud.
   - Varasem `*/5 * * * *` (UTC) asendati sama ID all päevase ajastusega — paralleelset 5-min schedule'it pole.
-  - Admini stale-sync hoiatus (üle 15 min) on selle ajastusega enamasti nähtav — see on ootuspärane, mitte viga.
+  - Admini stale-sync hoiatuse piir järgib seda ajastust (päeval 45 min, öösel 150 min).
 - `CRON_SECRET` roteeriti seadistamisel (uus juhuslik väärtus otse Vercelisse Production/Preview/Development ja QStashi päisesse, ei kuvatud ega salvestatud mujale) + production redeploy. Edastatud päis on nähtav Upstashi konsoolis konto kasutajatele.
 - QStashi token (`QSTASH_TOKEN`, `QSTASH_URL`) on ainult kohalikus `.env.local` failis (gitignored) schedule'i haldamiseks; rakendus seda ei kasuta ja Vercelis seda pole.
 - Kontrollitud: käivitused 17:30 ja 17:35 UTC → QStash `DELIVERED` HTTP 200 (~4 s), `catalog_sync_runs` CRON SUCCESS, 305 saadud. Verceli igapäevane cron (`vercel.json`) jääb varuvõrguks.

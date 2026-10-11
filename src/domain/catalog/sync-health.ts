@@ -1,26 +1,43 @@
+import { tallinnHour } from "@/domain/time/tallinn";
+
 /**
  * Kataloogi sync'i värskus admini jaoks (admin → Tarnijad). Puhas funktsioon: aeg tuleb kutsujalt.
  * Ainult admin — poes kliendile seda ei kuvata.
  */
 
-/** Automaatne sync on mõeldud käima iga ~5 min; üle 15 min vana edukas sync = ajastaja ei tööta. */
-export const SYNC_STALE_AFTER_MS = 15 * 60_000;
+/**
+ * Automaatne sync (QStash, Europe/Tallinn): päeval 08:00–23:30 iga 30 min, öösel 00:00–06:00 iga 2 h
+ * (vt docs/LAPTOPID_SYNC.md). Hoiatuse piir = intervall + varu, et üks väike hilinemine valehäiret ei annaks:
+ *   päev (08:00 ≤ Eesti aeg < 00:00) → üle 45 min vana edukas sync = ajastaja ei tööta;
+ *   öö   (00:00 ≤ Eesti aeg < 08:00) → üle 150 min.
+ */
+export const SYNC_STALE_DAY_MS = 45 * 60_000;
+export const SYNC_STALE_NIGHT_MS = 150 * 60_000;
+/** Eesti kohalik tund, millest algab päevane (tihedam) ajastus */
+export const SYNC_DAY_START_HOUR = 8;
 
 export const SYNC_STALE_MESSAGE = "Automaatne sünkroonimine ei ole ajakohane.";
+
+/** Hoiatuse piir antud hetkel Eesti kohaliku aja järgi. */
+export function syncStaleAfterMs(now: Date): number {
+  return tallinnHour(now) >= SYNC_DAY_START_HOUR ? SYNC_STALE_DAY_MS : SYNC_STALE_NIGHT_MS;
+}
 
 export interface SyncHealth {
   lastSuccessAt: Date | null;
   /** Viimasest edukast sync'ist möödunud aeg (ms); null, kui edukat sync'i pole */
   ageMs: number | null;
   ageLabel: string | null;
+  /** Praegu kehtiv hoiatuse piir (ms) */
+  staleAfterMs: number;
   stale: boolean;
 }
 
-export function syncHealth(lastSuccessAt: Date | string | null | undefined, now: Date, staleAfterMs = SYNC_STALE_AFTER_MS): SyncHealth {
-  if (!lastSuccessAt) return { lastSuccessAt: null, ageMs: null, ageLabel: null, stale: true };
+export function syncHealth(lastSuccessAt: Date | string | null | undefined, now: Date, staleAfterMs = syncStaleAfterMs(now)): SyncHealth {
+  if (!lastSuccessAt) return { lastSuccessAt: null, ageMs: null, ageLabel: null, staleAfterMs, stale: true };
   const at = new Date(lastSuccessAt);
   const ageMs = Math.max(0, now.getTime() - at.getTime());
-  return { lastSuccessAt: at, ageMs, ageLabel: formatAge(ageMs), stale: ageMs > staleAfterMs };
+  return { lastSuccessAt: at, ageMs, ageLabel: formatAge(ageMs), staleAfterMs, stale: ageMs > staleAfterMs };
 }
 
 /** "alla minuti" · "12 min tagasi" · "3 h 5 min tagasi" · "2 päeva tagasi" */

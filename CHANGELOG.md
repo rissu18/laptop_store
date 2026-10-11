@@ -5,6 +5,11 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 ---
 
+## 2026-10-11 — Admini stale-sync hoiatus järgib uut ajastust
+
+- `SYNC_STALE_AFTER_MS` (15 min) asendati Eesti kohalikust ajast (`Europe/Tallinn`, Intl — mitte fikseeritud nihe) sõltuva piiriga `syncStaleAfterMs(now)`: päeval 08:00–00:00 üle 45 min, öösel 00:00–08:00 üle 150 min vana edukas sync → „Automaatne sünkroonimine ei ole ajakohane.“ Hoiatuses: „Viimane edukas sünkroonimine: X tagasi“ ja kehtiv piir.
+- Testid: päev 30/44/45/46 min, öö 120/149/150/151 min, piirid 07:59 / 08:00 / 23:59 / 00:00 suve- ja talveajal, UTC vs Eesti aeg.
+
 ## 2026-10-11 — Laptopid.ee sync'i ajastus: prototüübi ressursisäästlik režiim
 
 - QStashi 5-minutiline schedule (288 käivitust ööpäevas) asendati kahega, Eesti aja järgi (`CRON_TZ=Europe/Tallinn`), et vähendada Neoni compute'i kasutust:
