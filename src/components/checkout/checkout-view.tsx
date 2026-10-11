@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
+import { handlePlaceOrderResult } from "@/client/checkout-flow";
 import { clearCart, setAppliedDiscountCode, useAppliedDiscountCode, useCart } from "@/client/cart-store";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { cx } from "@/components/ui/class-names";
@@ -191,17 +192,19 @@ export function CheckoutView() {
       } catch {
         result = { ok: false, kind: "ERROR", message: "Ühendus katkes. Proovi uuesti — sama tellimust topelt ei looda." };
       }
-      if (result.ok) {
-        // Ostukorv tühjendatakse alles siis, kui server kinnitas tellimuse loomise
-        try {
-          sessionStorage.removeItem(ATTEMPT_KEY);
-        } catch {
-          /* privaatrežiim */
-        }
-        clearCart();
-        router.push(`/tellimus/${result.orderNumber}/kinnitus`);
-        return;
-      }
+      // Ostukorv tühjendatakse alles siis, kui server kinnitas tellimuse loomise
+      const outcome = handlePlaceOrderResult(result, {
+        clearCart,
+        navigate: (url) => router.push(url),
+        forgetAttempt: () => {
+          try {
+            sessionStorage.removeItem(ATTEMPT_KEY);
+          } catch {
+            /* privaatrežiim */
+          }
+        },
+      });
+      if (outcome === "DONE" || result.ok) return;
       submittedRef.current = false;
       if (result.kind === "VALIDATION") setErrors(result.fieldErrors);
       else if (result.kind === "REVIEW") {
