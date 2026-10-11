@@ -8,6 +8,18 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
+## Projekti püsireeglid (Sülearvutid.ee)
+
+- Custom Next.js e-pood; ära lisa WordPressi, WooCommerce'i ega muud e-poe platvormi. Andmebaas: PostgreSQL (Neon) + Drizzle.
+- ProductModel (mudel) ja SupplierListing (konkreetne müüdav konfiguratsioon) on eri mõisted; sama mudeli konfiguratsioonid jäävad eraldi tootekaartideks.
+- Tarnija andmed on konfiguratsiooni spetsifikatsioonide tõeallikas; Icecat on mudeli piltide allikas ega kirjuta konfiguratsiooni andmeid üle.
+- Puuduv tarnija väärtus jääb NULL-iks — vaikeväärtusi ei leiutata.
+- Saladusi ja .env faile ei commit'ita, ei logita ega kuvata.
+- Raha, hinnad, soodustused ja kassa summad arvutab ainult server.
+- Admini parandusi (`manual_overrides`) ei tohi tarnija sync üle kirjutada.
+- Ära alusta Foxway integratsiooni, makseid ega storefronti redesign'i ilma kasutaja selge käsuta.
+- Enne arendustöö lõpetamist: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`. Suuremate muudatuste järel uuenda docs/ ja CHANGELOG.md. Seis ja ajalugu: docs/HANDOFF.md.
+
 ## Kataloogi reeglid (Laptopid.ee sync)
 
 - Pood, otsing, ostukorv ja kassa loevad kataloogi AINULT PostgreSQL-ist (catalog-service / computeCheckout). Ära tee runtime päringuid Laptopid.ee API-sse — andmed tulevad sync'iga (docs/LAPTOPID_SYNC.md).

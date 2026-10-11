@@ -1,184 +1,127 @@
 # HANDOFF — üleandmine järgmisele Claude Code sessioonile
 
-> Seis: **2026-10-11**, viimane commit `d1c1014`, haru `main` (= `origin/main`), working tree puhas.
-> Live: <https://laptop-store-rouge.vercel.app> · GitHub: <https://github.com/rissu18/laptop_store>
+> Seis: **2026-10-11 õhtu**, haru `main` (= `origin/main`). Live: <https://laptop-store-rouge.vercel.app> · GitHub: <https://github.com/rissu18/laptop_store>
 > Kasutaja kirjutab eesti keeles; vasta eesti keeles. Projekt on 12. klassi praktiline lõputöö — dokumentatsioon (docs/, CHANGELOG.md) on osa tööst.
-
-> **Uuendus (2026-10-11, hiljem):** valmis **päris kataloog Laptopid.ee API-st** (sync → PostgreSQL) — vt [LAPTOPID_SYNC.md](LAPTOPID_SYNC.md) ja CHANGELOG. 25 tabelit (migratsioon 0003), 305 testi. Admin → **Tarnijad** → Sync now; `npm run laptopid:sync`. Mock-pakkumised arhiveeritakse `npm run catalog:archive-mock -- --confirm`. Allpool olev tekst kirjeldab seisu enne seda tööd.
+> Projekti püsireeglid: **AGENTS.md** (ainus juhiste fail; CLAUDE.md on sinna ühendatud ja kustutatud).
 
 ## 1. Eesmärk
 
-Custom e-pood **kasutatud äriklassi sülearvutitele** (Lenovo ThinkPad, Dell Latitude, HP EliteBook), mis põhineb automaatselt sünkroniseeritaval hulgilaol (tulevikus **Foxway**). Ilma WordPressi/Shopify jms platvormita. Tooted praegu **mock-tarnijast** (46 pakkumist, 38 mudelit), mis on imporditud PostgreSQL-i. Pood on **prototüübirežiimis**: hoiatusriba, noindex, ainult testtellimused.
+Custom e-pood **kasutatud äriklassi sülearvutitele** (Sülearvutid.ee), ilma WordPressi/Shopify jms platvormita. Päris kataloog tuleb **Laptopid.ee API-st** (sync → PostgreSQL). Pood on **prototüübirežiimis**: hoiatusriba, noindex, ainult testtellimused, makseid pole.
 
 ## 2. Tech stack
 
-- **Next.js 16.4** (App Router, `cacheComponents: true`, `partialPrefetching: true`) + **React 19**, **TypeScript strict**
-- **Tailwind CSS 4** (design tokenid CSS-muutujatena `src/app/globals.css`), lucide-react
-- **zod 4** (kõik valideerimised), **Vitest** (`server-only` aliasitud stub'iks), **tsx** skriptidele (`--conditions=react-server`)
-- **PostgreSQL (Neon)** + **Drizzle ORM 0.45** + drizzle-kit, draiver `pg`
-- **sharp** (pilditöötlus), Open Icecat JSON API (pildid)
-- Deploy: **Vercel** (push `main`-i → automaatne deploy), Vercel CLI: `npx --yes vercel@63.1.2 …` (projekt lingitud, `.vercel/`)
-- Node 24 (min 22). Windows + PowerShell/Git Bash keskkond.
+- **Next.js 16.4** (App Router, `cacheComponents`, `partialPrefetching`) + **React 19**, **TypeScript strict** — enne Next-koodi loe `node_modules/next/dist/docs/` (AGENTS.md)
+- **Tailwind CSS 4** (tokenid `src/app/globals.css`), lucide-react, **zod 4**, **Vitest**, **tsx** skriptidele (`--conditions=react-server`)
+- **PostgreSQL (Neon)** + **Drizzle ORM 0.45**, draiver `pg`; **sharp**; Open Icecat
+- **Vercel Hobby** (push `main` → automaatne deploy). CLI: `npx --yes vercel@63.1.2 …` (projekt lingitud, `.vercel/`)
+- Node 24. Windows + PowerShell/Git Bash.
 
 ## 3. Arhitektuur (modulaarne monoliit)
 
 ```
 src/
-  app/(shop)/        avalik pood (avaleht, /sulearvutid, /toode/[slug], /ostukorv, /vordlus, /leia-sobiv, /tellimus, /info …)
-  app/(checkout)/    /kassa (minimaalne päis)
-  app/admin/         login + (panel)/… kaitstud admin
-  components/        UI (admin/, cart/, checkout/, orders/, product/, layout/, ui/ …)
-  domain/            PUHAS äriloogika, ei impordi server/app/components: catalog, pricing, discounts, checkout,
-                     orders, shipping, settings, admin, time (Eesti aeg ↔ UTC), grade, money, images
-  server/            server-only: db (skeem, klient, seed), catalog, auth, admin (DAL päringud + server action'id),
-                     discounts, checkout, orders, settings, images (Icecat), payments (liides), logging
-  integrations/      supplier (SupplierAdapter, MockSupplierAdapter, normaliseerimine), icecat
-  client/            brauseri store'id (ostukorv, sooduskood, võrdlus — localStorage)
-  proxy.ts           admini optimistlik kaitse (Next 16 "middleware")
-scripts/             CLI: db:*, admin:*, icecat
-drizzle/             migratsioonid 0000_init, 0001_discount_codes, 0002_orders
-docs/                PROJECT_PLAN, ARCHITECTURE, DATABASE, ADMIN, DISCOUNTS, ORDERS, reports/
+  app/(shop)/, app/(checkout)/   avalik pood + kassa (wrapper .storefront = poe värvisüsteem)
+  app/admin/                     login + (panel)/… kaitstud admin (oma :root värvid)
+  app/api/                       search, products (admini diagnostika), cron/laptopid-sync
+  components/                    UI
+  domain/                        puhas äriloogika (catalog, availability, grade, pricing, discounts, checkout, orders …)
+  server/                        server-only: db, catalog, catalog-sync, auth, admin, discounts, checkout, orders, settings, logging
+  integrations/                  laptopid (klient, config, skeem, normaliseerija, snapshot), supplier (mock), icecat
+  client/                        brauseri store'id (ostukorv, sooduskood, võrdlus)
+scripts/                         db:*, admin:*, laptopid:sync, catalog:archive-mock, icecat
+drizzle/                         migratsioonid 0000–0003 (kõik lisavad)
+docs/                            PROJECT_PLAN, ARCHITECTURE, DATABASE, ADMIN, DISCOUNTS, ORDERS, LAPTOPID_SYNC, HANDOFF
 ```
 
-Põhimõtted: hinnad/summad arvutab **alati server**; raha **täisarvulised sendid**; puuduv tarnija väärtus = `NULL` (ei mõelda välja); admini muudatused **auditis samas tehingus**; staatused `text` + CHECK (mitte PG enum).
+**PostgreSQL on poe tööaegne tõeallikas.** Laptopid.ee API on upstream tõeallikas, aga pood / otsing / ostukorv / kassa / tellimused loevad ainult andmebaasi (`catalog-service`, `computeCheckout`). Raha arvutab ainult server (täisarvulised sendid).
 
-## 4. Valmis (faasid)
+## 4. Valmis
 
 | Faas | Seis |
 | --- | --- |
-| 0 Analüüs, 1 UI prototüüp (filtrid, otsing, tooteleht, võrdlus, finder, hinnaliugur) | ✅ |
-| 1b Icecati pildid kogu kataloogile (pildid Git'is `public/media/products`) | ✅ |
-| 2 PostgreSQL + Drizzle, import, pood loeb DB-st | ✅ |
-| 3 Admin-liides (auth, tooted, pildid, Icecat, andmekvaliteet, hinnastamine, seaded, logid, tervis) | ✅ |
-| 3b Sooduskoodid | ✅ |
-| 5a Kassa + tellimused **ilma makseta** (testtellimused) | ✅ — viimane faas |
-| 4 Tarnija sync (Foxway), 5b tarneteenused, 6 maksed, 7 automaatika, 8–9 | ⏳ |
+| 0 analüüs, 1 UI, 1b Icecati pildid, 2 PostgreSQL, 3 admin, 3b sooduskoodid, 5a kassa + testtellimused | ✅ |
+| **4a Laptopid.ee päris kataloog** (sync, saadavus, tarnija hind + parandus, pildid, admin Tarnijad) | ✅ |
+| Poe värvisüsteem indigo-sinine (`.storefront` tokenid), avalehe hero pilt `public/brand/hero.png` | ✅ |
+| Järelparandus: seisukord "Uus", Lenovo V-seeria, `LAPTOPID_API_BASE_URL` | ✅ |
+| 4 Foxway, 5b tarneteenused, 6 maksed, 7 automaatika, 8–9 | ⏳ (ära alusta ise) |
 
-## 5. PostgreSQL / Neon / Drizzle
+## 5. Laptopid.ee API ja sync — praegune seis
 
-- **23 tabelit**: kataloog (`product_models`, `supplier_listings`, `product_images`, `product_identifiers`, `icecat_metadata`), admin (`admin_users`, `admin_sessions`, `login_attempts`, `audit_logs`, `system_logs`), seaded (`store_settings`, `pricing_rules`), sooduskoodid (`discount_codes`, `discount_manufacturers`, `discount_product_models`, `discount_supplier_listings`, `discount_redemptions`, `discount_validation_attempts`), tellimused (`orders`, `order_items`, `order_status_history`, `order_internal_notes`, `order_lookup_attempts`).
-- Skeem: `src/server/db/schema.ts`. Ühendus: `src/server/db/client.ts` (`getDb()`, `createDb()`), URL-i lahendaja `src/server/db/database-url.ts` (sslmode → verify-full, ühendusstring redigeeritakse logides).
-- Uus muudatus: `schema.ts` → `npm run db:generate -- --name=<nimi>` → vaata SQL üle → `npm run db:migrate`. Enne/pärast: `npm run db:counts`. **Migratsioonid on seni olnud ainult lisavad.**
-- **Lokaalne arendus ja Vercel kasutavad SAMA Neoni andmebaasi** (live andmed!). Testandmed tuleb pärast käsitsi testi koristada.
-- DB testid jooksevad päris Neonis **ajutises skeemis** `test_xxxx` (`src/test/test-db.ts`), mis kustutatakse; ilma `DATABASE_URL`-ita jäetakse vahele.
-- Seis pärast viimast faasi: 38 mudelit, 46 pakkumist, 320 pilti, 0 sooduskoodi, 0 tellimust, 1 admin (kasutaja enda), 7 seadete võtit.
-- Ilma DB-ta kasutab pood mock-andmeid (`catalog-service.ts`); admin vajab DB-d.
+Täielik kirjeldus: **docs/LAPTOPID_SYNC.md**.
 
-## 6. Admin-liides (`/admin`) — vt docs/ADMIN.md
+- **305 / 305** Laptopid toodet aktiivsed poes (`supplier = 'laptopid'`, ACTIVE, `available = true`); viimane sync: 305 saadud, 0 vahele jäetud, 0 hoiatust.
+- Otspunktid: `products.php` + `images.php` päisega `X-API-Key`; vastus on paljas massiiv (`no-store`, ilma `snapshot_complete` markerita).
+- **Seadistus:** `LAPTOPID_API_BASE_URL` (Config, `https://laptopid.ee/api/sulearvutid/`) + `LAPTOPID_API_KEY` (Secret). Klient ehitab `new URL("products.php", base)` / `images.php` (`src/integrations/laptopid/laptopid-config.ts`). Puuduv seadistus → kontrollitud viga, tagavara-URL-i pole. Vana ühe-URL-iline muutuja eemaldatud Vercelist ja koodist. `NEXT_PUBLIC_LAPTOPID_*` muutujaid pole.
+- Sync: DB-lukk (`catalog_sync_runs`), võrgutööd enne tehingut, kõik kirjutamised ühes tehingus, idempotentne (identne vastus → 0 muudatust).
+- **Identiteet:** `supplier = 'laptopid'` + Laptopid ID (UNIQUE); avalik ID `laptopid-6678`, SKU `LP-6678`. Slug ei ole identiteet.
+- **Mudelid:** kanooniline nimi (ThinkPad "G3" → "Gen 3", "2in1" → "2-in-1") → slug; vaste ainult täpselt sama slug, muidu uus mudel. Pealkiri: `productTitle()` (`src/domain/catalog/title.ts`).
+- **Lenovo V-seeria:** konservatiivne muster ainult Lenovole (V330-14IKB, V340-17IWL, V14…, V15…) → seeria `V Series`, mudel `V330-14IKB`, pealkiri **"Lenovo V330-14IKB"** (ID 1670). Tundmatu seeria (tootja + mudel korras) → tagavara-seeria + hoiatus (`taxonomyWarnings`), toodet välja ei visata.
+- **Seisukord "Uus":** Laptopid `New` / `Demo` / `Outlet` → meie klass `NEW` (kliendile "Uus", filtris esimesena; praegu 19 toodet: 13/5/1). Tarnija algne klass säilib `details.sourceGrade` + `raw_data`; admin näeb "Seisukord (tarnija algne)". Klassid: `src/domain/grade/grades.ts`, vastendus `mapLaptopidGrade`.
+- **Saadavus:** Laptopid nimekirjas = vähemalt 1 tk füüsiliselt laos, **täpne kogus teadmata** → `available = true`, `stock = NULL`. Poes "Kohe saadaval" (mitte "1 tk"); ostukorvis/kassas 1 tk rea kohta + selgitus. Reeglid: `src/domain/catalog/availability.ts`.
+- **Täielik snapshot:** puuduv toode → `available = false` ainult usaldusväärse vastusega (puuduvaid ≤ max(10, 25%)); API viga / vigane vastus → kataloog jääb samaks. Admin saab "Luba suur muutus".
+- **Hinnad:** `sale_price` → müügihind (`price_source = SUPPLIER`); `new_price` ainult kontekst; ostuhind `NULL`; hinnastamismootor neid ei puuduta.
+- **Pildid:** pakkumise tasemel `listing_images` (1135 kaug-URL-i laptopid.ee-st, Git'i ei laeta), kuvamine Next/Image kaudu (`remotePatterns` ainult `laptopid.ee/images/product/**`). 4 pilti on Laptopid.ee poolel 404.
+- **Käivitamine:** admin → Tarnijad → **Sync now**; `npm run laptopid:sync`; `GET /api/cron/laptopid-sync` (vajab `CRON_SECRET`, mida **pole seadistatud** → 503). `vercel.json`-is igapäevane cron (Hobby lubab ainult kord päevas). CLI sync ei tühjenda deploy'tud poe vahemälu — siis vajuta adminis "Sync now".
+- Mock-kataloog: 46 pakkumist `ARCHIVED` (alles testide jaoks), mitte poes.
 
-- Auth: scrypt paroolid, DB sessioonid (küpsises juhuslik token, DB-s SHA-256), `__Host-admin_session` (httpOnly, Secure, SameSite=Strict, 8 h), login piirang (5/e-post, 20/IP, 15 min), `assertSameOrigin` CSRF. Kolm kaitsekihti: `src/proxy.ts` → `(panel)/layout.tsx` `requireAdmin()` → iga päring/action (`runAdminAction` → `requireAdminAction`).
-- Admini kasutaja: **`npm run admin:create`** (varjatud parool või env), `admin:delete -- <email>`. Koodis vaikeparooli pole.
-- Lehed: töölaud, tellimused, mudelid, konfiguratsioonid, pildid, andmekvaliteet, hinnastamine, sooduskoodid, seaded, tegevuslogi, logid, tervis. Kliendid/Tarnijad = „Tulekul“.
-- Admini lehed: `export const instant = false` (Cache Components), päringud `src/server/admin/**/queries.ts` (kutsuvad ise `requireAdmin()`), action'id `src/server/admin/**/actions.ts`.
+## 6. Admin, parandused, sooduskoodid, kassa
 
-## 7. ProductModel / SupplierListing
+- **Admin** (`/admin`, vt docs/ADMIN.md): scrypt, DB-sessioonid, CSRF päritolu, piirangud; kaitse proxy → layout → iga päring/action. Admin luuakse `npm run admin:create` (koodis vaikeparooli pole). Live'is 1 admin (kasutaja enda).
+- **Admini parandused:** tarnija veerud + `manual_overrides`; kehtiv = parandus ?? tarnija. Sync ei puuduta parandusi, `status`-t ega admini välju. Tarnija hinnaga pakkumisel on müügihind tarnija väli ja admini hind parandus ("Taasta" viib tagasi).
+- **Sooduskoodid** (docs/DISCOUNTS.md): üks `evaluateDiscount()`; ostuhinnata pakkumistel marginaalikaitse ei rakendu ("kontrollimata"). Live'is 1 arhiveeritud testkood `LAPTOPIDTEST` (kasutusi 0).
+- **Kassa ja tellimused** (docs/ORDERS.md): `computeCheckout` loeb DB-st (hind, saadavus, kood, tarne), hinnamuutus → ülevaatus; idempotentne loomine; OrderItem = snapshot (sh seisukord). Live'is 1 testtellimus `SL-26-PN46CU` (mock-toode, loodud 09:48 UTC enne Laptopid tööd).
+- **Prototüübirežiim** (admin → Seaded → Pood): sees → ainult TEST tellimused; väljas ilma makseteenuseta → kassa suletud (BLOCKED). Päris makseid pole.
+- **Icecat:** mudeli piltide varu-/rikastusallikas (`product_images`, `icecat_metadata`); ei kirjuta pakkumise konfiguratsiooni üle. Kuvamine: pakkumise pildid → mudeli pildid → illustratsioon.
 
-- **ProductModel** (mudel, slug nt `lenovo-thinkpad-t14-gen-3`): pildid, identifikaatorid, kirjeldus, esiletõstmine. **SupplierListing** (konkreetne konfiguratsioon): CPU, RAM, SSD, seisukord, laoseis, ostuhind, müügihind. Avalik pakkumise ID = `${supplier}-${supplierProductId}` lowercase (nt `mock-ms-10231`), meie SKU `SP-10231`.
-- **Tarnija väärtus + admini parandus**: tarnija veerud + `manual_overrides` JSONB; efektiivne väärtus = parandus ?? tarnija (`src/domain/catalog/overrides.ts`, `db-catalog-mapper.ts`). Sync/import kirjutab ainult tarnija veerge.
-- Poes nähtav ainult: mudel + pakkumine ACTIVE, laoseis > 0, kohustuslikud väljad olemas.
-- Pood: `'use cache'` + `cacheTag('catalog'|'settings')`; admini muudatus → `updateTag(...)` server action'is. Tellimuse admin-toimingud kasutavad `refresh()`.
+## 7. Andmebaas (live Neon — lokaalne ja Vercel jagavad SAMA andmebaasi!)
 
-## 8. Icecati pildid
+- 25 tabelit (+ `__drizzle_migrations`), migratsioonid 0000–0003 — kõik lisavad. Uus muudatus: `schema.ts` → `npm run db:generate -- --name=…` → vaata SQL üle → `npm run db:migrate`; enne/pärast `npm run db:counts`.
+- Hetkel: 177 mudelit, 351 pakkumist (305 laptopid ACTIVE + 46 mock ARCHIVED), 1135 pakkumise pilti, 320 mudeli pilti.
+- DB testid jooksevad ajutises skeemis `test_xxxx` (`src/test/test-db.ts`).
+- Keskkonnamuutujate **nimed** (väärtusi ära kuva): `database_DATABASE_URL`, `database_DATABASE_URL_UNPOOLED`, `SITE_URL`, `LAPTOPID_API_BASE_URL`, `LAPTOPID_API_KEY`, `CRON_SECRET` (seadistamata), `ICECAT_*` (ainult lokaalselt). Lokaalselt `.env.development.local` (`vercel env pull`) + `.env.local`.
 
-- Pildid mudeli tasemel, Icecatist alla laaditud → thumbnail/medium/large WebP → `public/media/products/` (**Git'is**, Vercel serveerib). Hotlinki pole.
-- Andmed DB-s (`product_images`, `icecat_metadata`), import `src/server/images/icecat-image-import.ts` + `DbImageRepository`.
-- Admin: põhipilt, järjekord, peitmine, „Otsi uuesti“, käsitsi vaste eelvaatega, vaste eemaldamine. **Piltide allalaadimine ainult lokaalselt** (Vercelis pole püsivat salvestust; `!process.env.VERCEL`). Käsitsi üleslaadimine = „Tulekul“.
-- Madala kindlusega vaste ei lähe kunagi automaatselt live'i (NEEDS_REVIEW).
-- `npm run icecat` CLI kasutab VEEL vanu JSON-faile (`data/icecat`, `data/media`) — vt Known issues.
+## 8. Testid ja kontrollid
 
-## 9. Sooduskoodid — vt docs/DISCOUNTS.md
+- **321 testi / 31 faili — kõik läbivad** (`npm test`, DB testidega ~45 s).
+- `npm run typecheck` ✅ · `npm run lint` ✅ · `npm run build` ✅ (Git Bashis: `set -a; . ./.env.development.local; . ./.env.local; set +a; npm run build`).
+- Dev-serveri vana CSS/moodul (Turbopacki vahemälu) → peata server, kustuta `.next`, käivita uuesti.
+- Brauseripaan on sageli peidetud → React ei hüdreeru / Suspense segmendid jäävad `hidden` alla; kasuta `textContent`/`find`, mitte `innerText`, või tee enne kuvatõmmis.
 
-- `evaluateDiscount()` (`src/domain/discounts/discount-engine.ts`) — **ainus** arvutuskoht (ostukorv, kassa, admini eelvaade, testid).
-- Tüübid: PERCENTAGE (value = baaspunktid, + maksimum), FIXED_AMOUNT (sendid), FREE_SHIPPING. Kood tõstutundetu (`normalized_code` UNIQUE). Kehtivusala: kõik / tootjad / mudelid / konfiguratsioonid + välistused. Tegelik staatus (SCHEDULED/EXPIRED) arvutatakse. Marginaalikaitse `minimumAllowedPrice()` (hinnastamise miinimumkasum, vaikimisi sees).
-- Ostukorv: brauser hoiab ainult koodi teksti; piirang 10 ebaõnnestunud / 10 min / IP. Kontroll EI suurenda kasutust; kasutus (`discount_redemptions`: reserve/confirm/cancel) tuleb päris tellimustega.
-
-## 10. Kassa / tellimused — vt docs/ORDERS.md
-
-- `/kassa` → `placeOrderAction` → `placeOrder()` (`src/server/orders/order-service.ts`): päritolu → zod vorm → **idempotentsus** (`checkoutAttemptId` räsi UNIQUE) → `computeCheckout()` (DB-st aktiivsus, hetkehind, laoseis, sooduskood uuesti, tarne seadetest) → kliendi nähtud ≠ arvutatud ⇒ **REVIEW** (tellimust ei looda) → üks tehing (orders + order_items snapshot + ajalugu).
-- **Režiim**: prototüüp → TEST; prototüüp väljas ilma makseteenuseta → BLOCKED (`getConfiguredPaymentProvider()` = null). LIVE režiimi tellimusi praegu EI looda.
-- Testtellimus: makset ei võeta, laoseis ei vähene, sooduskoodi kasutust ei looda, e-kirja ei saadeta (`NoopOrderNotificationService`).
-- Number `SL-26-XXXXXX`. Kinnitusleht `/tellimus/[nr]/kinnitus` — httpOnly küpsis `order_access_<NR>` (token, DB-s räsi); `generateStaticParams` kohatäitjaga `SL-00-AAAAAA` (Cache Components nõue!). Otsing `/tellimus`: number + e-post, üldine vastus, piirang 10 / 15 min / IP.
-- Admin: `/admin/orders` (+ detail): tühistamine (olekumasin `src/domain/orders/order-status.ts`), sisemärkmed (ainult lisamine), ajalugu, audit. PAID-i admin määrata ei saa.
-- Tarne: üks meetod STANDARD, nimi/hind seadetest (vaikimisi 6,99 €), tasuta tarne piir seadetest.
-
-## 11. Olulised arhitektuuriotsused
-
-1. Drizzle (mitte Prisma 8 RC) — stabiilne, serverless'is kerge, SQL läbipaistev.
-2. Tarnija veerud + `manual_overrides` → sync ei kirjuta admini parandusi üle.
-3. DB sessioonid (mitte JWT) — saab kohe lõpetada.
-4. Audit samas tehingus muudatusega.
-5. Üks DiscountEngine; klient ei saada kunagi summasid.
-6. OrderItem = snapshot; tellimus ei sõltu hiljem kataloogist.
-7. Testtellimused eraldi (`is_test`), fail-safe kassa režiim.
-8. Idempotentne tellimuse loomine (UNIQUE võti) + tehing.
-9. Ajad DB-s UTC, admin Eesti ajas (`src/domain/time/tallinn.ts`).
-10. Pildid Git'is kuni püsiva objektisalvestuseni (R13).
-
-## 12. Keskkonnamuutujate NIMED (väärtusi mitte kunagi kuvada ega commit'ida)
-
-- `DATABASE_URL`, `DATABASE_URL_UNPOOLED` — Vercel+Neon annab need nimedega **`database_DATABASE_URL`**, **`database_DATABASE_URL_UNPOOLED`** (lahendaja toetab mõlemat). Lokaalselt failis `.env.development.local` (`vercel env pull`), Git'is ei ole.
-- `SITE_URL`
-- `ICECAT_USERNAME`, `ICECAT_API_TOKEN`, `ICECAT_CONTENT_TOKEN` (lokaalselt `.env.local`; Vercelis seadistamata → Icecati toimingud seal välja lülitatud)
-- `ADMIN_EMAIL`, `ADMIN_NAME`, `ADMIN_PASSWORD` — ainult `admin:create` käivitamise ajaks
-- `LOG_LEVEL` (valikuline), Verceli: `VERCEL`, `VERCEL_ENV`, `VERCEL_GIT_COMMIT_SHA`
-- Prototüübirežiim EI OLE env — see on DB seadetes (admin → Seaded → Pood).
-
-## 13. ÄRA muuda kogemata
-
-- **Ära kuva/logi/commit'i saladusi** (DB URL, paroolid, tokenid, sessioonid). Kasutaja keelas ka küsida, et ta neid vestlusesse kleebiks.
-- **Ära loo uut Neoni projekti/andmebaasi**; ära tee destruktiivseid migratsioone; live ja lokaalne jagavad DB-d.
-- Ära lisa vaikeparooli/admin-kasutajat koodi; ära nõrgenda auth'i, CSRF-i, piiranguid.
-- Ära lase kliendil saata hindu/summasid; ära kirjuta teist soodustuse arvutust.
-- Ära muuda `PROTOTYPE`/kassa fail-safe'i nii, et päris tellimused avaneksid ilma makseteenuseta. Ära tee „fake“ makseviise.
-- Ära muuda avaliku pakkumise ID-de, SKU-de ega tellimuse numbri vormingut (ostukorvid, lingid, tellimused sõltuvad).
-- Ära eemalda `generateStaticParams` kohatäitjat kinnituslehelt ega `instant = false` admini lehtedelt (build/Cache Components).
-- Drizzle'i alampäringus välise tabeli viide kirjuta täielikult kvalifitseerituna (`"orders"."id"`), kui päringus pole join'i.
-- `"use server"` failid ekspordivad ainult async-funktsioone (konstandid eraldi failides).
-- `AGENTS.md`: Next.js on uus versioon — loe enne Next-koodi `node_modules/next/dist/docs/`.
-- Commit'id lõpevad: `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. Ära alusta Foxway'd ega makseid ilma kasutaja käsuta.
-
-## 14. Known issues / TODO
-
-- `npm run icecat` CLI kasutab veel JSON-faile (mitte `DbImageRepository`); üksikmudelid tehakse adminis.
-- Püsiv pildisalvestus (R13, soovitus Cloudflare R2) puudub → admini piltide allalaadimine/üleslaadimine ainult lokaalselt.
-- Icecati muutujad pole Vercelis seadistatud.
-- Privaatsuspoliitika lõplik tekst, andmete säilitusaeg ja Neoni serveri regioon täpsustamata (ORDERS.md §14).
-- Tarnehind 6,99 € on näidisväärtus (TODO: REAL PROVIDER DATA REQUIRED); ettevõtte andmed, garantii/tagastus seadetes täitmata.
-- Marginaalikaitse piirab testandmete väikeste marginaalide tõttu protsendikoode (ootuspärane).
-- Brauseri paan (Claude'i built-in browser) on sageli peidetud → React ei hüdreeru; enne JS-iga klikkimist tee screenshot (sunnib renderduse) ja oota.
-- Dev-server võib näidata vana moodulit pärast suuri muudatusi → `preview_stop` + `preview_start`.
-- Kliendikontod, arved, tagastused, tracking, e-kirjad — puuduvad (planeeritud).
-
-## 15. Viimased commitid
+## 9. Viimased olulised commitid
 
 ```
-d1c1014 docs(orders): ORDERS.md ja dokumentatsioon; fix: kinnituslehe build (Cache Components)
-7347819 fix(orders): käsitsi testimisel leitud vead
-a6756a8 test(orders): kassa, tellimuste, otsingu, admini ja turvalisuse testid (230 -> 265)
-b6f3964 feat(admin): tellimused — nimekiri, detail, tühistamine, sisemärkmed, ajalugu, töölaud
-d89e526 fix(tests): uued tarne seaded, tellimuste tabelid ja kasutuse välisvõti testides
-3f6f5f1 feat(checkout): kassa, testtellimused PostgreSQL-is, kinnitusleht ja tellimuse otsing
-f7bb5de docs+fix(discounts): DISCOUNTS.md, dokumentatsioon, mobiili ülevool ostukorvis
-128bb9b feat(discounts): sooduskoodide süsteem (DiscountEngine, admin, ostukorv)
-8018354 docs: PostgreSQL ja admin-liides
+<see commit>  docs: AGENTS.md reeglid ühendatud (CLAUDE.md kustutatud), HANDOFF värskendatud
+a77e106  fix(laptopid): "Uus" seisukord, Lenovo V-seeria ja LAPTOPID_API_BASE_URL
+e2c4a52  style(home): hero pilt public/brand/hero.png illustratsiooni asemel
+726bfe2  style: refresh storefront with indigo blue color system
+f1a25c5  fix(search): "G10" leiab ThinkPadi "Gen 10" (Laptopid.ee kirjapilt)
+65c9e71  feat(catalog): päris kataloog Laptopid.ee API-st (sync → PostgreSQL)
 ```
 
-## 16. Testid ja kontrollid
+Viimane edukas Vercel production deploy enne seda handoff'i: `a77e106` → **Ready** (laptop-store-iev1ukir9). Handoff-commit'i deploy staatus: vt `npx --yes vercel@63.1.2 ls laptop-store`.
 
-- **265 testi / 26 faili — kõik läbivad** (`npm test`; DB testid vajavad `DATABASE_URL`-i ja võtavad ~1–2 min).
-- `npm run typecheck` ✅ · `npm run lint` ✅ · `npm run build` ✅ (lokaalselt DB muutujatega: Git Bashis `set -a; . ./.env.development.local; set +a; npm run build`).
-- Vercel deploy `d1c1014` → **Ready**; live pood, `/kassa`, `/tellimus` töötavad, `/admin/*` suunab login'i.
+## 10. Teadaolevad TODO-d
 
-## 17. Working tree
+- 5-minutiline automaatne sync: Hobby ei luba (vajab Pro plaani või välist ajastajat); `CRON_SECRET` seadistamata → isegi igapäevane cron ei käivitu.
+- Laptopid pildid on märgitud illustratiivseteks (pole kinnitatud, et foto on müüdavast eksemplarist).
+- Hobby pildioptimeerimise limiit 5000 teisendust/kuus (üle selle → illustratsioon); Hobby on Verceli tingimustes mitteäriline.
+- `battery_hours` salvestatakse, aga ei kuvata (tähendus kinnitamata).
+- Seisukordade A+/A/B/C kirjeldused on veel näidistekstid (`isPlaceholder`).
+- `npm run icecat` CLI kasutab veel JSON-faile; püsiv pildisalvestus (R13) puudub.
+- Privaatsuspoliitika, ettevõtte andmed, garantii/tagastus, tarnehind (6,99 € näidis) — täitmata.
+- Live'is on 1 vana testtellimus ja 1 arhiveeritud testkood (vt §6).
 
-Puhas (`git status` tühi) seisuga `d1c1014`; `main` = `origin/main`. (See HANDOFF.md fail commit'itakse eraldi.)
+## 11. Mida järgmine sessioon EI TOHI omal algatusel alustada
 
-## 18. Viimane ülesanne
+- Foxway integratsioon, maksed / makseteenus, LIVE režiimi avamine, e-kirjad, kliendikontod.
+- Storefronti redesign või admini ümberkujundamine.
+- Vercel plaani / env muutujate muutmine, `CRON_SECRET`-i loomine, väliste ajastajate (GitHub Actions jms) lisamine.
+- Destruktiivsed migratsioonid, uue Neoni projekti loomine, andmete kustutamine.
+- Saladuste kuvamine/logimine/commit'imine; kasutajalt paroolide küsimine.
 
-Faas **5a: kassa + tellimuste süsteem ilma makseteenuseta** — testtellimused PostgreSQL-is, serveripoolne arvutus, hinnamuutuse/laoseisu/koodi ülevaatus, idempotentsus, snapshot, kinnitusleht, avalik otsing, admini tellimused (tühistamine, märkmed, ajalugu), tarne seadetest, 35 uut testi, docs/ORDERS.md. Käsitsi testitud A–J (desktop + 375 px), testandmed koristatud. Kasutaja palus pärast seda **mitte alustada makseid ega Foxway'd** ilma uue käsuta.
+## 12. Järgmise töö soovitused (ainult soovitused — kasutaja otsustab)
 
-## 19. Järgmine loogiline ülesanne (kasutaja otsustab)
-
-1. **Makseteenus** (Montonio / Maksekeskus / Stripe): `PaymentProvider` implementatsioon, `CREATED → AWAITING_PAYMENT → PAID` webhook'iga (kontroll pakkuja API-st), `confirmRedemption`, LIVE režiimi avamine, tellimuse kinnituse e-kiri.
-2. **Foxway tarnija sync**: `SupplierAdapter`, sync worker, SyncRun logid, hinnaajalugu, laoseisu reserveerimine, tarnija tellimus idempotentsusvõtmega.
-3. Väiksemad: Icecati CLI → `DbImageRepository`, püsiv pildisalvestus (R2), pakiautomaadid, privaatsuspoliitika.
+1. Ajastamise otsus: Vercel Pro (cron iga 5 min) või väline ajastaja + `CRON_SECRET`.
+2. Seisukorra klasside päris kirjeldused ja "Uus" täpsustus (kas Demo/Outlet märkida tootelehel eraldi).
+3. Makseteenuse faas (Montonio / Maksekeskus / Stripe) koos LIVE režiimiga.
+4. Väiksemad: privaatsuspoliitika ja ettevõtte andmed, püsiv pildisalvestus (R2), Icecati CLI → `DbImageRepository`, pakiautomaadid.
