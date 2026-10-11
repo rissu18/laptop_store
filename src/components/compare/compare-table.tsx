@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { removeFromCompare, useCompare } from "@/client/compare-store";
+import { differenceGroups, rowHasDifferences } from "@/domain/catalog/compare-diff";
 import { cpuGenerationLabel } from "@/domain/catalog/facets";
 import { FEATURE_LABELS } from "@/domain/catalog/features";
 import { formatDeliveryDays, formatScreenSize, formatStorage, formatWeight } from "@/domain/catalog/format";
@@ -22,6 +23,13 @@ interface Row {
   /** Võrdlusväärtus "Näita ainult erinevusi" jaoks */
   value: (item: CatalogItem) => string;
   render?: (item: CatalogItem) => ReactNode;
+}
+
+/** Erinevuste rühmade pehmed taustad (globals.css .storefront --store-diff-*); sama väärtus = sama toon */
+const DIFF_BACKGROUNDS = ["bg-[var(--store-diff-1)]", "bg-[var(--store-diff-2)]", "bg-[var(--store-diff-3)]", "bg-[var(--store-diff-4)]"];
+
+export function diffBackground(group: number | null): string | undefined {
+  return group === null ? undefined : DIFF_BACKGROUNDS[group % DIFF_BACKGROUNDS.length];
 }
 
 const yesNo = (value: boolean | null) => (value === null ? "–" : value ? "Jah" : "Ei");
@@ -72,11 +80,16 @@ export function CompareTable() {
     );
   }
 
-  const rows = onlyDifferences ? ROWS.filter((row) => new Set(items.map(row.value)).size > 1) : ROWS;
+  const rows = onlyDifferences ? ROWS.filter((row) => rowHasDifferences(items.map(row.value))) : ROWS;
 
   // Mobiilis: omaduse veerg jääb paigale (sticky), toodete veerud on fikseeritud laiusega ja keritavad
-  // külgsuunas ainult tabeli sees — leht ise ei lähe laiemaks kui ekraan.
-  const stickyCell = "sticky left-0 z-10 bg-surface shadow-[6px_0_6px_-6px_rgb(17_24_39/0.25)] sm:shadow-none";
+  // külgsuunas ainult tabeli sees — leht ise ei lähe laiemaks kui ekraan:
+  //  - kerimisala on `relative`: muidu jäid lahtrite absoluutsed elemendid (nt seisukorra sr-only tekst)
+  //    kerimisalast välja ja venitasid telefonis kogu lehe laiemaks (leht liikus külgsuunas kaasa → "hüplemine")
+  //  - kerimisalal pole sisemist paddingut: sticky veerg on ekraani servas ja selle kõrval ei paista
+  //    kerivad lahtrid läbi; vahe ekraani servast tuleb veeru enda paddingust
+  //  - sticky veerg z-20 ja toote päis `isolate`: eemaldamise nupp ei joonistu enam sticky veeru peale
+  const stickyCell = "sticky left-0 z-20 bg-surface pl-4 shadow-[6px_0_6px_-6px_rgb(17_24_39/0.25)] sm:pl-0 sm:shadow-none";
 
   return (
     <div>
@@ -85,6 +98,7 @@ export function CompareTable() {
           <input type="checkbox" checked={onlyDifferences} onChange={(e) => setOnlyDifferences(e.target.checked)} className="size-5 accent-[var(--c-primary)]" />
           Näita ainult erinevusi
         </label>
+        {items.length > 1 && <p className="w-full text-xs text-muted">Erinevad väärtused on toonitud; sama toon = sama väärtus.</p>}
         {items.length > 1 && (
           <p className="text-xs text-muted sm:hidden" aria-hidden>
             Keri tabelit külgsuunas →
@@ -95,17 +109,17 @@ export function CompareTable() {
       {onlyDifferences && rows.length === 0 && <p className="mb-4 text-sm text-muted">Valitud toodetel pole erinevusi.</p>}
 
       <div className="relative -mx-4 sm:mx-0">
-        <div className="overflow-x-auto overscroll-x-contain px-4 sm:px-0">
+        <div className="relative overflow-x-auto overscroll-x-contain">
           <table className="w-max border-separate border-spacing-0 text-[13px] sm:w-full sm:table-fixed sm:text-sm">
             <caption className="sr-only">Toodete võrdlus</caption>
             <thead>
               <tr>
-                <th scope="col" className={cx(stickyCell, "w-[96px] min-w-[96px] sm:w-40")}>
+                <th scope="col" className={cx(stickyCell, "w-[112px] min-w-[112px] sm:w-40")}>
                   <span className="sr-only">Omadus</span>
                 </th>
                 {items.map((item) => (
-                  <th key={item.variant.id} scope="col" className="w-[150px] min-w-[150px] p-2 text-left align-top font-normal sm:w-auto">
-                    <div className="relative">
+                  <th key={item.variant.id} scope="col" className="w-[150px] min-w-[150px] p-2 text-left align-top font-normal last:pr-4 sm:w-auto sm:last:pr-2">
+                    <div className="relative isolate">
                       <button
                         type="button"
                         onClick={() => removeFromCompare(item.variant.id)}
@@ -131,18 +145,25 @@ export function CompareTable() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
+              {rows.map((row) => {
+                const groups = differenceGroups(items.map(row.value));
+                return (
                 <tr key={row.label}>
                   <th scope="row" className={cx(stickyCell, "border-t border-border py-3 pr-3 text-left align-top font-medium text-muted")}>
                     {row.label}
                   </th>
-                  {items.map((item) => (
-                    <td key={item.variant.id} className="break-words border-t border-border p-2 py-3 align-top">
+                  {items.map((item, index) => (
+                    <td
+                      key={item.variant.id}
+                      data-diff-group={groups[index] ?? undefined}
+                      className={cx("break-words border-t border-border p-2 py-3 align-top last:pr-4 sm:last:pr-2", diffBackground(groups[index]))}
+                    >
                       {row.render ? row.render(item) : row.value(item)}
                     </td>
                   ))}
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

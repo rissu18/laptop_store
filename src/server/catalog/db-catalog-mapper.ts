@@ -1,6 +1,6 @@
-import { BRAND_CODES, BRAND_NAMES, KEYBOARD_LAYOUTS, type BrandCode, type CatalogItem, type CpuFamily, type FeatureFlags, type KeyboardLayout, type VatScheme } from "@/domain/catalog/types";
+import { displayModelName, displayProductTitle } from "@/domain/catalog/display-name";
+import { BRAND_CODES, KEYBOARD_LAYOUTS, type BrandCode, type CatalogItem, type CpuFamily, type FeatureFlags, type KeyboardLayout, type VatScheme } from "@/domain/catalog/types";
 import { resolveStock } from "@/domain/catalog/availability";
-import { productTitle } from "@/domain/catalog/title";
 import { buildSearchText } from "@/domain/catalog/search";
 import type { SearchableItem } from "@/domain/catalog/filtering";
 import { MODEL_OVERRIDABLE_FIELDS, applyOverrides, listingOverridableFields } from "@/domain/catalog/overrides";
@@ -131,8 +131,9 @@ export function mapCatalogRows(
         slug: model.slug,
         brand,
         series: model.family,
-        model: model.model,
-        title: productTitle(BRAND_NAMES[brand], model.family, model.model),
+        // Kliendile nähtav nimi (Lenovo "Gen 4" → "G4"); slug ja andmebaasi nimi jäävad kanooniliseks
+        model: displayModelName(brand, model.model),
+        title: displayProductTitle(brand, model.family, model.model),
         screenSizeIn: (model.screenSizeIn ?? listing.screenSizeIn)!,
         weightKg: model.weightKg,
         ports: { usbA: model.usbAPorts, usbC: model.usbCPorts },

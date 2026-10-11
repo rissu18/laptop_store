@@ -5,6 +5,15 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 ---
 
+## 2026-10-11 — Storefronti UX: kaardi pildid, mobiilne võrdlus, filtrid, Lenovo G-nimed
+
+- **Tootekaart:** mitme pildiga kaardil mobiilis pühkimine (scroll-snap; vertikaalne kerimine ja puudutus → tooteleht jäävad), desktopil hover-nooled (klõps vahetab pilti, ei ava tootelehte), ringiga, punktid ≤ 8 pildi korral. Laetakse nähtav pilt + naabrid. Ühe pildiga kaart muutmata (`ProductImage`). Pildid samast allikast (`imagesForDisplay`).
+- **Mobiilne võrdlus:** põhjus — lahtrite absoluutsed `sr-only` elemendid (seisukorra märk) jäid positsioneerimata kerimisalast välja ja venitasid lehe telefonis laiemaks (375 → 449 px), nii et leht liikus külgsuunas kaasa; lisaks sticky veeru kõrval 16 px vahe, kust kerivad lahtrid paistsid, ja toote eemaldamisnupp joonistus sticky päise peale (sama z-index). Parandus: kerimisala `relative`, padding sticky veerus endas, sticky z-20 + päises `isolate`. Kontrollitud 375/390/430 px.
+- **Võrdluse erinevused:** erinevad väärtused pehme taustaga rühmade kaupa (sama väärtus = sama toon; `--store-diff-1..4`), võrdne rida neutraalne; kirjapildi erinevused (16 GB / 16GB) normaliseeritakse.
+- **Filtrid:** Lenovo ThinkPadi alamseeriad mudelinimest (T, X, X1, X13, L, E, P + ThinkBook, V-seeria, Yoga); vana `?series=thinkpad` töötab edasi; seeriad tootja järjekorras. Protsessorid: perekond/põlvkond tuletatakse CPU nimest, kui andmebaasis puudub (Apple M2 / M2 Pro, Core Ultra 9, Ryzen AI 7) — sync ja andmebaas muutmata; põlvkonnad tootja kaupa, uuem eespool (numbriline). Protsessorifilter näitab kõiki valikuid.
+- **Lenovo kuvanimi:** `Gen N` → `GN` ainult kuvamisel (kataloogi mapper): kaart, tooteleht, otsing, võrdlus, ostukorv, kassa. Andmebaasi mudelinimi, slug, SKU ja sync'i sobitamine jäävad kanooniliseks (`Gen N`). Otsing leiab nii `T14 G4` kui `T14 Gen 4`.
+- **Testid:** 363 → 386.
+
 ## 2026-10-11 — Tingimuste parandused ja kassa nõustumise märkeruut
 
 - **Kassa:** kohustuslik märkeruut „Olen tutvunud ja nõustun E-poe tingimustega.“ (link `/info/muugitingimused`), vaikimisi märkimata. Kontroll brauseris ja serveris (`acceptTerms: z.literal(true)` skeemis → `placeOrderAction`); ilma nõustumiseta tellimust ei looda, viga: „Tellimuse esitamiseks pead nõustuma E-poe tingimustega.“ Nõustumist tellimusse ei salvestata (tellimuse loomine muutmata).

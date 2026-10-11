@@ -29,9 +29,12 @@ function FilterGroup({ title, defaultOpen = true, children }: { title: string; d
   );
 }
 
-function OptionList({ name, options, onToggle }: { name: string; options: FacetOption[]; onToggle: (value: string) => void }) {
+/** Mitu valikut on enne "Näita kõiki" nähtaval. Protsessoreid näidatakse kõiki; seeriaid rohkem (Lenovo alamseeriad). */
+const OPTION_LIMITS: Partial<Record<string, number>> = { cpu: Number.POSITIVE_INFINITY, series: 12 };
+
+function OptionList({ name, options, onToggle, limit = 6 }: { name: string; options: FacetOption[]; onToggle: (value: string) => void; limit?: number }) {
   const [expanded, setExpanded] = useState(false);
-  const LIMIT = 6;
+  const LIMIT = limit;
   const visible = expanded ? options : options.slice(0, LIMIT);
 
   return (
@@ -105,6 +108,7 @@ export function FilterPanel({ query, facets, locked }: { query: CatalogQuery; fa
             name={FACETS[key].label}
             options={facets.multi[key]}
             onToggle={(value) => navigate(toggleFacetValue(query, key, value))}
+            limit={OPTION_LIMITS[key]}
           />
         </FilterGroup>
       ))}

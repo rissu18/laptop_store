@@ -44,6 +44,7 @@ docs/                            PROJECT_PLAN, ARCHITECTURE, DATABASE, ADMIN, DI
 | Poe värvisüsteem indigo-sinine (`.storefront` tokenid), avalehe hero pilt `public/brand/hero.png` | ✅ |
 | Järelparandus: seisukord "Uus", Lenovo V-seeria, `LAPTOPID_API_BASE_URL` | ✅ |
 | Juriidiline info / garantii / kontaktid Laptopid.ee live-lehe põhjal (`src/config/company.ts`, `src/config/info-pages.ts`; e-post ainult info@sylearvutid.ee) | ✅ |
+| Storefronti UX: kaardi pildisirvija, mobiilse võrdluse parandus + erinevuste värvid, Lenovo alamseeriad ja kõik CPU-d filtris, Lenovo `G4` kuvanimi (ainult kuvamine) | ✅ |
 | Production-cleanup: prototüübiriba (kataloog live), ausad maksetekstid, cron-otspunkt + `CRON_SECRET` Vercelis, admini stale-sync hoiatus | ✅ |
 | 4 Foxway, 5b tarneteenused, 6 maksed, 7 automaatika, 8–9 | ⏳ (ära alusta ise) |
 
@@ -86,7 +87,7 @@ Täielik kirjeldus: **docs/LAPTOPID_SYNC.md**.
 
 ## 8. Testid ja kontrollid
 
-- **363 testi / 37 faili — kõik läbivad** (`npm test`, DB testidega ~45 s).
+- **386 testi / 40 faili — kõik läbivad** (`npm test`, DB testidega ~45 s).
 - `npm run typecheck` ✅ · `npm run lint` ✅ · `npm run build` ✅ (Git Bashis: `set -a; . ./.env.development.local; . ./.env.local; set +a; npm run build`).
 - Dev-serveri vana CSS/moodul (Turbopacki vahemälu) → peata server, kustuta `.next`, käivita uuesti.
 - Brauseripaan on sageli peidetud → React ei hüdreeru / Suspense segmendid jäävad `hidden` alla; kasuta `textContent`/`find`, mitte `innerText`, või tee enne kuvatõmmis.

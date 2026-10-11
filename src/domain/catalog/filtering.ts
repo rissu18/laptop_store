@@ -1,4 +1,5 @@
-import { FACETS, MULTI_FACET_KEYS, cpuGenerationRank, type MultiFacetKey } from "./facets";
+import { cpuFilterGeneration, cpuGenerationRank } from "./cpu-filter";
+import { FACETS, MULTI_FACET_KEYS, type FacetDefinition, type MultiFacetKey } from "./facets";
 import { FEATURE_LABELS, FEATURE_ORDER } from "./features";
 import { GRADE_CODES } from "@/domain/grade/grades";
 import { matchesSearch, tokenize } from "./search";
@@ -30,6 +31,8 @@ export interface CatalogFacets {
 
 type Exclude = { facet?: MultiFacetKey; feature?: FeatureKey; price?: boolean };
 
+const matchValues = (definition: FacetDefinition, item: CatalogItem) => (definition.matchValuesOf ?? definition.valuesOf)(item);
+
 function matchesQuery(item: SearchableItem, query: CatalogQuery, queryTokens: string[], exclude: Exclude = {}): boolean {
   if (!matchesSearch(item.searchText, queryTokens)) return false;
 
@@ -38,7 +41,7 @@ function matchesQuery(item: SearchableItem, query: CatalogQuery, queryTokens: st
     const selected = query.facets[key];
     if (selected.length === 0) continue;
     // Sama filtri sees: VÕI (16 GB või 32 GB). Eri filtrite vahel: JA.
-    if (!FACETS[key].valuesOf(item).some((value) => selected.includes(value))) return false;
+    if (!matchValues(FACETS[key], item).some((value) => selected.includes(value))) return false;
   }
 
   for (const feature of query.features) {
@@ -76,8 +79,11 @@ export function computeFacets(items: SearchableItem[], query: CatalogQuery): Cat
       if (!matchesQuery(item, query, tokens, { facet: key })) continue;
       for (const value of definition.valuesOf(item)) counts.set(value, (counts.get(value) ?? 0) + 1);
     }
-    // Valitud väärtus jääb nähtavale ka siis, kui tulemusi on 0 (et seda saaks eemaldada)
-    for (const value of query.facets[key]) if (!counts.has(value)) counts.set(value, 0);
+    // Valitud väärtus jääb nähtavale ka siis, kui valikutes seda pole (nt üldisem "thinkpad") või tulemusi on 0
+    for (const value of query.facets[key]) {
+      if (counts.has(value)) continue;
+      counts.set(value, items.filter((item) => matchesQuery(item, query, tokens, { facet: key }) && matchValues(definition, item).includes(value)).length);
+    }
 
     multi[key] = [...counts.entries()]
       .sort(([a], [b]) => definition.compare(a, b))
@@ -114,7 +120,7 @@ export function computeFacets(items: SearchableItem[], query: CatalogQuery): Cat
 
 const gradeRank = (item: CatalogItem) => GRADE_CODES.indexOf(item.variant.grade);
 const price = (item: CatalogItem) => item.variant.price.saleCents;
-const generation = (item: CatalogItem) => cpuGenerationRank(item.variant.cpu.generationKey);
+const generation = (item: CatalogItem) => cpuGenerationRank(cpuFilterGeneration(item.variant.cpu));
 
 const COMPARATORS: Record<SortKey, (a: CatalogItem, b: CatalogItem) => number> = {
   recommended: (a, b) =>

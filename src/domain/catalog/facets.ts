@@ -1,12 +1,17 @@
 import { GRADES, GRADE_CODES, gradeDisplay } from "@/domain/grade/grades";
 import {
-  BRAND_CODES,
-  BRAND_NAMES,
-  CPU_FAMILIES,
-  KEYBOARD_LAYOUTS,
-  type CatalogItem,
-  type CpuFamily,
-} from "./types";
+  compareCpuFamilies,
+  compareCpuGenerations,
+  cpuFamilyLabel,
+  cpuFilterFamily,
+  cpuFilterGeneration,
+  cpuGenerationLabel,
+  isCpuFamilyValue,
+  isCpuGenerationValue,
+} from "./cpu-filter";
+import { BRAND_CODES, BRAND_NAMES, KEYBOARD_LAYOUTS, type CatalogItem, type CatalogProduct } from "./types";
+
+export { cpuFamilyLabel, cpuGenerationLabel, cpuGenerationRank } from "./cpu-filter";
 
 /**
  * Filtrite (facet'ite) definitsioonid — ÜKS koht, kust tulevad:
@@ -20,8 +25,13 @@ export type MultiFacetKey = (typeof MULTI_FACET_KEYS)[number];
 export interface FacetDefinition {
   key: MultiFacetKey;
   label: string;
-  /** Väärtused, mille alla see toode kuulub (URL-i kujul). */
+  /** Väärtused, mille alla see toode kuulub (URL-i kujul) — filtripaneeli valikud ja loendurid. */
   valuesOf: (item: CatalogItem) => string[];
+  /**
+   * Väärtused, millega toode URL-i filtrile vastab, kui need erinevad valikutest (nt vana/üldisem
+   * väärtus "thinkpad" vastab ka "thinkpad-t" tootele). Vaikimisi = valuesOf.
+   */
+  matchValuesOf?: (item: CatalogItem) => string[];
   optionLabel: (value: string) => string;
   /** Kas URL-ist tulnud väärtus on lubatud. */
   isValidValue: (value: string) => boolean;
@@ -55,44 +65,32 @@ export function seriesSlug(series: string): string {
   return series.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
+/**
+ * Lenovo ThinkPadi alamseeria mudelinimest (T14 → T, X1 Carbon → X1, X13 Yoga → X13, X395 → X, L14 → L,
+ * E15 → E, P14s → P). Tundmatu ThinkPad jääb üldiseks "ThinkPad"-iks. Teised seeriad (ThinkBook, Yoga,
+ * V-seeria) jäävad oma seeriaks. Andmeid ei muudeta — ainult filtri väärtus.
+ */
+const THINKPAD_LINES: [RegExp, string][] = [
+  [/^X1(?!\d)/i, "thinkpad-x1"],
+  [/^X13(?!\d)/i, "thinkpad-x13"],
+  [/^X\d/i, "thinkpad-x"],
+  [/^T\d/i, "thinkpad-t"],
+  [/^L\d/i, "thinkpad-l"],
+  [/^E\d/i, "thinkpad-e"],
+  [/^P\d/i, "thinkpad-p"],
+];
+
+export function seriesFilterValue(product: Pick<CatalogProduct, "brand" | "series" | "model">): string {
+  const slug = seriesSlug(product.series);
+  if (product.brand !== "lenovo" || (slug !== "thinkpad" && slug !== "thinkpad-p")) return slug;
+  const model = product.model.trim();
+  return THINKPAD_LINES.find(([pattern]) => pattern.test(model))?.[1] ?? slug;
+}
+
+/** "thinkpad-t" jne vastab ka üldisele "thinkpad" väärtusele (avalehe seeria lingid, vanad URL-id) */
+const THINKPAD_PARENT_LINES = new Set(["thinkpad-t", "thinkpad-x", "thinkpad-x1", "thinkpad-x13", "thinkpad-l", "thinkpad-e"]);
+
 // ---- Sildid ----------------------------------------------------------------
-
-const CPU_FAMILY_LABELS: Record<CpuFamily, string> = {
-  "intel-core-i3": "Intel Core i3",
-  "intel-core-i5": "Intel Core i5",
-  "intel-core-i7": "Intel Core i7",
-  "intel-core-i9": "Intel Core i9",
-  "intel-core-ultra-5": "Intel Core Ultra 5",
-  "intel-core-ultra-7": "Intel Core Ultra 7",
-  "amd-ryzen-3": "AMD Ryzen 3",
-  "amd-ryzen-5": "AMD Ryzen 5",
-  "amd-ryzen-7": "AMD Ryzen 7",
-  "amd-ryzen-9": "AMD Ryzen 9",
-};
-
-export function cpuFamilyLabel(family: string): string {
-  return CPU_FAMILY_LABELS[family as CpuFamily] ?? family;
-}
-
-/** "intel-12" → "Intel 12. põlvkond", "amd-5000" → "Ryzen 5000-seeria", "ultra-1" → "Core Ultra (seeria 1)" */
-export function cpuGenerationLabel(key: string): string {
-  const [vendor, value] = key.split("-");
-  if (vendor === "intel") return `Intel ${value}. põlvkond`;
-  if (vendor === "ultra") return `Core Ultra (seeria ${value})`;
-  if (vendor === "amd") return `Ryzen ${value}-seeria`;
-  return key;
-}
-
-/** Võrreldav "uudsuse" number eri tootjate põlvkondadele (sorteerimiseks). */
-export function cpuGenerationRank(key: string | null): number {
-  if (!key) return 0;
-  const [vendor, raw] = key.split("-");
-  const value = Number(raw);
-  if (vendor === "intel") return value;
-  if (vendor === "ultra") return 13 + value;
-  if (vendor === "amd") return 6 + value / 1000; // Ryzen 5000 ≈ Intel 11. põlvkonna ajastu
-  return 0;
-}
 
 const storageLabel = (value: string) => {
   const gb = Number(value);
@@ -118,10 +116,14 @@ export const FACETS: Record<MultiFacetKey, FacetDefinition> = {
   series: {
     key: "series",
     label: "Seeria",
-    valuesOf: ({ product }) => [seriesSlug(product.series)],
+    valuesOf: ({ product }) => [seriesFilterValue(product)],
+    matchValuesOf: ({ product }) => {
+      const value = seriesFilterValue(product);
+      return THINKPAD_PARENT_LINES.has(value) ? [value, "thinkpad"] : [value];
+    },
     optionLabel: (v) => SERIES_LABELS[v] ?? v,
     isValidValue: (v) => SLUG_PATTERN.test(v),
-    compare: (a, b) => (SERIES_LABELS[a] ?? a).localeCompare(SERIES_LABELS[b] ?? b, "et"),
+    compare: compareSeries,
   },
   grade: {
     key: "grade",
@@ -161,18 +163,24 @@ export const FACETS: Record<MultiFacetKey, FacetDefinition> = {
   cpu: {
     key: "cpu",
     label: "Protsessor",
-    valuesOf: ({ variant }) => (variant.cpu.family ? [variant.cpu.family] : []),
+    valuesOf: ({ variant }) => {
+      const family = cpuFilterFamily(variant.cpu);
+      return family ? [family] : [];
+    },
     optionLabel: cpuFamilyLabel,
-    isValidValue: (v) => (CPU_FAMILIES as readonly string[]).includes(v),
-    compare: byList(CPU_FAMILIES),
+    isValidValue: isCpuFamilyValue,
+    compare: compareCpuFamilies,
   },
   gen: {
     key: "gen",
     label: "Protsessori põlvkond",
-    valuesOf: ({ variant }) => (variant.cpu.generationKey ? [variant.cpu.generationKey] : []),
+    valuesOf: ({ variant }) => {
+      const generation = cpuFilterGeneration(variant.cpu);
+      return generation ? [generation] : [];
+    },
     optionLabel: cpuGenerationLabel,
-    isValidValue: (v) => /^(intel|ultra|amd)-\d{1,4}$/.test(v),
-    compare: (a, b) => cpuGenerationRank(b) - cpuGenerationRank(a),
+    isValidValue: isCpuGenerationValue,
+    compare: compareCpuGenerations,
   },
   kb: {
     key: "kb",
@@ -200,7 +208,24 @@ const SERIES_LABELS: Record<string, string> = {
   "macbook-air": "Apple MacBook Air",
   "macbook-pro": "Apple MacBook Pro",
   "v-series": "Lenovo V-seeria",
+  "thinkpad-t": "Lenovo ThinkPad T",
+  "thinkpad-x": "Lenovo ThinkPad X",
+  "thinkpad-x1": "Lenovo ThinkPad X1",
+  "thinkpad-x13": "Lenovo ThinkPad X13",
+  "thinkpad-l": "Lenovo ThinkPad L",
+  "thinkpad-e": "Lenovo ThinkPad E",
 };
+
+/** Tootja järjekorras (Lenovo, Dell, HP …), tootja sees tähestikuliselt — Lenovo seeriad on eespool, mitte peidus */
+function compareSeries(a: string, b: string): number {
+  const labelA = seriesLabel(a);
+  const labelB = seriesLabel(b);
+  const brandRank = (label: string) => {
+    const index = BRAND_CODES.findIndex((code) => label.startsWith(`${BRAND_NAMES[code]} `));
+    return index === -1 ? BRAND_CODES.length : index;
+  };
+  return brandRank(labelA) - brandRank(labelB) || labelA.localeCompare(labelB, "et");
+}
 
 export function seriesLabel(slug: string): string {
   return SERIES_LABELS[slug] ?? slug;

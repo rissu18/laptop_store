@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { formatDisplaySummary, formatStorage } from "@/domain/catalog/format";
 import { productHref } from "@/domain/catalog/urls";
+import { imagesForDisplay } from "@/domain/images/product-image";
 import type { CatalogItem } from "@/domain/catalog/types";
 import { ButtonLink } from "@/components/ui/button";
 import { AddToCartButton } from "./add-to-cart-button";
@@ -8,6 +9,8 @@ import { CompareToggle } from "./compare-toggle";
 import { GradeBadge } from "./grade-badge";
 import { PriceTag } from "./price-tag";
 import { ProductBadges } from "./product-badges";
+import { hasImageNavigation } from "./card-gallery-logic";
+import { ProductCardImages } from "./product-card-images";
 import { ProductImage } from "./product-image";
 import { StockStatus } from "./stock-status";
 
@@ -19,19 +22,25 @@ import { StockStatus } from "./stock-status";
 export function ProductCard({ item, priority }: { item: CatalogItem; priority?: boolean }) {
   const { product, variant } = item;
   const href = productHref(item);
+  const images = imagesForDisplay(item);
+  const imageSizes = "(min-width: 1280px) 330px, (min-width: 640px) 45vw, 100vw";
   const extras = [variant.keyboardLayout && `${variant.keyboardLayout} klaviatuur`, variant.os?.replace(/ Pro$/, "")].filter(Boolean);
 
   return (
     <article className="group relative flex w-full flex-col overflow-hidden rounded-lg border border-border bg-surface transition-[box-shadow,border-color] hover:border-primary-border hover:shadow-md">
       <div className="relative">
-        <ProductImage item={item} sizes="(min-width: 1280px) 330px, (min-width: 640px) 45vw, 100vw" priority={priority} />
+        {hasImageNavigation(images.length) ? (
+          <ProductCardImages images={images} href={href} title={product.title} screenSizeIn={product.screenSizeIn} sizes={imageSizes} priority={priority} />
+        ) : (
+          <ProductImage item={item} sizes={imageSizes} priority={priority} />
+        )}
         <ProductBadges
           firstSeenAt={variant.firstSeenAt}
           stockQuantity={variant.stock.quantity}
           hasPriceDrop={variant.price.referenceCents !== null && variant.price.referenceCents > variant.price.saleCents}
-          className="absolute left-3 top-3"
+          className="absolute left-3 top-3 z-20"
         />
-        <CompareToggle variantId={variant.id} className="absolute right-3 top-3 rounded-md bg-surface/90 px-2 py-1 shadow-sm" />
+        <CompareToggle variantId={variant.id} className="absolute right-3 top-3 z-20 rounded-md bg-surface/90 px-2 py-1 shadow-sm" />
       </div>
 
       <div className="flex flex-1 flex-col gap-3 p-4">

@@ -65,9 +65,11 @@ describe("tarnija â†’ kataloog", () => {
 
   it("ThinkPad P seeria saab Ãµige pealkirja ja seeria", async () => {
     const { items } = await catalog();
-    const p1 = items.find((item) => item.product.model === "P1 Gen 4")!;
-    expect(p1.product.title).toBe("Lenovo ThinkPad P1 Gen 4");
+    // Kliendile Lenovo "G4" kuju; slug (identiteet) jääb kanooniliseks "gen-4"
+    const p1 = items.find((item) => item.product.model === "P1 G4")!;
+    expect(p1.product.title).toBe("Lenovo ThinkPad P1 G4");
     expect(p1.product.series).toBe("ThinkPad P");
+    expect(p1.product.slug).toBe("lenovo-thinkpad-p1-gen-4");
   });
 });
 

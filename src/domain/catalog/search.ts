@@ -31,6 +31,8 @@ export function buildSearchText({ product, variant }: CatalogItem): string {
     product.model,
     // "X1 Carbon Gen 10" → ka "g10" (Laptopid.ee ja paljud kasutajad kirjutavad "G10")
     product.model.replace(/\bGen (\d+)\b/gi, "G$1"),
+    // Lenovo kuvanimi on "T14 G4" (display-name.ts) → ka "gen 4", et "T14 Gen 4" leiaks sama mudeli
+    product.brand === "lenovo" ? product.model.replace(/\bG(\d{1,2})\b/g, "Gen $1") : "",
     variant.cpu.model,
     // "i5-1235U" → ka "1235u", et "1235u" leiaks
     variant.cpu.model.replace(/^.*?-/, ""),

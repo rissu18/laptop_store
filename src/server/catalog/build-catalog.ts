@@ -1,3 +1,4 @@
+import { displayModelName, displayProductTitle } from "@/domain/catalog/display-name";
 import { BRAND_NAMES, type CatalogItem, type CatalogProduct, type CatalogVariant } from "@/domain/catalog/types";
 import type { ProductImageView } from "@/domain/images/product-image";
 import { buildSearchText } from "@/domain/catalog/search";
@@ -34,14 +35,15 @@ export interface BuiltCatalog {
 }
 
 export function productFromOffer(offer: NormalizedOffer): CatalogProduct {
-  const title = productTitle(BRAND_NAMES[offer.brand], offer.series, offer.model);
-  const slug = slugify(title);
+  // Slug kanoonilisest nimest (nagu andmebaasis); kliendile kuvatakse Lenovo "G4" kuju
+  const slug = slugify(productTitle(BRAND_NAMES[offer.brand], offer.series, offer.model));
+  const title = displayProductTitle(offer.brand, offer.series, offer.model);
   return {
     id: slug,
     slug,
     brand: offer.brand,
     series: offer.series,
-    model: offer.model,
+    model: displayModelName(offer.brand, offer.model),
     title,
     screenSizeIn: offer.screenSizeIn,
     weightKg: offer.weightKg,

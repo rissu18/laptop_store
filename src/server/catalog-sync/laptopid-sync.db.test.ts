@@ -181,7 +181,8 @@ describe.skipIf(!hasTestDatabase)("Laptopid.ee sync (andmebaas)", () => {
     const { emptyQuery } = await import("@/domain/catalog/query");
     const items = await catalogItems();
     const item = items.find((i) => i.variant.id === "laptopid-6678")!;
-    expect(item.product.title).toBe("Lenovo ThinkPad X1 Carbon Gen 10");
+    expect(item.product.title).toBe("Lenovo ThinkPad X1 Carbon G10");
+    expect(item.product.slug).toBe("lenovo-thinkpad-x1-carbon-gen-10");
     expect(item.variant.stock).toEqual({ available: true, quantity: null });
     expect(item.variant.images).toHaveLength(2);
     expect(item.variant.images[0].largeUrl).toBe("https://laptopid.ee/images/product/6678/30530/original.png");
@@ -317,7 +318,7 @@ describe.skipIf(!hasTestDatabase)("Laptopid.ee sync (andmebaas)", () => {
     await sync(payload);
 
     const now = (await computeCheckout(t.db, { items, couponCode: null })).quote;
-    expect(detectPriceChanges(now, seen.lines)).toEqual([{ variantId: "laptopid-6602", title: "Lenovo ThinkPad X1 Carbon Gen 10", oldCents: 134_900, newCents: 119_900 }]);
+    expect(detectPriceChanges(now, seen.lines)).toEqual([{ variantId: "laptopid-6602", title: "Lenovo ThinkPad X1 Carbon G10", oldCents: 134_900, newCents: 119_900 }]);
     const review = await placeOrder(t.db, {
       idempotencyKey: crypto.randomUUID(),
       items,
