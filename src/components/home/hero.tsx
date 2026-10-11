@@ -1,9 +1,10 @@
+import Image from "next/image";
 import Link from "next/link";
 import { formatEur } from "@/domain/money/money";
 import { SearchBox } from "@/components/search/search-box";
 import { ButtonLink } from "@/components/ui/button";
 import { Container } from "@/components/ui/container";
-import { LaptopIllustration } from "@/components/product/laptop-illustration";
+import heroImage from "../../../public/brand/hero.png";
 
 /**
  * Hero: kompaktne (ei võta tervet ekraani). Kõik numbrid tulevad kataloogist.
@@ -59,7 +60,8 @@ export function Hero({
         </div>
 
         <div className="relative hidden lg:block">
-          <LaptopIllustration className="w-full" screenSizeIn={14} />
+          {/* Dekoratiivne pilt (sisu on tekstis) — Next.js teeb PNG-st WebP/AVIF variandid; mobiilis peidetud */}
+          <Image src={heroImage} alt="" loading="eager" sizes="(min-width: 1280px) 560px, 45vw" className="h-auto w-full rounded-xl" />
           {stats.count > 0 && (
             <dl className="absolute -bottom-2 left-6 flex gap-6 rounded-lg border border-border bg-surface px-5 py-3 shadow-md">
               <div>
