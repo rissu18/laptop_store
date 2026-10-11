@@ -280,7 +280,12 @@ Admin → Tarnijad → **"Sync'i seis"**: viimane edukas sync (aeg + vanus), vii
 
 ### Aktiivne ajastaja: Upstash QStash (2026-10-11)
 
-- Schedule `scd_696gjRsEk4PkPVQdGeFCn4qGKqco`: `*/5 * * * *` (UTC), `GET https://laptop-store-rouge.vercel.app/api/cron/laptopid-sync`, edastatud päis `Authorization: Bearer <CRON_SECRET>` (`Upstash-Forward-Authorization`), korduskatseid 0 (järgmine käivitus 5 min pärast), timeout 300 s.
+- **Prototüübi ressursisäästlik ajastus (alates 2026-10-11 õhtu, Eesti aeg, `CRON_TZ=Europe/Tallinn`)** — vähendab Neoni compute'i kasutust; enne päris poe avamist vaata sagedus üle:
+  - päev `scd_696gjRsEk4PkPVQdGeFCn4qGKqco` (label `laptopid-daytime-sync`): `CRON_TZ=Europe/Tallinn */30 8-23 * * *` → 08:00–23:30 iga 30 min;
+  - öö `scd_76f6zhpjE9tY9t4yedt6aR67Q94x` (label `laptopid-nighttime-sync`): `CRON_TZ=Europe/Tallinn 0 0-6/2 * * *` → 00:00, 02:00, 04:00, 06:00 (08:00 teeb päevane);
+  - kokku 36 käivitust ööpäevas (enne 288). Mõlemal sama: `GET https://laptop-store-rouge.vercel.app/api/cron/laptopid-sync`, edastatud päis `Authorization: Bearer <CRON_SECRET>` (`Upstash-Forward-Authorization`), korduskatseid 0, timeout 300 s. Eesti aja vahetus (suve-/talveaeg) on QStashi poolt arvestatud.
+  - Varasem `*/5 * * * *` (UTC) asendati sama ID all päevase ajastusega — paralleelset 5-min schedule'it pole.
+  - Admini stale-sync hoiatus (üle 15 min) on selle ajastusega enamasti nähtav — see on ootuspärane, mitte viga.
 - `CRON_SECRET` roteeriti seadistamisel (uus juhuslik väärtus otse Vercelisse Production/Preview/Development ja QStashi päisesse, ei kuvatud ega salvestatud mujale) + production redeploy. Edastatud päis on nähtav Upstashi konsoolis konto kasutajatele.
 - QStashi token (`QSTASH_TOKEN`, `QSTASH_URL`) on ainult kohalikus `.env.local` failis (gitignored) schedule'i haldamiseks; rakendus seda ei kasuta ja Vercelis seda pole.
 - Kontrollitud: käivitused 17:30 ja 17:35 UTC → QStash `DELIVERED` HTTP 200 (~4 s), `catalog_sync_runs` CRON SUCCESS, 305 saadud. Verceli igapäevane cron (`vercel.json`) jääb varuvõrguks.

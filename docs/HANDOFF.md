@@ -35,9 +35,9 @@ Täielik kirjeldus: **docs/LAPTOPID_SYNC.md**.
 - **305 / 305** Laptopid pakkumist ACTIVE + `available = true` (kontrollitud 2026-10-11); 177 mudelit; 46 mock-pakkumist ARCHIVED (testide jaoks, poes pole).
 - API: `products.php` + `images.php`, päis `X-API-Key`; seadistus `LAPTOPID_API_BASE_URL` (Config) + `LAPTOPID_API_KEY` (Secret).
 - Sync: DB-lukk (`catalog_sync_runs`; samaaegne → BUSY), võrgutööd enne tehingut, üks tehing, idempotentne; API viga / vigane vastus → kataloog jääb samaks; puuduvad tooted maha ainult usaldusväärse snapshot'iga.
-- **Automaatne sync: Upstash QStash iga 5 min** (schedule `scd_696gjRsEk4PkPVQdGeFCn4qGKqco`) → `GET /api/cron/laptopid-sync` päisega `Authorization: Bearer <CRON_SECRET>` (401 vale/puuduv, 503 seadistamata, 200 SUCCESS/BUSY, 502 FAILED). Viimased käivitused CRON SUCCESS iga 5 min. **Verceli igapäevane cron** (`vercel.json`, 03:00 UTC) on varuvõrk.
+- **Automaatne sync: Upstash QStash, prototüübi ressursisäästlik ajastus (Eesti aeg, `CRON_TZ=Europe/Tallinn`):** 08:00–23:30 iga 30 min (schedule `scd_696gjRsEk4PkPVQdGeFCn4qGKqco`, `*/30 8-23 * * *`) ja 00:00–06:00 iga 2 h (`scd_76f6zhpjE9tY9t4yedt6aR67Q94x`, `0 0-6/2 * * *`) — 36 käivitust ööpäevas (enne iga 5 min = 288), et säästa Neoni compute'i; enne päris poe avamist vaata sagedus üle. → `GET /api/cron/laptopid-sync` päisega `Authorization: Bearer <CRON_SECRET>` (401 vale/puuduv, 503 seadistamata, 200 SUCCESS/BUSY, 502 FAILED), korduskatseid 0. **Verceli igapäevane cron** (`vercel.json`, 03:00 UTC) on varuvõrk.
 - `CRON_SECRET` on Vercelis Secret-tüüpi (roteeritud 2026-10-11, väärtust ei saa lugeda). QStashi token (`QSTASH_TOKEN`, `QSTASH_URL`) on ainult kohalikus `.env.local` failis schedule'i haldamiseks.
-- Käsitsi: admin → Tarnijad → **Sync now** (tühjendab ka poe vahemälu) või `npm run laptopid:sync`. Admin → Tarnijad → "Sync'i seis" näitab hoiatust "Automaatne sünkroonimine ei ole ajakohane.", kui edukast sync'ist on üle 15 min (ainult adminis).
+- Käsitsi: admin → Tarnijad → **Sync now** (tühjendab ka poe vahemälu) või `npm run laptopid:sync`. Admin → Tarnijad → "Sync'i seis" näitab hoiatust "Automaatne sünkroonimine ei ole ajakohane.", kui edukast sync'ist on üle 15 min (ainult adminis) — praeguse 30 min / 2 h ajastusega on see enamasti nähtav ja ootuspärane.
 
 ## 5. Storefront, kassa, sisu
 

@@ -5,6 +5,15 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 ---
 
+## 2026-10-11 — Laptopid.ee sync'i ajastus: prototüübi ressursisäästlik režiim
+
+- QStashi 5-minutiline schedule (288 käivitust ööpäevas) asendati kahega, Eesti aja järgi (`CRON_TZ=Europe/Tallinn`), et vähendada Neoni compute'i kasutust:
+  - päev `scd_696gjRsEk4PkPVQdGeFCn4qGKqco` (sama ID, uuendatud kohapeal): `*/30 8-23 * * *` → 08:00–23:30 iga 30 min;
+  - öö `scd_76f6zhpjE9tY9t4yedt6aR67Q94x` (uus): `0 0-6/2 * * *` → 00:00, 02:00, 04:00, 06:00.
+  - Kokku 36 käivitust ööpäevas. Sihtkoht, GET, edastatud `Authorization` päis (kopeeriti olemasolevast schedule'ist, `CRON_SECRET` muutmata), korduskatseid 0 ja timeout 300 s samad.
+- Kontroll: QStash API — vana `*/5` puudub, mõlemad schedule'id aktiivsed, järgmised käivitused 23:30 ja 00:00 Eesti aja järgi; ühekordne autenditud QStashi sõnum → HTTP 200, `catalog_sync_runs` CRON SUCCESS (305 saadud).
+- Koodi ei muudetud. Admini stale-sync hoiatus (üle 15 min) on nüüd enamasti nähtav — ootuspärane. Enne päris poe avamist vaata sagedus üle. Verceli igapäevane cron jääb varuvõrguks.
+
 ## 2026-10-11 — Optimeerimine: kataloogipäring ja pildilaiused
 
 - **Poe kataloogipäring** (`db-catalog.ts` → `queryStorefrontCatalogRows`): enne `select *` neljast tabelist (sh `raw_data` ja arhiveeritud mock-pakkumised). Nüüd ainult mapperi veerud (`STOREFRONT_*_COLUMNS`; tüübid kontrollivad, et mapper muud ei loe) ja SQL-filter `status = 'ACTIVE'` (mudel + pakkumine), `available IS NOT FALSE`, peidetud pildid välja. `stock` on admini parandatav, seega kogusekontroll jääb mapperisse. Live'is: 351 → 305 pakkumist, 46 → 40 veergu; nelja päringu JSON-maht ~2,34 MB → ~1,20 MB (`supplier_listings` 1,29 → 0,56 MB). Vana ja uue päringu põhjal tekkinud poe kataloog on identne (kontrollitud live-andmebaasiga, ainult lugemine). Kassa, admin ja sync muutmata.
