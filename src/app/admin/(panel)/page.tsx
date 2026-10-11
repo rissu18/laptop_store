@@ -4,6 +4,7 @@ import { fmtCents, fmtDateTime } from "@/components/admin/format";
 import { Card, MetricCard, Missing, PageHeader } from "@/components/admin/ui";
 import { getDashboard } from "@/server/admin/dashboard/queries";
 import { getDiscountStatusCounts } from "@/server/admin/discounts/queries";
+import { getOrderCounts } from "@/server/admin/orders/queries";
 import { requireAdmin } from "@/server/auth/auth";
 
 /** Admin on alati päringupõhine (sessioon, värsked andmed) — eelrenderdust ega "instant" navigeerimist ei kasutata. */
@@ -12,12 +13,12 @@ export const instant = false;
 export const metadata: Metadata = { title: "Töölaud" };
 
 export default async function AdminDashboardPage() {
-  const [admin, d, discounts] = await Promise.all([requireAdmin(), getDashboard(), getDiscountStatusCounts()]);
+  const [admin, d, discounts, orderCounts] = await Promise.all([requireAdmin(), getDashboard(), getDiscountStatusCounts(), getOrderCounts()]);
   const issueHref = (key: string) => (["no-images", "icecat-not-found", "icecat-needs-review"].includes(key) ? `/admin/products/models?issue=${key}` : `/admin/products/listings?issue=${key}`);
 
   return (
     <>
-      <PageHeader title="Töölaud" description={`Tere, ${admin.name}! Kõik numbrid on arvutatud andmebaasist. Tellimused, käive ja kliendid lisanduvad koos kassaga.`} />
+      <PageHeader title="Töölaud" description={`Tere, ${admin.name}! Kõik numbrid on arvutatud andmebaasist. Käivet ja müügistatistikat ei näidata enne päris makseid — praegused tellimused on testtellimused.`} />
 
       <section aria-labelledby="kataloog" className="mb-8">
         <h2 id="kataloog" className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
@@ -56,6 +57,17 @@ export default async function AdminDashboardPage() {
           <MetricCard label="Min" value={fmtCents(d.prices.min) ?? "—"} />
           <MetricCard label="Keskmine" value={fmtCents(d.prices.avg) ?? "—"} />
           <MetricCard label="Max" value={fmtCents(d.prices.max) ?? "—"} />
+        </div>
+      </section>
+
+      <section aria-labelledby="tellimused" className="mb-8">
+        <h2 id="tellimused" className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
+          Tellimused
+        </h2>
+        <div className="grid grid-cols-3 gap-3">
+          <MetricCard label="Testtellimusi täna" value={orderCounts.testToday} href="/admin/orders?kind=test" hint="TEST — ei ole müük" />
+          <MetricCard label="Testtellimusi kokku" value={orderCounts.testTotal} href="/admin/orders?kind=test" hint="TEST — ei ole müük" />
+          <MetricCard label="Päris tellimusi" value={orderCounts.realTotal} href="/admin/orders?kind=real" hint="Avaneb koos makseteenusega" />
         </div>
       </section>
 

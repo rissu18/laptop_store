@@ -30,7 +30,13 @@ export interface AdminNavGroup {
 }
 
 export const ADMIN_NAV: AdminNavGroup[] = [
-  { label: null, items: [{ label: "Töölaud", href: "/admin", icon: LayoutDashboard }] },
+  {
+    label: null,
+    items: [
+      { label: "Töölaud", href: "/admin", icon: LayoutDashboard },
+      { label: "Tellimused", href: "/admin/orders", icon: ShoppingCart },
+    ],
+  },
   {
     label: "Kataloog",
     items: [
@@ -59,7 +65,6 @@ export const ADMIN_NAV: AdminNavGroup[] = [
   {
     label: "Tulekul",
     items: [
-      { label: "Tellimused", href: "#tellimused", icon: ShoppingCart, comingSoon: true },
       { label: "Kliendid", href: "#kliendid", icon: Users, comingSoon: true },
       { label: "Tarnijad", href: "#tarnijad", icon: Truck, comingSoon: true },
     ],

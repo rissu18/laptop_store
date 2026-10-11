@@ -12,7 +12,7 @@ export const instant = false;
 
 export const metadata: Metadata = { title: "Tegevuslogi" };
 
-const ENTITY_TYPES = ["ProductModel", "SupplierListing", "ProductImage", "PricingRules", "StoreSetting", "DiscountCode", "AdminUser"] as const;
+const ENTITY_TYPES = ["ProductModel", "SupplierListing", "ProductImage", "PricingRules", "StoreSetting", "DiscountCode", "Order", "AdminUser"] as const;
 const ENTITY_LABELS: Record<string, string> = {
   ProductModel: "Mudel",
   SupplierListing: "Konfiguratsioon",
@@ -20,6 +20,7 @@ const ENTITY_LABELS: Record<string, string> = {
   PricingRules: "Hinnareeglid",
   StoreSetting: "Seaded",
   DiscountCode: "Sooduskood",
+  Order: "Tellimus",
   AdminUser: "Admin",
 };
 
@@ -57,6 +58,7 @@ export default async function ActivityPage({ searchParams }: PageProps<"/admin/s
             { value: "pricing.", label: "Hinnastamine" },
             { value: "settings.", label: "Seaded" },
             { value: "discount.", label: "Sooduskoodid" },
+            { value: "order.", label: "Tellimused" },
             { value: "auth.", label: "Sisse-/väljalogimine" },
           ]}
         />
