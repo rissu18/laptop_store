@@ -66,7 +66,7 @@ export function ProductBadges({
           className={cx(
             "rounded-full px-2 py-0.5 text-xs font-semibold",
             badge.tone === "deal" && "bg-deal text-white",
-            badge.tone === "new" && "bg-primary text-on-primary",
+            badge.tone === "new" && "bg-primary-soft text-primary ring-1 ring-primary-border",
             badge.tone === "neutral" && "bg-surface text-text ring-1 ring-border",
           )}
         >

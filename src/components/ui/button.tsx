@@ -12,7 +12,7 @@ interface ButtonStyle {
 }
 
 const VARIANTS: Record<Variant, string> = {
-  primary: "bg-primary text-on-primary hover:bg-primary-hover shadow-sm",
+  primary: "bg-primary text-on-primary hover:bg-primary-hover active:bg-primary-pressed shadow-sm",
   secondary: "bg-surface-sunken text-text hover:bg-border",
   outline: "border border-border-strong bg-surface text-text hover:border-text",
   ghost: "text-text hover:bg-surface-sunken",

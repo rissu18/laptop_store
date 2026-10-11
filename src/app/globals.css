@@ -5,6 +5,9 @@
  * Kõik värvid, raadiused ja varjud on defineeritud siin CSS muutujatena.
  * Komponendid kasutavad AINULT neid (Tailwindi klassid nagu bg-primary, text-muted),
  * mitte hardcoded hex-väärtusi. Brändi muutmiseks piisab selle ploki muutmisest.
+ *
+ * :root = ADMINI (ja vaikimisi) väärtused. Avaliku poe värvisüsteem on eraldi plokis .storefront (allpool),
+ * mis kehtib ainult (shop) ja (checkout) layout'ides — admini välimus sellest ei sõltu.
  */
 :root {
   /* Pinnad */
@@ -25,7 +28,10 @@
   --c-primary-hover: #115e59;
   --c-primary-soft: #ecfdf8;
   --c-primary-border: #99e2d4;
+  --c-primary-pressed: var(--c-primary-hover);
   --c-on-primary: #ffffff;
+  /* Ülemine tume riba (prototüübi teade) */
+  --c-topbar: var(--c-text);
 
   /* Hea hind / pakkumine */
   --c-deal: #c2410c;
@@ -59,6 +65,84 @@
   --focus-ring: 0 0 0 3px rgb(15 118 110 / 0.35);
 }
 
+/*
+ * AVALIKU POE VÄRVISÜSTEEM (indigo-sinine)
+ * Rakendub ainult elemendis .storefront (src/app/(shop)/layout.tsx ja (checkout)/layout.tsx).
+ *   sinine  = tegevus, navigeerimine, valitud olek, bränd
+ *   roheline = AINULT semantiline (laos, kohe saadaval, õnnestumine, kehtiv sooduskood)
+ * Komponendid kasutavad endiselt samu semantilisi klasse (bg-primary, text-muted …) — siin vahetatakse väärtused.
+ */
+.storefront {
+  --store-primary: #2f4ee0; /* valgel 6,4:1 — WCAG AA ka väikese tekstina */
+  --store-primary-hover: #263fc5;
+  --store-primary-pressed: #2036a6;
+  --store-primary-soft: #eef1ff;
+  --store-primary-soft-strong: #e3e8ff;
+  --store-primary-border: #c9d2ff;
+  --store-on-primary: #ffffff;
+
+  --store-navy: #121629;
+  --store-navy-secondary: #1e2540;
+  --store-topbar: #10162b;
+
+  --store-bg: #ffffff;
+  --store-bg-alt: #f6f7fb;
+  --store-bg-section: #f2f4fc;
+  --store-bg-sunken: #eef1f7;
+  --store-surface: #ffffff;
+  --store-hero-gradient: linear-gradient(135deg, #f7f8fd 0%, #f0f3fc 100%);
+
+  --store-text: var(--store-navy);
+  --store-text-body: #344054;
+  --store-text-muted: #667085; /* valgel 4,8:1 */
+  --store-text-subtle: #98a2b3;
+
+  --store-border: #e2e6ef;
+  --store-border-strong: #d5dbe8;
+  --store-border-light: #e8ebf2;
+
+  /* #059669 on valgel 3,8:1 (väikese teksti jaoks liiga hele) → mõõdukalt tumedam #047857 (5,5:1) */
+  --store-success: #047857;
+  --store-success-soft: #e8f7f1;
+
+  --store-focus-ring: 0 0 0 3px rgb(47 78 224 / 0.35);
+  --store-shadow-sm: 0 1px 2px rgb(30 37 64 / 0.05);
+  --store-shadow-md: 0 8px 24px rgb(30 37 64 / 0.08);
+  --store-shadow-lg: 0 16px 40px -12px rgb(30 37 64 / 0.18);
+
+  /* Semantilised tokenid → poe väärtused */
+  --c-bg: var(--store-bg);
+  --c-surface: var(--store-surface);
+  --c-surface-alt: var(--store-bg-alt);
+  --c-surface-sunken: var(--store-bg-sunken);
+  --c-border: var(--store-border);
+  --c-border-strong: var(--store-border-strong);
+  --c-text: var(--store-text);
+  --c-text-muted: var(--store-text-muted);
+  --c-text-subtle: var(--store-text-subtle);
+  --c-primary: var(--store-primary);
+  --c-primary-hover: var(--store-primary-hover);
+  --c-primary-pressed: var(--store-primary-pressed);
+  --c-primary-soft: var(--store-primary-soft);
+  --c-primary-border: var(--store-primary-border);
+  --c-on-primary: var(--store-on-primary);
+  --c-topbar: var(--store-topbar);
+  --c-success: var(--store-success);
+  --c-success-soft: var(--store-success-soft);
+  --c-info-soft: var(--store-primary-soft);
+  /* Seisukord: A+ roheline (parim), A sinine; B ja C jäävad endiseks */
+  --c-grade-aplus: var(--store-success);
+  --c-grade-a: var(--store-primary);
+  --c-grade-c: var(--store-text-muted);
+  --shadow-sm: var(--store-shadow-sm);
+  --shadow-md: var(--store-shadow-md);
+  --shadow-lg: var(--store-shadow-lg);
+  --focus-ring: var(--store-focus-ring);
+
+  /* body värv on arvutatud :root väärtustest — poe sees pärivad elemendid poe teksti värvi */
+  color: var(--c-text);
+}
+
 @theme inline {
   --color-bg: var(--c-bg);
   --color-surface: var(--c-surface);
@@ -73,7 +157,9 @@
   --color-primary-hover: var(--c-primary-hover);
   --color-primary-soft: var(--c-primary-soft);
   --color-primary-border: var(--c-primary-border);
+  --color-primary-pressed: var(--c-primary-pressed);
   --color-on-primary: var(--c-on-primary);
+  --color-topbar: var(--c-topbar);
   --color-deal: var(--c-deal);
   --color-deal-soft: var(--c-deal-soft);
   --color-success: var(--c-success);

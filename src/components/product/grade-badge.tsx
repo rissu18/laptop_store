@@ -2,8 +2,8 @@ import { GRADES, type GradeCode } from "@/domain/grade/grades";
 import { cx } from "@/components/ui/class-names";
 
 const GRADE_STYLES: Record<GradeCode, string> = {
-  "A+": "text-grade-aplus border-grade-aplus/30 bg-primary-soft",
-  A: "text-grade-a border-grade-a/30 bg-success-soft",
+  "A+": "text-grade-aplus border-grade-aplus/30 bg-success-soft",
+  A: "text-grade-a border-grade-a/30 bg-primary-soft",
   B: "text-grade-b border-grade-b/30 bg-warning-soft",
   C: "text-grade-c border-grade-c/30 bg-surface-sunken",
 };

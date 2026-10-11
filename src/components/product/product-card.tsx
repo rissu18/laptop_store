@@ -22,7 +22,7 @@ export function ProductCard({ item, priority }: { item: CatalogItem; priority?: 
   const extras = [variant.keyboardLayout && `${variant.keyboardLayout} klaviatuur`, variant.os?.replace(/ Pro$/, "")].filter(Boolean);
 
   return (
-    <article className="group relative flex w-full flex-col overflow-hidden rounded-lg border border-border bg-surface transition-shadow hover:shadow-md">
+    <article className="group relative flex w-full flex-col overflow-hidden rounded-lg border border-border bg-surface transition-[box-shadow,border-color] hover:border-primary-border hover:shadow-md">
       <div className="relative">
         <ProductImage item={item} sizes="(min-width: 1280px) 330px, (min-width: 640px) 45vw, 100vw" priority={priority} />
         <ProductBadges

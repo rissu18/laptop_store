@@ -77,7 +77,7 @@ export function DiscountCodeForm({
         <button
           type="submit"
           disabled={pending || !value.trim()}
-          className="h-11 shrink-0 rounded-md bg-text px-4 text-sm font-semibold text-white hover:bg-text/90 disabled:opacity-50"
+          className="h-11 shrink-0 rounded-md bg-primary px-4 text-sm font-semibold text-on-primary hover:bg-primary-hover active:bg-primary-pressed disabled:opacity-50"
         >
           {pending ? "…" : "Rakenda"}
         </button>

@@ -11,7 +11,8 @@ import { getSettings } from "@/server/settings/settings-service";
 export default async function CheckoutLayout({ children }: { children: React.ReactNode }) {
   const settings = await getSettings();
   return (
-    <>
+    // .storefront = poe värvisüsteem (globals.css); display: contents → paigutus ei muutu
+    <div className="storefront contents">
       {settings.store.prototypeMode && <PrototypeNotice />}
       <header className="border-b border-border bg-surface">
         <Container>
@@ -26,6 +27,6 @@ export default async function CheckoutLayout({ children }: { children: React.Rea
       <main id="sisu" className="flex-1 bg-surface-alt">
         {children}
       </main>
-    </>
+    </div>
   );
 }

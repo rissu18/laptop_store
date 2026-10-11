@@ -5,6 +5,14 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 ---
 
+## 2026-10-11 — Poe värvisüsteem: indigo-sinine
+
+- Avaliku poe primary värv teal → indigo-sinine (`#2F4EE0`, valgel 6,4:1 — WCAG AA). Ainult värvid; paigutus, struktuur ja loogika ei muutunud.
+- Tokenid: `.storefront` plokk `globals.css`-is (`--store-primary`, `--store-primary-hover`, `--store-primary-pressed`, `--store-primary-soft`, `--store-primary-border`, `--store-bg`, `--store-bg-alt`, `--store-surface`, `--store-text`, `--store-text-muted`, `--store-border`, `--store-success`, `--store-success-soft` jt), mis kaardistab olemasolevad semantilised tokenid ainult poe layout'ides (`(shop)`, `(checkout)`, wrapper `display: contents`). **Admin kasutab endiseid `:root` väärtusi** ja jäi muutmata.
+- Roheline (`#047857`; `#059669` oli väikese teksti jaoks liiga hele, 3,8:1) jäi ainult semantiliseks: laos / kohe saadaval, kehtiv sooduskood, soodustuse rida, tellimuse kinnitus, A+ seisukord.
+- Komponentides väikesed klassimuudatused: prototüübiriba (`bg-topbar`), nupu vajutatud olek, hero hele gradient, tootekaardi hover-piir, "Uus valikus" pehme sinine märk, valitud kiirfilter pehme sinine, lehekülgede aktiivne number ja sooduskoodi "Rakenda" sinised, seisukord A sinine / A+ roheline.
+- Probleem: Turbopacki vahemälu serveeris dev-serveris vana CSS-i (uued reeglid puudusid); lahendus: `.next` kustutamine ja dev-serveri taaskäivitus.
+
 ## 2026-10-11 — Päris kataloog Laptopid.ee API-st
 
 **Mis lisati**

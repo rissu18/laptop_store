@@ -19,7 +19,7 @@ export function Hero({
   autoSyncActive: boolean;
 }) {
   return (
-    <section className="border-b border-border bg-surface-alt">
+    <section className="border-b border-border bg-surface-alt bg-[image:var(--store-hero-gradient)]">
       <Container className="grid items-center gap-8 py-10 md:py-14 lg:grid-cols-[1.25fr_1fr] lg:gap-12">
         <div>
           <p className="text-sm font-semibold text-primary">Lenovo · Dell · HP äriklass</p>

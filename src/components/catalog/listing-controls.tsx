@@ -186,7 +186,7 @@ export function QuickFilterChips({ query, facets }: { query: CatalogQuery; facet
                 aria-pressed={active}
                 className={cx(
                   "inline-flex h-9 items-center rounded-full border px-4 text-sm font-medium transition-colors",
-                  active ? "border-primary bg-primary text-on-primary" : "border-border-strong bg-surface hover:border-text",
+                  active ? "border-primary-border bg-primary-soft text-primary" : "border-border-strong bg-surface hover:border-text",
                 )}
               >
                 {chip.label}
@@ -218,7 +218,7 @@ export function Pagination({ query, page, pageCount }: { query: CatalogQuery; pa
               aria-current={p === page ? "page" : undefined}
               className={cx(
                 "tabular flex size-10 items-center justify-center rounded-md text-sm font-medium",
-                p === page ? "bg-text text-white" : "hover:bg-surface-sunken",
+                p === page ? "bg-primary text-on-primary" : "hover:bg-surface-sunken",
               )}
             >
               {p}
