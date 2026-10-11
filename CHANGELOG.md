@@ -5,6 +5,15 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 ---
 
+## 2026-10-11 — Tingimuste parandused ja kassa nõustumise märkeruut
+
+- **Kassa:** kohustuslik märkeruut „Olen tutvunud ja nõustun E-poe tingimustega.“ (link `/info/muugitingimused`), vaikimisi märkimata. Kontroll brauseris ja serveris (`acceptTerms: z.literal(true)` skeemis → `placeOrderAction`); ilma nõustumiseta tellimust ei looda, viga: „Tellimuse esitamiseks pead nõustuma E-poe tingimustega.“ Nõustumist tellimusse ei salvestata (tellimuse loomine muutmata).
+- **Tingimused:** tarneaeg ühtlustatud 1–10 tööpäevale (müügitingimuste 3.1); 9.5 kogutavad andmed vastavad kassa väljadele (eemaldatud isikukood, sünniaasta, sugu, makseviis, müügipakkumiste ja kasutuslepinguga nõustumise registreerimine); 12.2 kirjeldab kassa märkeruutu; 7.5 parandatud („… viivitamatult tagastada“); olematu „lisa nr 1“ eemaldatud — 8.2 ja „remondi teostaja“ (1.5) viitavad Garantii lehele.
+- **Isikuandmed ja privaatsus:** täpne loetelu tehniliselt vajalikest salvestustest (juurdepääsuküpsis, localStorage ostukorv/võrdlus/sooduskood, sessionStorage kassakatse); analüütikat, reklaami ega kolmandate osapoolte jälgimisskripte ei kasutata (kontrollitud koodist).
+- **Meist:** Ristjan Rikk — Developer, Virgo Rikk — Developer; müüja ja link Kontakt-lehele.
+- Infolehtede lõikudes saab kasutada sisemist linki `[tekst](/info/…)`.
+- **Testid:** 349 → 363.
+
 ## 2026-10-11 — Automaatne 5-minutiline Laptopid.ee sync (Upstash QStash)
 
 - QStash schedule `*/5 * * * *` → `GET /api/cron/laptopid-sync` päisega `Authorization: Bearer <CRON_SECRET>` (QStash edastab), 0 korduskatset, timeout 300 s. Koodi ei muudetud.

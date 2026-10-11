@@ -57,11 +57,59 @@ describe("infolehed", () => {
     expect(text).toMatch(/Garantii teostamiseks on vajalik ostuarve/);
   });
 
-  it("sisemised lingid viivad olemasolevatele Sülearvutid.ee lehtedele", () => {
+  it("sisemised lingid (loend ja lõigus [tekst](/tee)) viivad olemasolevatele Sülearvutid.ee lehtedele", () => {
     const slugs = new Set(INFO_PAGES.map((p) => `/info/${p.slug}`));
-    const internal = INFO_PAGES.flatMap((p) => p.sections.flatMap((s) => s.links ?? [])).filter((l) => l.href.startsWith("/"));
-    expect(internal.length).toBeGreaterThan(0);
-    for (const link of internal) expect(slugs.has(link.href)).toBe(true);
+    const listed = INFO_PAGES.flatMap((p) => p.sections.flatMap((s) => s.links ?? [])).filter((l) => l.href.startsWith("/")).map((l) => l.href);
+    const inline = [...allText.matchAll(/\]\((\/[^)\s]*)\)/g)].map((m) => m[1]);
+    expect(listed.length).toBeGreaterThan(0);
+    expect(inline.length).toBeGreaterThan(0);
+    for (const href of [...listed, ...inline]) expect(slugs.has(href)).toBe(true);
+  });
+
+  it("tarneaeg on kõikjal 1–10 tööpäeva (vastuolulist \"kaks tööpäeva\" pole)", () => {
+    expect(allText).not.toMatch(/kaks tööpäeva|2 tööpäeva/);
+    const mentions = [...allText.matchAll(/(\S+) tööpäeva(?![a-zõäöü])/g)].map((m) => m[1]);
+    expect(mentions.length).toBeGreaterThanOrEqual(3);
+    for (const value of mentions) expect(value).toBe("1–10");
+  });
+
+  it("isikuandmed: isikukoodi, sünniaasta ega soo kogumise väidet pole; loetelu vastab kassa väljadele", () => {
+    expect(allText).not.toMatch(/isikukood|sünniaasta|sünniaeg|\bsugu\b|müügipakkumiste saatmisega nõustumine/i);
+    const p95 = getInfoPage("muugitingimused")!.sections.flatMap((s) => s.paragraphs ?? []).find((p) => p.startsWith("9.5"))!;
+    for (const field of ["eesnimi", "perekonnanimi", "elektronposti aadress", "telefoninumber", "postiindeks", "riik", "registrikood ja KMKR number", "märkused"]) {
+      expect(p95).toContain(field);
+    }
+  });
+
+  it("punkt 7.5 on parandatud", () => {
+    expect(pageText("muugitingimused")).toContain("7.5 Lepingust taganemisel tuleb tarbijal ostetud asi viivitamatult tagastada.");
+  });
+
+  it("olematut \"lisa nr 1\" ei viidata; 8.2 ja remondi teostaja viitavad Garantii lehele", () => {
+    expect(allText).not.toMatch(/\blisa(s|ks)?\s*(nr\.?\s*)?1\b/i);
+    const paragraphs = getInfoPage("muugitingimused")!.sections.flatMap((s) => s.paragraphs ?? []);
+    expect(paragraphs.find((p) => p.startsWith("8.2"))).toBe("8.2 Pretensioonide esitamise ja garantiiremondi info on toodud käesolevates tingimustes ning [Garantii lehel](/info/garantii).");
+    expect(paragraphs.find((p) => p.startsWith("1.5"))).toContain("[Garantii lehel](/info/garantii) loetletud ettevõtteid");
+  });
+
+  it("12.2 kirjeldab kassa tegelikku märkeruutu Sülearvutid.ee nimega", () => {
+    const p122 = getInfoPage("muugitingimused")!.sections.flatMap((s) => s.paragraphs ?? []).find((p) => p.startsWith("12.2"))!;
+    expect(p122).toContain("Sülearvutid.ee kassas");
+    expect(p122).toContain("„Olen tutvunud ja nõustun E-poe tingimustega.”");
+  });
+
+  it("privaatsus: ainult tehniliselt vajalikud küpsised/salvestused, analüütikat ja jälgimist pole", () => {
+    const text = pageText("privaatsus");
+    expect(text).toMatch(/ainult tehniliselt vajalikke küpsiseid/);
+    expect(text).toMatch(/Analüütika-, reklaami- ega jälgimisküpsiseid ega kolmandate osapoolte jälgimis- või analüütikaskripte/);
+  });
+
+  it("Meist: mõlemad arendajad, väljamõeldud lisaväiteid pole", () => {
+    const meist = getInfoPage("meist")!;
+    expect(meist.confirmed).toBe(true);
+    const text = JSON.stringify(meist);
+    expect(text).toContain("Ristjan Rikk — Developer");
+    expect(text).toContain("Virgo Rikk — Developer");
   });
 
   it("juriidilised lehed on kinnitatud sisuga (arenduse märkust ei kuvata)", () => {

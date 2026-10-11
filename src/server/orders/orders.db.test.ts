@@ -365,7 +365,7 @@ describe.skipIf(!hasTestDatabase)("kassa ja tellimused (andmebaas)", () => {
         checkoutAttemptId: crypto.randomUUID(),
         items,
         couponCode: null,
-        form: { ...form, totalCents: 1 },
+        form: { ...form, totalCents: 1, acceptTerms: true },
         acknowledged: { lines: quote.lines.map((l) => ({ variantId: l.variantId, unitPriceCents: l.unitPriceCents })), totalCents: quote.totalCents, discountCents: 0 },
       });
       expect(result.ok).toBe(true);
@@ -376,7 +376,7 @@ describe.skipIf(!hasTestDatabase)("kassa ja tellimused (andmebaas)", () => {
 
     it("valideerimisvead tagastatakse väljade kaupa, tellimust ei looda", async () => {
       const { placeOrderAction } = await import("@/server/checkout/checkout-actions");
-      const result = await placeOrderAction({ checkoutAttemptId: crypto.randomUUID(), items: [{ variantId: dell.ref, quantity: 1 }], couponCode: null, form: { ...form, email: "vale", postalCode: "1" }, acknowledged: { lines: [], totalCents: 0, discountCents: 0 } });
+      const result = await placeOrderAction({ checkoutAttemptId: crypto.randomUUID(), items: [{ variantId: dell.ref, quantity: 1 }], couponCode: null, form: { ...form, acceptTerms: true, email: "vale", postalCode: "1" }, acknowledged: { lines: [], totalCents: 0, discountCents: 0 } });
       expect(result).toMatchObject({ ok: false, kind: "VALIDATION", fieldErrors: { email: expect.any(String), postalCode: expect.any(String) } });
     });
   });

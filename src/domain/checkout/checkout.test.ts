@@ -4,7 +4,7 @@ import { generateOrderNumber, normalizeOrderNumber } from "@/domain/orders/order
 import { canTransition } from "@/domain/orders/order-status";
 import { quoteShipping, availableShippingMethods } from "@/domain/shipping/shipping";
 import { DEFAULT_SETTINGS } from "@/domain/settings/settings";
-import { parseCheckoutForm } from "./checkout-form";
+import { TERMS_REQUIRED_MESSAGE, parseCheckoutForm } from "./checkout-form";
 import { resolveCheckoutMode } from "./checkout-mode";
 
 const valid = {
@@ -22,6 +22,7 @@ const valid = {
   companyRegistryCode: "",
   companyVatNumber: "",
   customerNote: "",
+  acceptTerms: true,
 };
 
 describe("kassa vorm", () => {
@@ -58,6 +59,21 @@ describe("kassa vorm", () => {
     expect(ok.success && ok.data).toMatchObject({ companyName: "Firma OÜ", companyVatNumber: "EE101234567" });
     const privatePurchase = parseCheckoutForm({ ...valid, companyName: "Peidetud OÜ", companyRegistryCode: "12345678" });
     expect(privatePurchase.success && privatePurchase.data.companyName).toBeNull();
+  });
+
+  it("E-poe tingimustega nõustumine on kohustuslik (puudub / false / tekst → arusaadav viga)", () => {
+    const { acceptTerms: _omit, ...withoutTerms } = valid;
+    void _omit;
+    for (const input of [withoutTerms, { ...valid, acceptTerms: false }, { ...valid, acceptTerms: "on" }, { ...valid, acceptTerms: "true" }]) {
+      const r = parseCheckoutForm(input);
+      expect(r.success).toBe(false);
+      if (!r.success) expect(r.fieldErrors.acceptTerms).toBe(TERMS_REQUIRED_MESSAGE);
+    }
+  });
+
+  it("nõustumine ei lähe tellimuse andmetesse (tellimuse loomine ei muutu)", () => {
+    const r = parseCheckoutForm(valid);
+    expect(r.success && "acceptTerms" in r.data).toBe(false);
   });
 
   it("isikukoodi, sünniaega ega muid lisavälju ei võeta vastu", () => {

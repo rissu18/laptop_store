@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Fragment } from "react";
+import { Fragment, type ReactNode } from "react";
 import { getInfoPage, INFO_PAGES, type InfoLink } from "@/config/info-pages";
 import { storeConfig } from "@/config/store";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
@@ -17,24 +17,33 @@ export async function generateMetadata({ params }: PageProps<"/info/[slug]">): P
   return { title: getInfoPage(slug)?.title ?? "Info" };
 }
 
-/** https://… aadressid ja e-postid lõigus → lingid (sisu on koodis, mitte kasutaja sisestatud) */
-const AUTOLINK = /(https:\/\/[^\s,]+[^\s,.)]|[\w.+-]+@[\w-]+(?:\.[\w-]+)+)/g;
+/**
+ * Lõigu lingid (sisu on koodis, mitte kasutaja sisestatud): [tekst](/sisemine/tee), https://… aadressid ja e-postid.
+ */
+const LINK_PATTERN = /\[([^\]]+)\]\((\/[^)\s]*)\)|(https:\/\/[^\s,]+[^\s,.)])|([\w.+-]+@[\w-]+(?:\.[\w-]+)+)/g;
 
 function RichText({ text }: { text: string }) {
-  const parts = text.split(AUTOLINK);
-  return (
-    <>
-      {parts.map((part, i) =>
-        i % 2 === 1 ? (
-          <a key={i} href={part.startsWith("https://") ? part : `mailto:${part}`} className="break-words text-primary underline">
-            {part}
-          </a>
-        ) : (
-          <Fragment key={i}>{part}</Fragment>
-        ),
-      )}
-    </>
-  );
+  const nodes: ReactNode[] = [];
+  let last = 0;
+  for (const match of text.matchAll(LINK_PATTERN)) {
+    const [whole, label, internalHref, url, email] = match;
+    if (match.index > last) nodes.push(<Fragment key={`t${last}`}>{text.slice(last, match.index)}</Fragment>);
+    const className = "break-words text-primary underline";
+    nodes.push(
+      internalHref ? (
+        <Link key={match.index} href={internalHref} className={className}>
+          {label}
+        </Link>
+      ) : (
+        <a key={match.index} href={url ?? `mailto:${email}`} className={className}>
+          {url ?? email}
+        </a>
+      ),
+    );
+    last = match.index + whole.length;
+  }
+  if (last < text.length) nodes.push(<Fragment key={`t${last}`}>{text.slice(last)}</Fragment>);
+  return <>{nodes}</>;
 }
 
 function InfoLinkItem({ link }: { link: InfoLink }) {

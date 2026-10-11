@@ -9,7 +9,7 @@ import { handlePlaceOrderResult } from "@/client/checkout-flow";
 import { clearCart, setAppliedDiscountCode, useAppliedDiscountCode, useCart } from "@/client/cart-store";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { cx } from "@/components/ui/class-names";
-import { CHECKOUT_COUNTRIES, parseCheckoutForm } from "@/domain/checkout/checkout-form";
+import { CHECKOUT_COUNTRIES, TERMS_HREF, parseCheckoutForm } from "@/domain/checkout/checkout-form";
 import { CHECKOUT_BLOCKED_MESSAGE, TEST_ORDER_NOTICE } from "@/domain/checkout/checkout-mode";
 import { formatEur } from "@/domain/money/money";
 import { getCheckoutQuoteAction, placeOrderAction, type PlaceOrderActionResult } from "@/server/checkout/checkout-actions";
@@ -165,6 +165,7 @@ export function CheckoutView() {
       companyRegistryCode: data.get("companyRegistryCode") ?? "",
       companyVatNumber: data.get("companyVatNumber") ?? "",
       customerNote: data.get("customerNote"),
+      acceptTerms: data.get("acceptTerms") === "on",
     };
     const local = parseCheckoutForm(values);
     if (!local.success) {
@@ -374,6 +375,31 @@ export function CheckoutView() {
             {failure.errorId && <span className="mt-1 block text-xs">Veakood: {failure.errorId}</span>}
           </p>
         )}
+        <div className="flex flex-col gap-1">
+          <label className="flex min-h-11 items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              id="co-acceptTerms"
+              name="acceptTerms"
+              defaultChecked={false}
+              aria-invalid={errors.acceptTerms ? true : undefined}
+              aria-describedby={errors.acceptTerms ? "co-acceptTerms-error" : undefined}
+              className="mt-0.5 size-5 shrink-0 accent-[var(--c-primary)]"
+            />
+            <span>
+              Olen tutvunud ja nõustun{" "}
+              <Link href={TERMS_HREF} target="_blank" className="underline">
+                E-poe tingimustega
+              </Link>
+              .<span className="text-danger"> *</span>
+            </span>
+          </label>
+          {errors.acceptTerms && (
+            <p id="co-acceptTerms-error" className="text-xs text-danger">
+              {errors.acceptTerms}
+            </p>
+          )}
+        </div>
         <Button type="submit" size="lg" fullWidth disabled={submitting || blockingIssues || quote.lines.length === 0}>
           {submitting ? (
             <>

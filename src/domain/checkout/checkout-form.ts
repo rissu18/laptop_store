@@ -18,6 +18,10 @@ const REGISTRY_CODE_RULES: Record<string, { pattern: RegExp; message: string }> 
   EE: { pattern: /^\d{8}$/, message: "Eesti registrikood on 8 numbrit" },
 };
 
+/** Tingimustega nõustumine on kohustuslik (kontrollitakse ka serveris — placeOrderAction → parseCheckoutForm). */
+export const TERMS_REQUIRED_MESSAGE = "Tellimuse esitamiseks pead nõustuma E-poe tingimustega.";
+export const TERMS_HREF = "/info/muugitingimused";
+
 const required = (label: string, max: number) => z.string().trim().min(1, `${label} on kohustuslik`).max(max, `Kuni ${max} märki`);
 const optional = (max: number) =>
   z.preprocess((v) => (typeof v === "string" && v.trim() === "" ? null : v), z.string().trim().max(max, `Kuni ${max} märki`).nullable());
@@ -42,6 +46,8 @@ export const checkoutFormSchema = z
     companyRegistryCode: optional(20),
     companyVatNumber: optional(20),
     customerNote: optional(1000),
+    // Ainult true; puuduv, false või "on" tekst → viga. Vaikimisi märkimata (kassa vormis).
+    acceptTerms: z.literal(true, { error: TERMS_REQUIRED_MESSAGE }),
   })
   .superRefine((data, ctx) => {
     const postal = POSTAL_CODE_RULES[data.country] ?? GENERIC_POSTAL;
@@ -56,12 +62,14 @@ export const checkoutFormSchema = z
       }
     }
   })
-  .transform((data) =>
-    data.isCompany
+  .transform(({ acceptTerms, ...data }) => {
+    // Nõustumine on eeltingimus; tellimuse andmetesse see ei lähe (tellimuse loomine ei muutu)
+    void acceptTerms;
+    return data.isCompany
       ? { ...data, companyVatNumber: data.companyVatNumber?.toUpperCase() ?? null }
       : // Eraisiku ostul ettevõtte välju ei salvestata (ka siis, kui need olid täidetud)
-        { ...data, companyName: null, companyRegistryCode: null, companyVatNumber: null },
-  );
+        { ...data, companyName: null, companyRegistryCode: null, companyVatNumber: null };
+  });
 
 export type CheckoutForm = z.infer<typeof checkoutFormSchema>;
 

@@ -86,7 +86,7 @@ Täielik kirjeldus: **docs/LAPTOPID_SYNC.md**.
 
 ## 8. Testid ja kontrollid
 
-- **349 testi / 35 faili — kõik läbivad** (`npm test`, DB testidega ~45 s).
+- **363 testi / 37 faili — kõik läbivad** (`npm test`, DB testidega ~45 s).
 - `npm run typecheck` ✅ · `npm run lint` ✅ · `npm run build` ✅ (Git Bashis: `set -a; . ./.env.development.local; . ./.env.local; set +a; npm run build`).
 - Dev-serveri vana CSS/moodul (Turbopacki vahemälu) → peata server, kustuta `.next`, käivita uuesti.
 - Brauseripaan on sageli peidetud → React ei hüdreeru / Suspense segmendid jäävad `hidden` alla; kasuta `textContent`/`find`, mitte `innerText`, või tee enne kuvatõmmis.
@@ -113,7 +113,7 @@ Viimane edukas Vercel production deploy enne seda handoff'i: `a77e106` → **Rea
 - `battery_hours` salvestatakse, aga ei kuvata (tähendus kinnitamata).
 - Seisukordade A+/A/B/C kirjeldused on veel näidistekstid (`isPlaceholder`).
 - `npm run icecat` CLI kasutab veel JSON-faile; püsiv pildisalvestus (R13) puudub.
-- Juriidilised lehed täidetud Laptopid.ee live-sisu põhjal; lahtised vastuolud allikas (puhastus 35 € vs 25 €, tarneaeg 1–10 vs 2 tööpäeva, puuduv "lisa nr 1", poolik p 7.5) — vt CHANGELOG. Tarnehind kassas (6,99 €) on endiselt näidis. Admini "Üldine" ettevõtte väljad poes ei kuvata (allikas `src/config/company.ts`). "Meist" leht on veel kohatäide.
+- Juriidilised lehed täidetud Laptopid.ee live-sisu põhjal; tarneaeg (1–10 tp), "lisa nr 1" ja p 7.5 lahendatud. Lahtine: tolmust puhastamine 35 € (Garantii) vs 25 € (tingimused). Kassas kohustuslik tingimuste märkeruut (server kontrollib). Tarnehind kassas (6,99 €) on endiselt näidis. Admini "Üldine" ettevõtte väljad poes ei kuvata (allikas `src/config/company.ts`). "Meist" lehel on arendajad (Ristjan Rikk, Virgo Rikk).
 - Live'is on 1 vana testtellimus ja 1 arhiveeritud testkood (vt §6).
 
 ## 11. Mida järgmine sessioon EI TOHI omal algatusel alustada

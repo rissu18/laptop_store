@@ -16,7 +16,7 @@ import { COMPANY, COMPANY_ADDRESS_LINE } from "./company";
  * Laptopid.ee lehtedel 44–46 (Õiguslik teatis, Privaatsuspoliitika, Küpsised) on teise ettevõtte
  * (Laptopas SLU, Hispaania) mallid, mida live-lehelt ei lingita — neid EI kasutata.
  *
- * Lõigus olev https://… aadress ja info@sylearvutid.ee muutuvad lehel automaatselt lingiks.
+ * Lõigus olev https://… aadress ja e-post muutuvad lehel automaatselt lingiks; sisemine link: [tekst](/info/…).
  */
 
 export interface InfoLink {
@@ -258,7 +258,7 @@ export const INFO_PAGES: InfoPage[] = [
           "7.2 Tagastatav toode peab olema puuduseta, täiskomplektne, terves originaalpakendis ja kasutamata, kusjuures märgime, et seadme pakist avamine ning selle käivitamine ei võta tarbijalt õigust e-poest ostetud seadme müügilepingust 14 päeva jooksul põhjust avaldamata taganeda. VÕS § 562 lg 4 sätestab, et tagastamisele kuuluva asja halvenemise korral vastutab tarbija asja kasutamisest tingitud väärtuse vähenemise eest üksnes juhul, kui ta on asja kasutanud muul viisil, kui on vaja asja olemuses, omadustes ja toimimises veendumiseks. Et veenduda asja olemuses, omadustes ja toimimises, peaks tarbija käsitsema ja kasutama asja üksnes nii, nagu tal lubataks tavapäraselt seda teha poes. Lähtudes eelnevast ei kaota tarbija asja pakendi avamisel, selle tööle panemisel ja kasutamisel taganemisõigust. Kauplus võib seadme tagastamisel hinnata üksnes selle väärtuse vähenemist, kui tarbija on seda kasutanud muul viisil, kui on vaja seadme olemuses, omadustes ja toimimises veendumiseks. Seadme väärtuse vähenemise määra ning selle arvutusviisi tuleb tarbijale arusaadavalt selgitada.",
           "7.3 Tagastusõigus ei laiene avatud ümbrisega audio- ja videosalvestistele ning arvutitarkvarale.",
           `7.4 Toote tagastamiseks tuleb esitada taganemisteade e-mailile ${EMAIL}.`,
-          "7.5 Lepingust taganemisel tuleb tarbijal ostetud asi viivitamatult.",
+          "7.5 Lepingust taganemisel tuleb tarbijal ostetud asi viivitamatult tagastada.",
           `7.6 Tagastamisel kantakse Teenuse kasutajale raha tagasi viivitamata, kuid mitte hiljem kui 14 päeva pärast soetatud seadme tagastamist ${COMPANY.address.street}, ${COMPANY.address.city}, ${COMPANY.legalName}-le.`,
           "7.7 Raha kantakse üle samale arvelduskontole, kust toimus selle laekumine Teenuse osutajale.",
           "7.8 Teenuse kasutaja kohustub kandma kauba tagastuskulud 10 euro ulatuses, välja arvatud juhul, kui tagastamisele kuuluv toode ei vastanud tarbija tellimusele.",
@@ -272,7 +272,7 @@ export const INFO_PAGES: InfoPage[] = [
         heading: "8. Pretensioonide esitamise kord",
         paragraphs: [
           "8.1 E-poest müüdud toodetele kehtib VÕS § 218 lg 2 sätestatud 2-aastane pretensiooni esitamise tähtaeg.",
-          `8.2 Pretensioonide käsitlemine toimub vastavuses E-poe Kasutuslepingu lisaks nr 1 oleva „${COMPANY.legalName} pretensioonide käsitlemise korrale”.`,
+          "8.2 Pretensioonide esitamise ja garantiiremondi info on toodud käesolevates tingimustes ning [Garantii lehel](/info/garantii).",
         ],
       },
       {
@@ -282,7 +282,7 @@ export const INFO_PAGES: InfoPage[] = [
           "9.2 Kaardiandmete küsimisel kasutatakse turvalist SSL andmesidet ning MasterCard SecureCode ja Verified by Visa turvasüsteeme.",
           "9.3 Teenuse osutaja sisestatud kaardi andmeid ei näe. Tehingu tegemiseks suunatakse kaardi valdaja Kaardikeskuse (Pankade Kaardikeskuse AS, https://www.estcard.ee) turvalisesse keskkonda. Maksmise hetkel toimub kaardi valdaja kaardiandmete sisestus kaardi valdaja poolt Kaardikeskuse serveris paiknevasse andmebaasi ning andmeid säilitatakse samuti Kaardikeskuses paiknevas serveris.",
           "9.4 Isikuandmete allikaks on kliendisuhte tekkimine E-poes tellimuse registreerimisel.",
-          "9.5 Registreeritavate isikuandmete koosseisu kuuluvad andmed Teenuse kasutaja tellimuse kohta — isikukood, perekonnanimi, eesnimi (eesnimed), tänav, maja, korteri number, asula või linn, postiindeks, telefoninumber, aadress, sünniaasta, sugu, tarnimise viis, kasutatud makseviis, E-poe Kasutuslepinguga nõustumine, müügipakkumiste saatmisega nõustumine, elektronposti aadressil vabatekstina sisestatud märkused.",
+          "9.5 Registreeritavate isikuandmete koosseisu kuuluvad Teenuse kasutaja poolt kassas sisestatud andmed tellimuse kohta — eesnimi, perekonnanimi, elektronposti aadress, telefoninumber, aadress (tänav, maja, korteri number), asula või linn, postiindeks, riik, ettevõttena ostes ettevõtte nimi, registrikood ja KMKR number, tarnimise viis ning tellimuse märkuste lahtrisse vabatekstina sisestatud märkused.",
           `9.6 Isikuandmeid töötleb ${COMPANY.legalName}, ${COMPANY.address.street}, ${COMPANY.address.city}, ${COMPANY.address.county}, registrikood ${COMPANY.registryCode}.`,
           "9.7 Teenuse kasutaja isikuandmed, mis on vajalikud kauba vahendamiseks Teenuse kasutajale, edastatakse kullerteenust osutavale ettevõttele.",
           "9.8 Isikuandmete kaitse on tagatud kõigi seadusest tulenevate turvameetmetega.",
@@ -312,7 +312,7 @@ export const INFO_PAGES: InfoPage[] = [
         heading: "12. Kasutamistingimused",
         paragraphs: [
           "12.1 Kasutuslepingus toodud tingimustega tutvumine on Teenuse kasutajale kohustuslik.",
-          "12.2 Tellimuse esitamisel märkides linnukesega vastavas aknas „Nõustun Sülearvutid.ee e-poe kasutamise tingimustega”, nõustub Teenuse kasutaja, et on tutvunud Kasutuslepingus toodud tingimustega, neist aru saanud ja nõustub Kasutuslepingus toodud tingimustega.",
+          "12.2 Tellimuse esitamisel kinnitab Teenuse kasutaja Sülearvutid.ee kassas kohustusliku märkeruuduga „Olen tutvunud ja nõustun E-poe tingimustega.”, et on tutvunud Kasutuslepingus toodud tingimustega, neist aru saanud ja nõustub nendega. Ilma nõustumiseta tellimust ei esitata.",
         ],
       },
       {
@@ -326,11 +326,10 @@ export const INFO_PAGES: InfoPage[] = [
           "1.2 Müüjalt seadme ostmisel loetakse, et klient on müügitingimustega tutvunud, on neist aru saanud ja nendega nõustunud.",
           `1.3 Müügitingimustes käsitlemata küsimustega saab klient pöörduda müüja klienditoe poole telefonil ${COMPANY.phone.label}, e-postil ${EMAIL} või aadressil ${COMPANY_ADDRESS_LINE}.`,
           "1.4 Müügitingimustes on „tarbija” mõistet läbivalt kasutatud võlaõigusseaduses sätestatud „tarbija” mõiste tähenduses. Tarbija on selline füüsilisest isikust klient, kes müüjaga müügisuhtesse astumisel ei tegutse oma majandus- või kutsetegevuses.",
-          "1.5 Müügitingimustes mõistetakse „remondi teostaja” all müügitingimuste lisas 1 loetletud firmasid, kes teostavad müüja poolt müüdavate seadmete remonti. Remondi teostajad teostavad nii garantiiremonti kui ka remonti, mille vajadus tuleneb tarbija poolt esitatud pretensioonist. Garantiiremondi teostajate kontaktid on Garantii lehel.",
+          "1.5 Müügitingimustes mõistetakse „remondi teostaja” all [Garantii lehel](/info/garantii) loetletud ettevõtteid, kes teostavad vastavate seadmete garantiiremonti või remonti.",
           "1.6 Müüja poolt müüdud seade loetakse kvaliteetseks, kui seadme LCD-kuvari surnud pikslite arv ei ületa kolme (3).",
           "1.7 Müüja poolt müüdud seadmed loetakse kvaliteetseks, vaatamata seadmete kuluvate osade (juhtmed, akud, CD-d, hiirematt, originaalpakend, dokumentatsioon jmt) tavapärasele kulumisele.",
         ],
-        links: [{ label: "Garantii", href: "/info/garantii" }],
       },
       {
         heading: "2. Müügihinna tasumine",
@@ -342,7 +341,7 @@ export const INFO_PAGES: InfoPage[] = [
       {
         heading: "3. Tarnetingimused",
         paragraphs: [
-          "3.1 Ostetud seadme tarneaeg on kaks tööpäeva alates ostutellimuse vormistamisest, kui kliendiga ei ole kokku lepitud teistsuguses tarneajas.",
+          "3.1 Ostetud seadme tarneaeg on 1–10 tööpäeva alates ostutellimuse vormistamisest, kui kliendiga ei ole kokku lepitud teistsuguses tarneajas.",
           "3.2 Ostetud seade toimetatakse kliendile kullerteenuse osutaja vahendusel kliendi poolt ostutellimuses määratud aadressil. Klient võib ostutellimuse tegemisel määrata seadmele järeletulemise, millisel juhul kullerteenust ei kasutata ja müüja teavitab klienti seadme saabumisest ja seadmele järeletulemise kohast.",
           "3.3 Eeldatakse, et seadme kättetoimetamine või sellele järeletulemine toimub tööpäeval ajavahemikus kl 10–18.",
           "3.4 Ostetud seadmetele tuleb järele tulla 6 kuu jooksul, peale seda kuulub seade utiliseerimisele.",
@@ -414,12 +413,26 @@ export const INFO_PAGES: InfoPage[] = [
       {
         heading: "Küpsised ja brauseri salvestus Sülearvutid.ee-s",
         paragraphs: [
-          "Kasutame ainult tehniliselt vajalikke salvestusi (näiteks ostukorvi sisu sinu brauseris ja tellimuse kinnituslehe juurdepääsuküpsis). Reklaami- ega jälgimisküpsiseid ei kasutata.",
+          "Kasutame ainult tehniliselt vajalikke küpsiseid ja brauseri salvestusi: tellimuse kinnituslehe juurdepääsuküpsis (pärast tellimuse esitamist); sinu brauseris (localStorage) ostukorv, võrdlusesse lisatud tooted ja sisestatud sooduskood; kassa ajal (sessionStorage) kaitse sama tellimuse topelt esitamise vastu.",
+          "Analüütika-, reklaami- ega jälgimisküpsiseid ega kolmandate osapoolte jälgimis- või analüütikaskripte Sülearvutid.ee ei kasuta. Seetõttu ei kuvata ka küpsiste nõusoleku akent.",
         ],
       },
     ],
   },
-  { slug: "meist", title: "Meist", sections: [{ paragraphs: ["Ettevõtte tutvustus lisatakse."] }], confirmed: false },
+  {
+    slug: "meist",
+    title: "Meist",
+    confirmed: true,
+    sections: [
+      {
+        paragraphs: [`Sülearvutid.ee on kasutatud äriklassi sülearvutite e-pood. Müüja on ${COMPANY.legalName} (registrikood ${COMPANY.registryCode}), kontaktid leiad [Kontakt lehelt](/info/kontakt).`],
+      },
+      {
+        heading: "Meeskond",
+        paragraphs: ["Ristjan Rikk — Developer", "Virgo Rikk — Developer"],
+      },
+    ],
+  },
 ];
 
 export function getInfoPage(slug: string): InfoPage | undefined {
