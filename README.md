@@ -84,7 +84,7 @@ Seejärel ava <http://localhost:3000/admin/login>. Admini kasutajat ega parooli 
 | `ICECAT_CONTENT_TOKEN` | – | Valikuline; saadetakse ainult HTTP päises |
 | `LAPTOPID_API_KEY` | – | Laptopid.ee API võti (ainult server, ainult HTTP päises `X-API-Key`) |
 | `LAPTOPID_API_BASE_URL` | – | Laptopid.ee API kataloog (`https://laptopid.ee/api/sulearvutid/`); sellest ehitatakse `products.php` ja `images.php`. Puudumisel sync ei käivitu (tagavara-URL-i pole) |
-| `CRON_SECRET` | – | Ajastatud sync'i otspunkti kaitse (`Authorization: Bearer …`, vähemalt 16 märki). Puudumisel otspunkt ei käivitu |
+| `CRON_SECRET` | – | Ajastatud sync'i otspunkti kaitse (`Authorization: Bearer …`, vähemalt 16 märki). Puudumisel otspunkt ei käivitu. Vercelis Secret-tüübina |
 
 Muutujad valideeritakse käivitamisel failis [`src/config/env.ts`](src/config/env.ts). Saladusi (API võtmed, paroolid, ühendusstringid) ei commit'ita ega logita kunagi. Prototüübirežiim (hoiatusriba + noindex) on nüüd poe seadetes: admin → Seaded → Pood.
 
@@ -166,7 +166,7 @@ PostgreSQL (Neon) + Drizzle ORM: 25 tabelit, migratsioonid `drizzle/0000_init.sq
 
 ## Päris kataloog (Laptopid.ee)
 
-Laptopid.ee API → valideerimine → normaliseerimine → sync → PostgreSQL → sama kataloogiteenus kõigile lehtedele (pood, otsing, ostukorv, kassa). Pood ja kassa ei küsi kunagi API-st otse. Laptopid annab ainult saadavuse (mitte kogust): poes "Kohe saadaval", tellida saab 1 tk rea kohta. Müügihind tuleb tarnijalt (admin saab parandada), ostuhind on teadmata. Puuduvad tooted võetakse maha ainult usaldusväärse täieliku nimekirjaga. Pildid on Laptopid.ee kaug-URL-id läbi Next/Image (Git'i neid ei laeta). Sync: admin → Tarnijad → **Sync now**, `npm run laptopid:sync` või ajastatud otspunkt (Vercel Hobby: kord päevas). Vt [docs/LAPTOPID_SYNC.md](docs/LAPTOPID_SYNC.md).
+Laptopid.ee API → valideerimine → normaliseerimine → sync → PostgreSQL → sama kataloogiteenus kõigile lehtedele (pood, otsing, ostukorv, kassa). Pood ja kassa ei küsi kunagi API-st otse. Laptopid annab ainult saadavuse (mitte kogust): poes "Kohe saadaval", tellida saab 1 tk rea kohta. Müügihind tuleb tarnijalt (admin saab parandada), ostuhind on teadmata. Puuduvad tooted võetakse maha ainult usaldusväärse täieliku nimekirjaga. Pildid on Laptopid.ee kaug-URL-id läbi Next/Image (Git'i neid ei laeta). Sync: admin → Tarnijad → **Sync now**, `npm run laptopid:sync` või kaitstud cron-otspunkt `/api/cron/laptopid-sync` (välisele 5-min ajastajale; Vercel Hobby enda cron kord päevas). Vt [docs/LAPTOPID_SYNC.md](docs/LAPTOPID_SYNC.md).
 
 ## Kassa ja tellimused
 
@@ -202,4 +202,4 @@ data/icecat/              Icecati vasted ja käsitsi kogutud identifikaatorid
 
 ## Testandmed
 
-Kaustas [`src/integrations/supplier/mock/`](src/integrations/supplier/mock/) on **arenduse testandmed** (~45 sülearvutit). Mudelinimed on realistlikud, kuid hinnad, laoseisud ja muud numbrid on välja mõeldud. Need on imporditud andmebaasi; päris kataloogi (Laptopid.ee) kasutuselevõtul arhiveeritakse nende pakkumised (`npm run catalog:archive-mock`), kustutamata. Testid ja andmebaasita arendus kasutavad neid edasi. Seni, kuni prototüübirežiim on sees (admin → Seaded), kuvatakse lehel vastav hoiatus.
+Kaustas [`src/integrations/supplier/mock/`](src/integrations/supplier/mock/) on **arenduse testandmed** (~45 sülearvutit). Mudelinimed on realistlikud, kuid hinnad, laoseisud ja muud numbrid on välja mõeldud. Need on imporditud andmebaasi; päris kataloogi (Laptopid.ee) kasutuselevõtul arhiveeritakse nende pakkumised (`npm run catalog:archive-mock`), kustutamata. Testid ja andmebaasita arendus kasutavad neid edasi. Prototüübirežiimis (admin → Seaded) kuvatakse hoiatusriba: kataloog (tooted, hinnad, saadavus) on päris, tellimused on testtellimused ja makseid ei võeta.

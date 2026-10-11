@@ -1,5 +1,6 @@
 import "server-only";
 import { and, count, eq, ne, sql } from "drizzle-orm";
+import { syncHealth } from "@/domain/catalog/sync-health";
 import { isLaptopidConfigured } from "@/integrations/laptopid/laptopid-client";
 import { LAPTOPID_SOURCE, LAPTOPID_SUPPLIER_CODE } from "@/integrations/laptopid/laptopid-normalizer";
 import { requireAdmin } from "@/server/auth/auth";
@@ -28,8 +29,12 @@ export async function getSupplierOverview() {
       .from(supplierListings)
       .where(and(ne(supplierListings.supplier, LAPTOPID_SUPPLIER_CODE), eq(supplierListings.status, "ACTIVE"))),
   ]);
+  // Viimane lõppenud käivitus (edukas või mitte) — RUNNING rida pole veel tulemus
+  const lastFinished = runs.find((run) => run.status !== "RUNNING") ?? null;
   return {
     configured: isLaptopidConfigured(),
+    health: syncHealth(lastSuccess?.finishedAt ?? null, new Date()),
+    lastFinished,
     cronConfigured: isCronConfigured(),
     runs,
     lastSuccess,

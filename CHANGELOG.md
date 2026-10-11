@@ -5,6 +5,17 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 ---
 
+## 2026-10-11 — Production-cleanup ja automaatse sync'i ettevalmistus
+
+- **Prototüübiriba:** ei väida enam, et tooted, hinnad ja laoseisud on testandmed (need tulevad Laptopid.ee sync'ist). Uus tekst: "Prototüüp: toodete, hindade ja saadavuse andmed on live. Tellimused on testtellimused — makseid ei võeta ja tellimusi ei täideta." Riba jääb alles.
+- **Maksetekstid:** usaldusriba (päis, avaleht) makse-punkt "Turvaline maksmine — Pangalingid ja kaardimakse" kuvatakse kuni LIVE kassani kui "Makseviisid — Makseviisid lisanduvad poe avamisel"; tootelehe "Turvaline maksmine" ainult LIVE režiimis. Admini seadete tekst ja makse-arhitektuur (`PaymentProvider`, kassa režiimid) jäid muutmata.
+- **Cron-otspunkt** `/api/cron/laptopid-sync` üle kontrollitud: ainult õige `Authorization: Bearer <CRON_SECRET>`, ajast sõltumatu võrdlus, saladust ei logita ega tagastata, sama sync-teenus ja DB-lukk (samaaegne → BUSY 200), upstream viga → 502 ja kataloog jääb alles. Koodi ei olnud vaja muuta.
+- **`CRON_SECRET`** lisati Vercelisse (Production, Preview, Development) tüübiga Secret; väärtus genereeriti juhuslikult ja suunati otse Verceli CLI-sse (ei kuvatud ega commit'itud).
+- **Admin → Tarnijad → "Sync'i seis":** viimane edukas sync ja selle vanus, viimase käivituse tulemus, saadud / muutunud / maha võetud / vead; üle 15 min vana → "Automaatne sünkroonimine ei ole ajakohane." (ainult adminis).
+- **Dokumentatsioon:** PROJECT_PLAN 285 → 305 aktiivset pakkumist (hetkeseis, koodis arvu pole); LAPTOPID_SYNC §13 (HTTP staatused, saladuse roteerimine, välise ajastaja võrdlus); README, ARCHITECTURE, ADMIN, HANDOFF.
+- **Testid:** 321 → 341 (cron auth ja vastused, samaaegne sync, upstream viga ei muuda poe kataloogi, stale-sync hoiatus, prototüübiriba ja makse-punkti tekstid).
+- Probleem: testis "saladus + lõputühik" läks läbi — `Headers` kärbib HTTP päise väärtuse ümbritsevad tühikud (standardne käitumine), seega pole see eraldi juhtum; test eemaldati.
+
 ## 2026-10-11 — Laptopid.ee järelparandused: "Uus", Lenovo V-seeria, API seadistus
 
 - **Seisukord "Uus":** uus klass `NEW` (kliendile "Uus", URL-is `uus`, filtris esimesena). Laptopid.ee `New` (13), `Demo` (5) ja `Outlet` (1) → "Uus". Tarnija algne klass säilib (`details.sourceGrade` + `raw_data`), admin näeb seda. Märk on sinine (roheline on saadavuse tähendusega). Selgitus ei väida, et seade on avamata pakendis.

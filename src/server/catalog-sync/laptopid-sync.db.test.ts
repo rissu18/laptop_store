@@ -333,6 +333,8 @@ describe.skipIf(!hasTestDatabase)("Laptopid.ee sync (andmebaas)", () => {
 
   it("API viga või vigane vastus → sync ebaõnnestub, eelmine kataloog jääb alles", async () => {
     const before = await t.db.select().from(supplierListings).where(eq(supplierListings.supplier, "laptopid"));
+    const storefrontBefore = (await catalogItems()).map((i) => [i.variant.id, i.variant.price]);
+    expect(storefrontBefore.length).toBeGreaterThan(0);
     for (const payload of [
       async () => {
         throw new Error("products: HTTP 500");
@@ -345,6 +347,8 @@ describe.skipIf(!hasTestDatabase)("Laptopid.ee sync (andmebaas)", () => {
     }
     const after = await t.db.select().from(supplierListings).where(eq(supplierListings.supplier, "laptopid"));
     expect(after.map((r) => [r.id, r.available, r.salePriceCents])).toEqual(before.map((r) => [r.id, r.available, r.salePriceCents]));
+    // Pood (catalog-service mapper) näeb sama kataloogi — upstream viga poodi ei tühjenda
+    expect((await catalogItems()).map((i) => [i.variant.id, i.variant.price])).toEqual(storefrontBefore);
     const failed = await t.db.select().from(catalogSyncRuns).where(eq(catalogSyncRuns.status, "FAILED"));
     expect(failed.length).toBeGreaterThanOrEqual(3);
     expect(logs.some((l) => l.level === "ERROR")).toBe(true);
@@ -400,6 +404,27 @@ describe.skipIf(!hasTestDatabase)("Laptopid.ee sync (andmebaas)", () => {
     expect((await sync(basePayload())).status).toBe("SUCCESS");
     const [stale] = await t.db.select().from(catalogSyncRuns).where(eq(catalogSyncRuns.id, running.id));
     expect(stale.status).toBe("FAILED");
+  });
+
+  it("samaaegsed käivitused (nt ajastaja + admin „Sync now“): üks töötab, teine saab BUSY; duplikaate ei teki", async () => {
+    const countBefore = (await t.db.select({ n: count() }).from(supplierListings).where(eq(supplierListings.supplier, "laptopid")))[0].n;
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const slow = sync(async () => {
+      await gate;
+      return basePayload();
+    });
+    // Esimene hoiab lukku (ootab API vastust) — teine käivitus samal ajal
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    const second = await sync(basePayload());
+    release();
+    const first = await slow;
+    expect(second.status).toBe("BUSY");
+    expect(first.status).toBe("SUCCESS");
+    const running = await t.db.select().from(catalogSyncRuns).where(eq(catalogSyncRuns.status, "RUNNING"));
+    expect(running).toHaveLength(0);
+    const countAfter = (await t.db.select({ n: count() }).from(supplierListings).where(eq(supplierListings.supplier, "laptopid")))[0].n;
+    expect(countAfter).toBe(countBefore);
   });
 
   it("mock-kataloog on andmebaasis alles; arhiveerimisel kaob poest, Laptopid jääb", async () => {

@@ -123,7 +123,7 @@ export function SettingsEditor({ settings }: { settings: Settings }) {
         {(e) => <TextArea name="text" label="Tagastuse tekst" defaultValue={returns.text} error={e.text} />}
       </SettingsGroupForm>
 
-      <SettingsGroupForm group="trustBar" title="Usaldusriba" description="Väited päises ja avalehel. Luba ainult väiteid, mida suudad tõestada.">
+      <SettingsGroupForm group="trustBar" title="Usaldusriba" description="Väited päises ja avalehel. Luba ainult väiteid, mida suudad tõestada. Kuni päris maksed pole avatud, kuvatakse poes makse-punkti asemel „Makseviisid lisanduvad poe avamisel“.">
         {(e) => (
           <div className="flex flex-col gap-3 sm:col-span-2">
             {trustBar.items.map((item) => (

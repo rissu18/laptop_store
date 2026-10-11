@@ -211,7 +211,7 @@ Muudatus algse spetsifikatsiooniga võrreldes: `getStock` ja `getPrice` on ühen
 
 ### Sync (Phase 4)
 
-> Laptopid.ee jaoks on sync tehtud (vt [LAPTOPID_SYNC.md](LAPTOPID_SYNC.md)): `catalog_sync_runs` (lukk + ajalugu), usaldusväärse snapshot'i kontroll, `available = false` (mitte MISSING/laoseis 0), ühe tehinguga kirjutamine, `updateTag`/`revalidateTag('catalog')`. Ajastaja (pg-boss worker) ja hinnaajalugu on veel tegemata; Vercel Hobby lubab cron'i kord päevas.
+> Laptopid.ee jaoks on sync tehtud (vt [LAPTOPID_SYNC.md](LAPTOPID_SYNC.md)): `catalog_sync_runs` (lukk + ajalugu), usaldusväärse snapshot'i kontroll, `available = false` (mitte MISSING/laoseis 0), ühe tehinguga kirjutamine, `updateTag`/`revalidateTag('catalog')`. Kaitstud cron-otspunkt (`/api/cron/laptopid-sync`, `CRON_SECRET`) on valmis välisele 5-min ajastajale; Vercel Hobby enda cron käib kord päevas. Hinnaajalugu on veel tegemata.
 
 1. Worker käivitab `catalog.sync` töö seadistatud intervalliga (`SystemSetting.syncIntervalMinutes`), singleton-režiimis (kaks sync'i korraga ei jookse).
 2. Luuakse `SyncRun` (status `RUNNING`).

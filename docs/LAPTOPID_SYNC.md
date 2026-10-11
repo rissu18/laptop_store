@@ -84,7 +84,7 @@ Mõlemad otspunktid asuvad samas kataloogis ja neid kutsutakse päisega `X-API-K
 
   Neist arvutatakse slug täpselt samamoodi nagu olemasolevatel mudelitel. **Vaste = täpselt sama slug.** Kui vastet pole, luuakse uus mudel ("parem uus kui vale merge"). Näiteks "Latitude 7420 Carbon" ja "Latitude 7420" on eraldi mudelid.
 - Laptopid.ee ei anna GTIN-i ega tootja koodi (MPN), seega identifikaatoritega võrrelda ei saa.
-- Esimese sync'i tulemus: 285 pakkumist, **122 uut mudelit** ja **21 olemasolevat mock-mudelit** (nt `dell-latitude-5430`, `lenovo-thinkpad-t14-gen-3`). Olemasolevatel mudelitel jäävad alles Icecati pildid ja admini otsused.
+- Esimese sync'i tulemus (2026-10-11): 285 pakkumist, **122 uut mudelit** ja **21 olemasolevat mock-mudelit** (nt `dell-latitude-5430`, `lenovo-thinkpad-t14-gen-3`). Olemasolevatel mudelitel jäävad alles Icecati pildid ja admini otsused.
 - Kui tarnija hiljem mudeli nime muudab, mudeli seost sync ei muuda. See on admini otsus (`product_model_id`); sync loendab juhtumid (`modelMismatches`).
 
 ### Tundmatu tootja, seeria või seisukord
@@ -206,7 +206,7 @@ API-s pole `snapshot_complete` markerit, seega on kontroll konservatiivne (`lapt
 
 Kõik võrgutööd (API, pildi mõõdud) tehakse enne tehingut ja kõik kirjutamised on **ühes tehingus**.
 
-**Idempotentne:** sama vastus kaks korda → teisel korral `created 0, updated 0, unchanged 285`, ainult `last_seen_at` muutub (kontrollitud päris andmetega).
+**Idempotentne:** sama vastus kaks korda → teisel korral `created 0, updated 0, unchanged 285`, ainult `last_seen_at` muutub (kontrollitud päris andmetega, esimese sync'i 285 tootega).
 
 Logitakse: algus, lõpp, `received`, `valid`, `rejected`, `created`, `updated`, `unchanged`, `reactivated`, `madeUnavailable`, `missingNotDeactivated`, mudelite ja piltide arvud, `imageErrors`, kestus, edu või viga ning tagasi lükatud kirjete näidis. API võtit ei logita kunagi (see on ainult päises).
 
@@ -243,18 +243,52 @@ Laptopid.ee muutus
 
 ## 13. Ajastamine (automaatne ja käsitsi)
 
-- Projekt on **Vercel Hobby** plaanil. Hobby cron töötab **kõige rohkem kord päevas** ja täpsus on ±59 min; tihedama ajakavaga deploy ebaõnnestub. **5-minutilist automaatset sync'i Hobby plaanil ei saa.** Võltslahendust (nt sync iga lehe avamisel) ei tehtud.
-- Tehtud on:
-  - **Admin → Tarnijad → "Sync now"**: kaitstud nagu kõik admini toimingud (sessioon + päritolu/CSRF), `maxDuration` 300 s;
-  - **`GET /api/cron/laptopid-sync`**: kaitstud `Authorization: Bearer <CRON_SECRET>` päisega, ajast sõltumatu võrdlusega; ilma `CRON_SECRET`-ita vastab 503 (fail-closed);
-  - **`vercel.json`**: üks igapäevane cron (`0 3 * * *`, UTC), mis töötab alles siis, kui Vercelis on seadistatud `CRON_SECRET` (vähemalt 16 märki);
-  - **`npm run laptopid:sync`**: käsurida (`-- --allow-large-drop`).
-- **Järgmine etapp (vajab otsust):** 5-minutiline sync. Valikud:
-  - Vercel Pro (cron iga minut);
-  - väline ajastaja (nt GitHub Actions `*/5`, mis kutsub cron-otspunkti `CRON_SECRET`-iga; privaatses repos kulutab see Actionsi minuteid);
-  - oma server/VPS worker (Phase 9 plaan).
+Hetkeseis (2026-10-11): API-s ja poes **305 aktiivset Laptopid.ee pakkumist** (arv tuleb API-st, koodis seda pole).
 
-  NB: Hobby on Verceli tingimustes mõeldud mitteäriliseks kasutuseks.
+- Projekt on **Vercel Hobby** plaanil. Hobby cron töötab **kõige rohkem kord päevas** (±59 min); tihedama ajakavaga deploy ebaõnnestub. **5-minutiline sync vajab välist ajastajat** (või Vercel Pro). Võltslahendust (nt sync iga lehe avamisel) ei tehta.
+- Käivitusviisid (kõik kutsuvad **sama** `runLaptopidSyncNow` → `runLaptopidSync`, sama DB-lukk ja üks tehing):
+  - **Admin → Tarnijad → "Sync now"**: kaitstud nagu kõik admini toimingud (sessioon + päritolu/CSRF), `maxDuration` 300 s;
+  - **`GET /api/cron/laptopid-sync`**: välise ajastaja / Vercel Croni jaoks (vt allpool);
+  - **`vercel.json`**: igapäevane Vercel Cron (`0 3 * * *`, UTC) — varuvõrk; Vercel saadab `CRON_SECRET`-i ise;
+  - **`npm run laptopid:sync`**: käsurida (`-- --allow-large-drop`).
+
+### Cron-otspunkt välisele ajastajale
+
+```
+GET https://<domeen>/api/cron/laptopid-sync
+Authorization: Bearer <CRON_SECRET>
+```
+
+| Olukord | HTTP | Keha |
+| --- | --- | --- |
+| `CRON_SECRET` seadistamata või < 16 märki | **503** | `{"error":"Not configured"}` — fail-closed, sync ei käivitu |
+| Päis puudub / vale saladus | **401** | `{"error":"Unauthorized"}` |
+| Laptopid API seadistamata | **503** | sync ei käivitu |
+| Sync õnnestus | **200** | `{status:"SUCCESS", runId, snapshotTrusted, stats}` |
+| Teine sync juba käib (lukk) | **200** | `{status:"BUSY"}` — pole viga; ajastaja ei käivita topelt |
+| Upstream/valideerimise viga | **502** | `{status:"FAILED", runId}` — andmebaas ja pood jäävad viimase eduka seisu peale |
+
+- Saladust võrreldakse SHA-256 räside ja `timingSafeEqual`-iga (ajast sõltumatu). Saladust ei logita ega tagastata; vastus on `Cache-Control: no-store` ega sisalda tooteandmeid.
+- Vahemälu: muudatuste korral `revalidateTag('catalog', { expire: 0 })`; muutusteta või ebaõnnestunud sync vahemälu ei puuduta.
+- **Samaaegsus:** `catalog_sync_runs` osaline UNIQUE indeks lubab ühe `RUNNING` rea; teine käivitus (nt ajastaja + admin) saab `BUSY`. Lukk aegub 5 min järel (= `maxDuration`), kui funktsioon katkes.
+- **CRON_SECRET** on Vercelis (Production, Preview, Development) tüübiga **Secret** (lisatud 2026-10-11; väärtus pole loetav ega Git'is). Kuna Secret-väärtust ei saa tagasi lugeda, **genereeritakse välise ajastaja seadistamisel uus väärtus** ja pannakse korraga Vercelisse (`vercel env add CRON_SECRET production --sensitive --force`, väärtus stdin'ist) ja ajastaja päisesse; seejärel redeploy.
+- Testid: `src/app/api/cron/laptopid-sync/route.test.ts` (ilma/vale saladusega keelatud, õige käivitab sama teenuse, BUSY, FAILED → 502).
+
+### Seis adminis (stale-sync hoiatus)
+
+Admin → Tarnijad → **"Sync'i seis"**: viimane edukas sync (aeg + vanus), viimase käivituse tulemus, saadud / muutunud / maha võetud / vead. Kui viimasest edukast sync'ist on **üle 15 minuti** (`SYNC_STALE_AFTER_MS`, `src/domain/catalog/sync-health.ts`), kuvatakse hoiatus **"Automaatne sünkroonimine ei ole ajakohane."** Ainult adminis — poes kliendile mitte. Kuni välist ajastajat pole, on hoiatus ootuspäraselt nähtav.
+
+### Välise ajastaja valikud (otsus kasutajal)
+
+| | cron-job.org | Upstash QStash | GitHub Actions | Vercel Pro |
+| --- | --- | --- | --- | --- |
+| Hind | tasuta | tasuta kuni 1000 sõnumit/päev (5 min = 288) | avalik repo tasuta; privaatne ~2000 min/kuu (5 min ≈ 8640 käivitust → ei mahu) | ~20 $/kuu |
+| 5 min | jah (kuni iga minut) | jah | ametlik miinimum, aga sageli hilineb või jääb vahele | jah (iga minut) |
+| Bearer päis | jah (kohandatud päised) | jah (`Upstash-Forward-Authorization`) | jah (curl + repo secret) | automaatne |
+| Töökindlus | hea, SLA-d pole; päringu timeout 30 s | hea, korduskatsed | ebatäpne | parim, sama platvorm |
+| Haldus | veebiliides, e-posti teavitus | konsool/API | YAML repos | ainult `vercel.json` |
+
+NB: Hobby on Verceli tingimustes mõeldud mitteäriliseks kasutuseks.
 
 ## 14. Mock-kataloog
 

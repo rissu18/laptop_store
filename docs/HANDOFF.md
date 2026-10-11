@@ -43,6 +43,7 @@ docs/                            PROJECT_PLAN, ARCHITECTURE, DATABASE, ADMIN, DI
 | **4a Laptopid.ee päris kataloog** (sync, saadavus, tarnija hind + parandus, pildid, admin Tarnijad) | ✅ |
 | Poe värvisüsteem indigo-sinine (`.storefront` tokenid), avalehe hero pilt `public/brand/hero.png` | ✅ |
 | Järelparandus: seisukord "Uus", Lenovo V-seeria, `LAPTOPID_API_BASE_URL` | ✅ |
+| Production-cleanup: prototüübiriba (kataloog live), ausad maksetekstid, cron-otspunkt + `CRON_SECRET` Vercelis, admini stale-sync hoiatus | ✅ |
 | 4 Foxway, 5b tarneteenused, 6 maksed, 7 automaatika, 8–9 | ⏳ (ära alusta ise) |
 
 ## 5. Laptopid.ee API ja sync — praegune seis
@@ -61,7 +62,8 @@ Täielik kirjeldus: **docs/LAPTOPID_SYNC.md**.
 - **Täielik snapshot:** puuduv toode → `available = false` ainult usaldusväärse vastusega (puuduvaid ≤ max(10, 25%)); API viga / vigane vastus → kataloog jääb samaks. Admin saab "Luba suur muutus".
 - **Hinnad:** `sale_price` → müügihind (`price_source = SUPPLIER`); `new_price` ainult kontekst; ostuhind `NULL`; hinnastamismootor neid ei puuduta.
 - **Pildid:** pakkumise tasemel `listing_images` (1135 kaug-URL-i laptopid.ee-st, Git'i ei laeta), kuvamine Next/Image kaudu (`remotePatterns` ainult `laptopid.ee/images/product/**`). 4 pilti on Laptopid.ee poolel 404.
-- **Käivitamine:** admin → Tarnijad → **Sync now**; `npm run laptopid:sync`; `GET /api/cron/laptopid-sync` (vajab `CRON_SECRET`, mida **pole seadistatud** → 503). `vercel.json`-is igapäevane cron (Hobby lubab ainult kord päevas). CLI sync ei tühjenda deploy'tud poe vahemälu — siis vajuta adminis "Sync now".
+- **Käivitamine:** admin → Tarnijad → **Sync now**; `npm run laptopid:sync`; `GET /api/cron/laptopid-sync` (`Authorization: Bearer <CRON_SECRET>`; 401 vale/puuduv, 503 seadistamata, 200 SUCCESS/BUSY, 502 FAILED). `CRON_SECRET` on Vercelis **Secret** tüübina (Production/Preview/Development, lisatud 2026-10-11, väärtus pole loetav — välise ajastaja seadistamisel genereeri uus ja pane korraga Vercelisse + ajastajasse). `vercel.json`-is igapäevane Vercel Cron (Hobby lubab ainult kord päevas). **5-min väline ajastaja ootab kasutaja valikut** (võrdlus: LAPTOPID_SYNC.md §13).
+- **Admin → Tarnijad → "Sync'i seis":** viimane edukas sync + vanus, viimase käivituse tulemus, arvud; üle 15 min → hoiatus "Automaatne sünkroonimine ei ole ajakohane." (ainult adminis; kuni ajastajat pole, on see ootuspäraselt nähtav). CLI sync ei tühjenda deploy'tud poe vahemälu — siis vajuta adminis "Sync now".
 - Mock-kataloog: 46 pakkumist `ARCHIVED` (alles testide jaoks), mitte poes.
 
 ## 6. Admin, parandused, sooduskoodid, kassa
@@ -71,6 +73,7 @@ Täielik kirjeldus: **docs/LAPTOPID_SYNC.md**.
 - **Sooduskoodid** (docs/DISCOUNTS.md): üks `evaluateDiscount()`; ostuhinnata pakkumistel marginaalikaitse ei rakendu ("kontrollimata"). Live'is 1 arhiveeritud testkood `LAPTOPIDTEST` (kasutusi 0).
 - **Kassa ja tellimused** (docs/ORDERS.md): `computeCheckout` loeb DB-st (hind, saadavus, kood, tarne), hinnamuutus → ülevaatus; idempotentne loomine; OrderItem = snapshot (sh seisukord). Live'is 1 testtellimus `SL-26-PN46CU` (mock-toode, loodud 09:48 UTC enne Laptopid tööd).
 - **Prototüübirežiim** (admin → Seaded → Pood): sees → ainult TEST tellimused; väljas ilma makseteenuseta → kassa suletud (BLOCKED). Päris makseid pole.
+- **Kliendile nähtavad prototüübi tekstid** (`src/domain/storefront/storefront-notices.ts`): riba "Prototüüp: toodete, hindade ja saadavuse andmed on live. Tellimused on testtellimused — makseid ei võeta ja tellimusi ei täideta." Usaldusriba makse-punkt kuvatakse kuni LIVE kassani kui "Makseviisid — Makseviisid lisanduvad poe avamisel" (admini DB tekst jääb alles), tootelehe "Turvaline maksmine" ainult LIVE režiimis.
 - **Icecat:** mudeli piltide varu-/rikastusallikas (`product_images`, `icecat_metadata`); ei kirjuta pakkumise konfiguratsiooni üle. Kuvamine: pakkumise pildid → mudeli pildid → illustratsioon.
 
 ## 7. Andmebaas (live Neon — lokaalne ja Vercel jagavad SAMA andmebaasi!)
@@ -82,7 +85,7 @@ Täielik kirjeldus: **docs/LAPTOPID_SYNC.md**.
 
 ## 8. Testid ja kontrollid
 
-- **321 testi / 31 faili — kõik läbivad** (`npm test`, DB testidega ~45 s).
+- **341 testi / 34 faili — kõik läbivad** (`npm test`, DB testidega ~45 s).
 - `npm run typecheck` ✅ · `npm run lint` ✅ · `npm run build` ✅ (Git Bashis: `set -a; . ./.env.development.local; . ./.env.local; set +a; npm run build`).
 - Dev-serveri vana CSS/moodul (Turbopacki vahemälu) → peata server, kustuta `.next`, käivita uuesti.
 - Brauseripaan on sageli peidetud → React ei hüdreeru / Suspense segmendid jäävad `hidden` alla; kasuta `textContent`/`find`, mitte `innerText`, või tee enne kuvatõmmis.
@@ -90,7 +93,8 @@ Täielik kirjeldus: **docs/LAPTOPID_SYNC.md**.
 ## 9. Viimased olulised commitid
 
 ```
-<see commit>  docs: AGENTS.md reeglid ühendatud (CLAUDE.md kustutatud), HANDOFF värskendatud
+<see commit>  chore: production-cleanup — prototüübiriba, ausad maksetekstid, cron-otspunkti testid, admini stale-sync hoiatus
+e92ee35  docs: consolidate project instructions and refresh handoff
 a77e106  fix(laptopid): "Uus" seisukord, Lenovo V-seeria ja LAPTOPID_API_BASE_URL
 e2c4a52  style(home): hero pilt public/brand/hero.png illustratsiooni asemel
 726bfe2  style: refresh storefront with indigo blue color system
@@ -102,7 +106,7 @@ Viimane edukas Vercel production deploy enne seda handoff'i: `a77e106` → **Rea
 
 ## 10. Teadaolevad TODO-d
 
-- 5-minutiline automaatne sync: Hobby ei luba (vajab Pro plaani või välist ajastajat); `CRON_SECRET` seadistamata → isegi igapäevane cron ei käivitu.
+- 5-minutiline automaatne sync: tehniliselt valmis (cron-otspunkt + `CRON_SECRET`), aga väline ajastaja on valimata ja aktiveerimata (Hobby ei luba). Igapäevane Vercel Cron käivitub nüüd (`CRON_SECRET` olemas).
 - Laptopid pildid on märgitud illustratiivseteks (pole kinnitatud, et foto on müüdavast eksemplarist).
 - Hobby pildioptimeerimise limiit 5000 teisendust/kuus (üle selle → illustratsioon); Hobby on Verceli tingimustes mitteäriline.
 - `battery_hours` salvestatakse, aga ei kuvata (tähendus kinnitamata).
@@ -121,7 +125,7 @@ Viimane edukas Vercel production deploy enne seda handoff'i: `a77e106` → **Rea
 
 ## 12. Järgmise töö soovitused (ainult soovitused — kasutaja otsustab)
 
-1. Ajastamise otsus: Vercel Pro (cron iga 5 min) või väline ajastaja + `CRON_SECRET`.
+1. Välise ajastaja valik ja aktiveerimine (cron-job.org / Upstash QStash / Vercel Pro — vt LAPTOPID_SYNC.md §13), uus `CRON_SECRET` korraga Vercelisse ja ajastajasse.
 2. Seisukorra klasside päris kirjeldused ja "Uus" täpsustus (kas Demo/Outlet märkida tootelehel eraldi).
 3. Makseteenuse faas (Montonio / Maksekeskus / Stripe) koos LIVE režiimiga.
 4. Väiksemad: privaatsuspoliitika ja ettevõtte andmed, püsiv pildisalvestus (R2), Icecati CLI → `DbImageRepository`, pakiautomaadid.
