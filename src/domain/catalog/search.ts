@@ -29,6 +29,8 @@ export function buildSearchText({ product, variant }: CatalogItem): string {
     BRAND_NAMES[product.brand],
     product.series,
     product.model,
+    // "X1 Carbon Gen 10" → ka "g10" (Laptopid.ee ja paljud kasutajad kirjutavad "G10")
+    product.model.replace(/\bGen (\d+)\b/gi, "G$1"),
     variant.cpu.model,
     // "i5-1235U" → ka "1235u", et "1235u" leiaks
     variant.cpu.model.replace(/^.*?-/, ""),

@@ -187,6 +187,8 @@ describe.skipIf(!hasTestDatabase)("Laptopid.ee sync (andmebaas)", () => {
     expect(item.variant.images[0].largeUrl).toBe("https://laptopid.ee/images/product/6678/30530/original.png");
     const found = filterItems(items, { ...emptyQuery(), q: "x1 carbon 256" }).map((i) => i.variant.id);
     expect(found).toContain("laptopid-6678");
+    // Laptopid.ee kirjapilt "G10" leiab kanoonilise "Gen 10"
+    expect(filterItems(items, { ...emptyQuery(), q: "x1 carbon g10" }).map((i) => i.variant.id)).toContain("laptopid-6678");
     const xps = items.find((i) => i.variant.id === "laptopid-6493")!;
     expect(xps.variant.conditionNotes).toBe("Üks USB-C ei tööta");
     expect(xps.variant.gpu).toEqual({ model: "NVIDIA GeForce RTX 4070", dedicated: true });
