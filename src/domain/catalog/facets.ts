@@ -1,4 +1,4 @@
-import { GRADES, GRADE_CODES } from "@/domain/grade/grades";
+import { GRADES, GRADE_CODES, gradeDisplay } from "@/domain/grade/grades";
 import {
   BRAND_CODES,
   BRAND_NAMES,
@@ -129,7 +129,7 @@ export const FACETS: Record<MultiFacetKey, FacetDefinition> = {
     valuesOf: ({ variant }) => [GRADES[variant.grade].param],
     optionLabel: (v) => {
       const grade = GRADE_CODES.find((code) => GRADES[code].param === v);
-      return grade ? `${grade} · ${GRADES[grade].label}` : v;
+      return grade ? gradeDisplay(grade) : v;
     },
     isValidValue: (v) => GRADE_CODES.some((code) => GRADES[code].param === v),
     compare: byList(GRADE_CODES.map((code) => GRADES[code].param)),
@@ -199,6 +199,7 @@ const SERIES_LABELS: Record<string, string> = {
   "galaxy-book": "Samsung Galaxy Book",
   "macbook-air": "Apple MacBook Air",
   "macbook-pro": "Apple MacBook Pro",
+  "v-series": "Lenovo V-seeria",
 };
 
 export function seriesLabel(slug: string): string {

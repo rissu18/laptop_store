@@ -1,16 +1,17 @@
 import "server-only";
 import { HttpRequestError, fetchWithRetry } from "@/server/http/fetch-with-retry";
+import { LaptopidConfigError, readLaptopidConfig } from "./laptopid-config";
+
+export { isLaptopidConfigured } from "./laptopid-config";
 
 /**
  * Laptopid.ee API klient — AINULT serveris. API võti (LAPTOPID_API_KEY) läheb ainult HTTP päisesse
- * ja ainult laptopid.ee aadressile; seda ei logita, ei panda URL-i ega saadeta brauserisse.
+ * ja ainult seadistatud aadressile; seda ei logita, ei panda URL-i ega saadeta brauserisse.
  *
- * Otspunktid (kontrollitud päris API-ga): products.php ja images.php. Vastused on `Cache-Control: no-store`
+ * Otspunktid: LAPTOPID_API_BASE_URL + products.php / images.php (vt laptopid-config.ts) — see on AINUS koht,
+ * kust sync, admini diagnostika jm Laptopid päringud URL-id saavad. Vastused on `Cache-Control: no-store`
  * ning siin ei lisata vahemälu — iga sync loeb värske snapshot'i.
  */
-
-export const LAPTOPID_PRODUCTS_URL = "https://laptopid.ee/api/sulearvutid/products.php";
-export const LAPTOPID_IMAGES_URL = "https://laptopid.ee/api/sulearvutid/images.php";
 
 const MAX_BODY_BYTES = 20 * 1024 * 1024;
 
@@ -33,11 +34,7 @@ export interface LaptopidRawResponse {
   durationMs: number;
 }
 
-export function isLaptopidConfigured(): boolean {
-  return Boolean(process.env.LAPTOPID_API_KEY?.trim());
-}
-
-async function getJson(url: string, apiKey: string, fetchImpl?: typeof fetch): Promise<unknown> {
+async function getJson(name: "products" | "images", url: string, apiKey: string, fetchImpl?: typeof fetch): Promise<unknown> {
   let response: Response;
   try {
     response = await fetchWithRetry(
@@ -48,7 +45,6 @@ async function getJson(url: string, apiKey: string, fetchImpl?: typeof fetch): P
   } catch (error) {
     throw new LaptopidApiError("NETWORK", error instanceof HttpRequestError ? error.message : "Võrguviga");
   }
-  const name = url.endsWith("images.php") ? "images" : "products";
   if (response.status === 401 || response.status === 403) {
     await response.body?.cancel().catch(() => undefined);
     throw new LaptopidApiError("AUTH", `${name}: autentimine ebaõnnestus (HTTP ${response.status})`);
@@ -69,10 +65,19 @@ async function getJson(url: string, apiKey: string, fetchImpl?: typeof fetch): P
 }
 
 /** Loeb toodete ja piltide nimekirja paralleelselt. Kumbki viga → kogu snapshot ebaõnnestub. */
-export async function fetchLaptopidRaw(options: { fetchImpl?: typeof fetch } = {}): Promise<LaptopidRawResponse> {
-  const apiKey = process.env.LAPTOPID_API_KEY?.trim();
-  if (!apiKey) throw new LaptopidApiError("NOT_CONFIGURED", "LAPTOPID_API_KEY puudub");
+export async function fetchLaptopidRaw(options: { fetchImpl?: typeof fetch; env?: Record<string, string | undefined> } = {}): Promise<LaptopidRawResponse> {
+  let config;
+  try {
+    config = readLaptopidConfig(options.env);
+  } catch (error) {
+    if (error instanceof LaptopidConfigError) throw new LaptopidApiError("NOT_CONFIGURED", error.message);
+    throw error;
+  }
+  const { apiKey, endpoints } = config;
   const started = Date.now();
-  const [products, images] = await Promise.all([getJson(LAPTOPID_PRODUCTS_URL, apiKey, options.fetchImpl), getJson(LAPTOPID_IMAGES_URL, apiKey, options.fetchImpl)]);
+  const [products, images] = await Promise.all([
+    getJson("products", endpoints.productsUrl, apiKey, options.fetchImpl),
+    getJson("images", endpoints.imagesUrl, apiKey, options.fetchImpl),
+  ]);
   return { products, images, fetchedAt: new Date(), durationMs: Date.now() - started };
 }

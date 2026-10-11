@@ -144,6 +144,7 @@ export default async function ListingDetailPage({ params }: PageProps<"/admin/pr
               items={[
                 { label: "Tarnija", value: listing.supplier },
                 { label: "Tarnija SKU", value: listing.supplierSku },
+                { label: "Seisukord (tarnija algne)", value: listing.details?.sourceGrade ?? null },
                 { label: "Saadavus", value: listing.available === null ? null : listing.available ? (listing.stock === null ? "Saadaval (kogus teadmata)" : "Saadaval") : "Ei ole saadaval (puudus tarnija nimekirjast)" },
                 { label: "Hinna allikas", value: listing.priceSource === "SUPPLIER" ? "Tarnija müügihind" : "Hinnastamine (ostuhinnast)" },
                 { label: "Viimati tarnija nimekirjas", value: fmtDateTime(listing.lastSeenAt) },

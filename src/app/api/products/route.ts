@@ -14,7 +14,7 @@ export async function GET() {
   const headers = { "Cache-Control": "no-store" };
   const admin = await getCurrentAdmin();
   if (!admin) return Response.json({ error: "Unauthorized" }, { status: 401, headers });
-  if (!isLaptopidConfigured()) return Response.json({ error: "LAPTOPID_API_KEY puudub" }, { status: 503, headers });
+  if (!isLaptopidConfigured()) return Response.json({ error: "Laptopid API ei ole seadistatud" }, { status: 503, headers });
 
   try {
     const raw = await fetchLaptopidRaw();

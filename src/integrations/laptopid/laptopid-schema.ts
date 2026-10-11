@@ -3,8 +3,8 @@ import { z } from "zod";
 /**
  * Laptopid.ee API toorvastuse skeem (kontrollitud päris vastuse põhjal, 2026-10-11).
  *
- *   GET https://laptopid.ee/api/sulearvutid/products.php  (päis X-API-Key) → toodete massiiv
- *   GET https://laptopid.ee/api/sulearvutid/images.php    (päis X-API-Key) → piltide massiiv
+ *   GET <LAPTOPID_API_BASE_URL>products.php  (päis X-API-Key) → toodete massiiv
+ *   GET <LAPTOPID_API_BASE_URL>images.php    (päis X-API-Key) → piltide massiiv
  *
  * Vastuses EI OLE ümbrist (count, snapshot_complete vms) — ainult massiiv. Täielikkuse kontroll on
  * seetõttu meie poolel (vt snapshot-policy.ts ja docs/LAPTOPID_SYNC.md).

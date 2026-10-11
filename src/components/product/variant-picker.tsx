@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { formatStorage } from "@/domain/catalog/format";
+import { gradeDisplay } from "@/domain/grade/grades";
 import { productHref } from "@/domain/catalog/urls";
 import { formatEur } from "@/domain/money/money";
 import type { CatalogProduct, CatalogVariant } from "@/domain/catalog/types";
@@ -36,7 +37,7 @@ export function VariantPicker({ product, variants, selectedId }: { product: Cata
                     {variant.cpu.model.replace(/^(Intel|AMD)\s+(Core\s+)?/, "")} · {variant.ramGb} GB · {formatStorage(variant.storageGb)}
                   </span>
                   <span className="block text-xs text-muted">
-                    Seisukord {variant.grade}
+                    Seisukord {gradeDisplay(variant.grade)}
                     {variant.keyboardLayout && ` · ${variant.keyboardLayout}`}
                     {variant.display.touch && " · Puuteekraan"}
                   </span>

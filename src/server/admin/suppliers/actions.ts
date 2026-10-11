@@ -16,7 +16,7 @@ import { runAdminAction } from "../run-action";
  */
 export async function syncLaptopidNowAction(allowLargeDrop: boolean): Promise<ActionResult> {
   return runAdminAction("laptopid.sync", async (admin) => {
-    if (!isLaptopidConfigured()) return fail("LAPTOPID_API_KEY ei ole seadistatud.");
+    if (!isLaptopidConfigured()) return fail("Laptopid API ei ole seadistatud (LAPTOPID_API_BASE_URL / LAPTOPID_API_KEY).");
     const result = await runLaptopidSyncNow({ trigger: "ADMIN", triggeredBy: admin.email, allowLargeDrop: allowLargeDrop === true });
     if (result.status === "BUSY") return fail("Sync juba käib. Proovi mõne minuti pärast uuesti.");
     await writeAudit(getDb(), admin, {

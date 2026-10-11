@@ -2,6 +2,7 @@ import { LIGHT_LAPTOP_MAX_KG } from "@/domain/catalog/features";
 import type { ListingDetails } from "@/domain/catalog/listing-details";
 import { BRAND_NAMES, type BrandCode, type CpuFamily, type FeatureFlags, type KeyboardLayout } from "@/domain/catalog/types";
 import { parseSupplierGrade, type GradeCode } from "@/domain/grade/grades";
+import { productTitle } from "@/domain/catalog/title";
 import { canonicalModelName, parseBrand, slugify, splitSeries } from "@/integrations/supplier/model-names";
 import { parseCpu, parseDisplay, parseKeyboardLayout, parseRam, parseStorageGb } from "@/integrations/supplier/spec-parsers";
 import { htmlToText } from "./html-text";
@@ -22,7 +23,7 @@ import type { LaptopidImage, LaptopidProduct } from "./laptopid-schema";
 export const LAPTOPID_SUPPLIER_CODE = "laptopid";
 export const LAPTOPID_SOURCE = "LAPTOPID";
 /** Muuda, kui normaliseerimise loogika muutub — siis uuendab järgmine sync kõik read (ka sama toorandmetega). */
-export const LAPTOPID_NORMALIZER_VERSION = 1;
+export const LAPTOPID_NORMALIZER_VERSION = 2;
 
 const IMAGE_HOST = "laptopid.ee";
 const IMAGE_PATH = /^\/images\/product\/+(\d+)\/(\d+)\/original\.(png|jpe?g|webp)$/i;
@@ -43,6 +44,8 @@ export interface LaptopidModelRef {
   /** Mudeli slug — sama arvutus mis olemasolevatel mudelitel (tootja + seeria + mudel) */
   slug: string;
   title: string;
+  /** Seeria taksonoomia oli tundmatu ja kasutati konservatiivset tagavara (sync logib hoiatuse) */
+  taxonomyWarning: string | null;
 }
 
 export interface LaptopidListingColumns {
@@ -87,6 +90,16 @@ export class LaptopidNormalizationError extends Error {}
 const fail = (message: string): never => {
   throw new LaptopidNormalizationError(message);
 };
+
+/** Laptopid.ee uue/uueväärse kauba klassid → meie "Uus" (NEW). Algne väärtus säilib details.sourceGrade all. */
+const LAPTOPID_NEW_GRADES = new Set(["NEW", "DEMO", "OUTLET"]);
+
+export function mapLaptopidGrade(raw: string | null | undefined): GradeCode | null {
+  const text = raw?.trim();
+  if (!text) return null;
+  if (LAPTOPID_NEW_GRADES.has(text.toUpperCase())) return "NEW";
+  return parseSupplierGrade(text);
+}
 
 export function laptopidExternalId(id: string | number): string {
   return String(id).trim();
@@ -186,12 +199,36 @@ function safeHttpsUrl(value: string | null | undefined): string | null {
   }
 }
 
+/**
+ * Lenovo V-seeria (äriklassi soodne liin): "V330-14IKB", "V340-17IWL", "V14 G2 ITL", "V15-IIL".
+ * Konservatiivne muster — mitte iga "V"-ga algav nimi (nt "Vostro" on Delli, mitte Lenovo).
+ */
+const LENOVO_V_SERIES = /^V(?:\d{3}-\d{2}[A-Z]{2,4}\d?|1[3457](?=[\s-]|$))/i;
+
+/**
+ * Tootja + mudel → seeria ja mudel. Järjekord:
+ *   1. teadaolevad seeriad (splitSeries)          → nt ThinkPad, Latitude, EliteBook
+ *   2. Lenovo V-seeria                             → seeria "V Series", mudel "V330-14IKB" (pealkiri "Lenovo V330-14IKB")
+ *   3. tundmatu seeria: tootja ja mudel on korras → seeria = mudelinime esimene sõna, mudel = kogu nimi, HOIATUS
+ *      (parem õige uus mudel kui toode poest väljas; fuzzy-vastet olemasoleva mudeliga ei tehta)
+ * Tühi mudel või tundmatu tootja → tagasi lükatud.
+ */
 export function resolveLaptopidModel(manufacturer: string, modelName: string): LaptopidModelRef {
   const brand = parseBrand(manufacturer) ?? fail(`Tundmatu tootja: ${manufacturer.trim()}`);
-  const names = splitSeries(modelName) ?? fail(`Tundmatu seeria: ${modelName.trim()}`);
+  const name = modelName.replace(/\s+/g, " ").trim();
+  if (!name) fail("Mudel puudub");
+  let taxonomyWarning: string | null = null;
+  let names = splitSeries(name);
+  if (!names && brand === "lenovo" && LENOVO_V_SERIES.test(name)) names = { series: "V Series", model: name };
+  if (!names) {
+    const series = name.split(" ")[0];
+    names = { series, model: name };
+    taxonomyWarning = `Tundmatu seeria, kasutati "${series}": ${BRAND_NAMES[brand]} ${name}`;
+  }
   const model = canonicalModelName(names.series, names.model);
-  const title = `${BRAND_NAMES[brand]} ${names.series.replace(/ P$/, "")} ${model}`;
+  const title = productTitle(BRAND_NAMES[brand], names.series, model);
   return {
+    taxonomyWarning,
     brand,
     series: names.series,
     model,
@@ -211,7 +248,8 @@ export function normalizeLaptopidProduct(product: LaptopidProduct, images: Lapto
   const ram = parseRam(product.ram ?? "") ?? fail(`RAM-i ei õnnestunud lugeda: ${product.ram ?? ""}`);
   const storageGb = parseStorageGb(product.storage ?? "") ?? fail(`Salvestust ei õnnestunud lugeda: ${product.storage ?? ""}`);
   const display = parseDisplay(product.screen ?? "") ?? fail(`Ekraani ei õnnestunud lugeda: ${product.screen ?? ""}`);
-  const grade = parseSupplierGrade(product.grade ?? "") ?? fail(`Tundmatu seisukord: ${clean(product.grade) ?? "(puudub)"}`);
+  const sourceGrade = clean(product.grade);
+  const grade = mapLaptopidGrade(sourceGrade) ?? fail(`Tundmatu seisukord: ${sourceGrade ?? "(puudub)"}`);
   const salePriceCents = parsePriceCents(product.sale_price) ?? fail(`Vigane müügihind: ${String(product.sale_price)}`);
 
   const gpu = clean(product.gpu);
@@ -253,6 +291,7 @@ export function normalizeLaptopidProduct(product: LaptopidProduct, images: Lapto
 
   const details: ListingDetails = {
     source: LAPTOPID_SOURCE,
+    sourceGrade,
     usbA,
     usbC,
     thunderbolt: tb3 && tb4 ? "3+4" : tb4 ? "4" : tb3 ? "3" : null,

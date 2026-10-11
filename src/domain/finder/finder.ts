@@ -187,7 +187,7 @@ export function scoreItem(item: CatalogItem, answers: FinderAnswers): ScoredItem
   }
 
   // Seisukord: väike boonus paremale klassile
-  const gradeBonus = { "A+": 4, A: 3, B: 1, C: 0 }[variant.grade];
+  const gradeBonus = { NEW: 4, "A+": 4, A: 3, B: 1, C: 0 }[variant.grade];
   if (gradeBonus) add(gradeBonus, `Seisukord ${variant.grade}`);
 
   const reasons = [...byTopic.values()];

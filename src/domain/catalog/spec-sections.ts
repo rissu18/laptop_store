@@ -1,4 +1,4 @@
-import { GRADES } from "@/domain/grade/grades";
+import { gradeDisplay } from "@/domain/grade/grades";
 import { BRAND_NAMES, type CatalogItem } from "./types";
 import { cpuGenerationLabel } from "./facets";
 import { FEATURE_LABELS } from "./features";
@@ -104,7 +104,7 @@ export function buildSpecSections({ product, variant }: CatalogItem): SpecSectio
       row("Aku seisukord", variant.batteryHealthPct !== null ? `vähemalt ${variant.batteryHealthPct}%` : null),
       row("Laadija komplektis", yesNo(variant.chargerIncluded)),
       row("Garantii", variant.warrantyMonths ? `${variant.warrantyMonths} kuud` : null),
-      row("Seisukord", `${variant.grade} · ${GRADES[variant.grade].label}`),
+      row("Seisukord", gradeDisplay(variant.grade)),
       row("Märkus seisukorra kohta", variant.conditionNotes),
       row("Tootja", BRAND_NAMES[product.brand]),
       row("SKU", variant.sku),

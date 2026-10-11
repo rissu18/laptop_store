@@ -9,6 +9,8 @@
 export interface ListingDetails {
   /** Andmete allikas, nt "LAPTOPID" (provenance) */
   source?: string;
+  /** Tarnija algne seisukorra klass ("Demo", "Outlet", "A+" …) — meie klass on supplier_listings.grade */
+  sourceGrade?: string | null;
   usbA?: number | null;
   usbC?: number | null;
   /** "3" | "4" | "3+4" */

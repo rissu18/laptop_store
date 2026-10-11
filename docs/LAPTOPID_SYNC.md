@@ -35,9 +35,9 @@ Laptopid.ee API (products.php + images.php)
 
 ## 2. Tegelik API (kontrollitud 2026-10-11)
 
-Kahte otspunkti kutsutakse päisega `X-API-Key`; ilma võtmeta vastus on `401 {"error":"Unauthorized"}`. Vastused on `Cache-Control: no-store` ja kujul **paljas JSON massiiv**: ümbrist, `count` välja ega `snapshot_complete` markerit ei ole.
+Mõlemad otspunktid asuvad samas kataloogis ja neid kutsutakse päisega `X-API-Key`; ilma võtmeta vastus on `401 {"error":"Unauthorized"}`. Vastused on `Cache-Control: no-store` ja kujul **paljas JSON massiiv**: ümbrist, `count` välja ega `snapshot_complete` markerit ei ole.
 
-- `https://laptopid.ee/api/sulearvutid/products.php`: 305 toodet (arvu koodis kirjas ei ole). Väljad:
+- `products.php`: 305 toodet (arvu koodis kirjas ei ole). Väljad:
   - `id` (number);
   - `manufacturer`, `model`, `cpu`, `ram`, `storage`, `screen`, `gpu`, `os` (tekst, sageli lõputühikuga);
   - `usb_c`, `usb_2`, `usb_3` (arv);
@@ -50,11 +50,22 @@ Kahte otspunkti kutsutakse päisega `X-API-Key`; ilma võtmeta vastus on `401 {"
   - `guarantee` (kuud);
   - `battery_hours`, `weight` (tekst);
   - `grade` (A+, A, B, C, **New, Demo, Outlet**).
-- `https://laptopid.ee/api/sulearvutid/images.php`: 1139 kirjet (`product_id`, `image_id`, `sort_order`, `image_url`). URL on kujul `https://laptopid.ee/images/product//<toode>/<pilt>/original.png` (topeltkaldkriipsuga). Samal aadressil on olemas ka `small.png` (200 px) ja `medium.png` (800 px). 4 pilti vastavad 404.
+- `images.php`: 1139 kirjet (`product_id`, `image_id`, `sort_order`, `image_url`). URL on kujul `https://laptopid.ee/images/product//<toode>/<pilt>/original.png` (topeltkaldkriipsuga). Samal aadressil on olemas ka `small.png` (200 px) ja `medium.png` (800 px). 4 pilti vastavad 404.
 
 **Wi-Fi ja Bluetoothi välju API-s ei ole.** Eelmine `/api/products` lisas `wifi: true`, `bluetooth: true` ja asendas puuduva USB 0-ga. Sync seda ei tee: puuduv väärtus jääb `NULL`-iks.
 
-Vercelis olev `LAPTOPID_API_URL` (`…/api/sulearvutid/v1/products`) vastas 404. Seepärast kasutab klient töötavaid otspunkte, mis on koodis konstandid (`LAPTOPID_PRODUCTS_URL`, `LAPTOPID_IMAGES_URL`). `LAPTOPID_API_URL`-i praegu ei loeta.
+### Seadistus
+
+| Muutuja | Tüüp | Väärtus |
+| --- | --- | --- |
+| `LAPTOPID_API_BASE_URL` | Config | `https://laptopid.ee/api/sulearvutid/` |
+| `LAPTOPID_API_KEY` | Secret | Laptopid.ee API võti — ainult server, ainult päises `X-API-Key` |
+
+- Klient (`src/integrations/laptopid/laptopid-config.ts` → `laptopid-client.ts`) ehitab otspunktid URL API-ga: `new URL("products.php", base)` ja `new URL("images.php", base)`. Lõpu-kaldkriips lisatakse vajadusel, lubatud on ainult `https`.
+- See on **ainus koht**, kust sync, admini diagnostika (`/api/products`) ja CLI URL-id saavad; mujal `products.php`/`images.php` aadresse koodis pole.
+- Puuduv või vigane seadistus → kontrollitud viga `NOT_CONFIGURED` (sync = FAILED, logi). **Hardcoded tagavara-URL-i ei ole.** Pood töötab edasi viimase eduka andmebaasi seisuga, sest pood ei loe API-d kunagi.
+- `NEXT_PUBLIC_LAPTOPID_*` muutujaid ei ole (võti ei tohi brauserisse jõuda).
+- Vana ühe-URL-iline muutuja (`…/v1/products`, vastas 404) on Vercelist ja koodist eemaldatud (2026-10-11).
 
 ## 3. Identiteet
 
@@ -79,14 +90,34 @@ Vercelis olev `LAPTOPID_API_URL` (`…/api/sulearvutid/v1/products`) vastas 404.
 ### Tundmatu tootja, seeria või seisukord
 
 - Lisatud tootjad: Fujitsu (LifeBook), Samsung (Galaxy Book) ja Apple (MacBook Air/Pro).
-- Lisatud seeriad: XPS, ThinkBook ja Yoga.
-- Tundmatut väärtust välja ei mõelda: kirje lükatakse tagasi ja on nähtav adminis (Tarnijad → "vahele jäetud").
+- Lisatud seeriad: XPS, ThinkBook, Yoga ja **Lenovo V-seeria** (`V Series`).
+- Tundmatu **tootja**, tühi mudel või tundmatu **seisukord** → kirje lükatakse tagasi ja on nähtav adminis (Tarnijad → "vahele jäetud").
 
-2026-10-11 seisuga jäeti vahele 20 toodet:
-- 13 × `New`, 5 × `Demo`, 1 × `Outlet`: meie seisukorraklassid on A+/A/B/C, nende vastet ei mõelda välja;
-- 1 × `V330-14IKB`: tundmatu seeria.
+### Lenovo V-seeria
 
-**Vajab otsust:** kas lisada uued seisukorraklassid (nt "Uus", "Demo") või need tooted vahele jätta.
+Lenovo V-seeria (V330-14IKB, V340-17IWL, V14 G2 ITL, V15-IIL) tuvastatakse konservatiivse mustriga, mis kehtib ainult tootjale Lenovo: `V` + kolm numbrit + `-NN` + tähed, või `V13`/`V14`/`V15`/`V17`. Mitte iga V-ga algav nimi ei kuulu siia (nt Delli "Vostro" ei kuulu).
+
+- Seeria on `V Series` (filtris "Lenovo V-seeria"), mudel kogu nimi (`V330-14IKB`) ja pealkiri **"Lenovo V330-14IKB"**: seeriat pealkirja ei korrata (`src/domain/catalog/title.ts`). Slug on `lenovo-v330-14ikb`.
+- Fuzzy-vastet olemasoleva Lenovo mudeliga ei tehta.
+
+### Tundmatu seeria (tagavara)
+
+Kui tootja ja mudel on korras, aga seeria taksonoomia on tundmatu, **toodet välja ei visata**:
+- seeria = mudelinime esimene sõna (nt "IdeaPad"), mudel = kogu nimi, pealkiri = tootja + mudel;
+- luuakse uus mudel; vale mudeliga kokku ei panda;
+- sync logib hoiatuse (`taxonomyWarnings`, WARN) ja admin näeb seda (Tarnijad → "Imporditud hoiatusega"), et seeria vajadusel parandada.
+
+### Seisukord "Uus" (New / Demo / Outlet)
+
+| Laptopid.ee `grade` | Meie klass (`supplier_listings.grade`) | Kliendile |
+| --- | --- | --- |
+| `New`, `Demo`, `Outlet` | `NEW` | **Uus** |
+| `A+`, `A`, `B`, `C` | sama | A+ · Nagu uus … C · Rahuldav |
+
+- Kliendi filtris on "Uus", A+, A, B, C. Demo ja Outlet eraldi valikuna ei kuvata.
+- **Tarnija algne klass säilib:** `details.sourceGrade` (nt `"Demo"`) ja toorandmetes `raw_data.product.grade`. Admin näeb seda konfiguratsiooni lehel ("Seisukord (tarnija algne)"). Tavapärane admini parandus (`manual_overrides.grade`) töötab edasi ja sync seda ei puutu.
+- Seisukordade selgitus ei väida, et seade on avamata tehasepakendis: "Uus" võib olla ka demo- või outlet-seade (nt avatud pakendiga).
+- Seisukorrad on failis `src/domain/grade/grades.ts`, Laptopid vastendus on `mapLaptopidGrade` (`laptopid-normalizer.ts`).
 
 ## 5. Väljade omanik
 

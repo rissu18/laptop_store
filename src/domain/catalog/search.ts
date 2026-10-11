@@ -42,6 +42,8 @@ export function buildSearchText({ product, variant }: CatalogItem): string {
     variant.gpu.model,
     variant.sku,
     `grade ${variant.grade}`,
+    // "Uus" klass on otsitav eesti keeles
+    variant.grade === "NEW" ? "uus" : "",
   ];
   return normalizeSearchText(parts.join(" "));
 }

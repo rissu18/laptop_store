@@ -96,8 +96,8 @@ describe.skipIf(!hasTestDatabase)("Laptopid.ee sync (andmebaas)", () => {
     const result = await sync(basePayload());
     expect(result.status).toBe("SUCCESS");
     if (result.status !== "SUCCESS") return;
-    expect(result.stats).toMatchObject({ received: 25, valid: 24, rejected: 1, created: 24, updated: 0, madeUnavailable: 0 });
-    expect(result.rejected[0]).toMatchObject({ externalId: "6224", message: "Tundmatu seisukord: New" });
+    expect(result.stats).toMatchObject({ received: 28, valid: 28, rejected: 0, created: 28, updated: 0, madeUnavailable: 0, taxonomyWarnings: 0 });
+    expect(result.rejected).toEqual([]);
 
     const row = await listing("6678");
     expect(row).toMatchObject({
@@ -145,11 +145,11 @@ describe.skipIf(!hasTestDatabase)("Laptopid.ee sync (andmebaas)", () => {
     const probesBefore = probeCalls;
     const result = await sync(basePayload());
     if (result.status !== "SUCCESS") throw new Error(result.status);
-    expect(result.stats).toMatchObject({ created: 0, updated: 0, unchanged: 24, madeUnavailable: 0, modelsCreated: 0, modelsUpdated: 0, imagesAdded: 0 });
+    expect(result.stats).toMatchObject({ created: 0, updated: 0, unchanged: 28, madeUnavailable: 0, modelsCreated: 0, modelsUpdated: 0, imagesAdded: 0 });
     expect(result.changed).toBe(false);
     expect(probeCalls).toBe(probesBefore);
     const [{ n }] = await t.db.select({ n: count() }).from(supplierListings).where(eq(supplierListings.supplier, "laptopid"));
-    expect(n).toBe(24);
+    expect(n).toBe(28);
     const dupes = await t.db.execute(sql`SELECT supplier_product_id FROM supplier_listings GROUP BY supplier, supplier_product_id HAVING count(*) > 1`);
     expect(dupes.rows).toHaveLength(0);
     const after = await listing("6678");
@@ -201,6 +201,79 @@ describe.skipIf(!hasTestDatabase)("Laptopid.ee sync (andmebaas)", () => {
     expect(cart.lines[0]).toMatchObject({ quantity: 1, maxQuantity: 1, quantityUnknown: true, quantityLimited: true });
     expect(cart.lines[0].item.variant.sku).toBe("LP-6675");
     expect(cart.subtotalCents).toBe(129_900);
+  });
+
+  it("New / Demo / Outlet jõuavad kataloogi seisukorraga 'Uus'; tarnija algne klass säilib andmebaasis", async () => {
+    const items = await catalogItems();
+    for (const [externalId, raw] of [["6224", "New"], ["5643", "Demo"], ["6629", "Outlet"]] as const) {
+      const item = items.find((i) => i.variant.id === `laptopid-${externalId}`);
+      expect(item?.variant.grade).toBe("NEW");
+      const row = await listing(externalId);
+      expect(row.grade).toBe("NEW");
+      expect(row.details.sourceGrade).toBe(raw);
+      expect((row.rawData as { product: { grade: string } }).product.grade).toBe(raw);
+    }
+    // Seisukorra filtri väärtused: "uus", mitte "demo"/"outlet"
+    const { FACETS } = await import("@/domain/catalog/facets");
+    const gradeValues = new Set(items.flatMap((i) => FACETS.grade.valuesOf(i)));
+    expect(gradeValues.has("uus")).toBe(true);
+    expect([...gradeValues].some((v) => /demo|outlet|new/i.test(v))).toBe(false);
+    const { filterItems } = await import("@/domain/catalog/filtering");
+    const { emptyQuery } = await import("@/domain/catalog/query");
+    const onlyNew = filterItems(items, { ...emptyQuery(), facets: { ...emptyQuery().facets, grade: ["uus"] } }).map((i) => i.variant.id).sort();
+    expect(onlyNew).toEqual(["laptopid-5643", "laptopid-6224", "laptopid-6629"]);
+  });
+
+  it("'Uus' pakkumine: ostukorv, kassa ja tellimuse snapshot (seisukord NEW)", async () => {
+    const { resolveCart } = await import("@/server/cart/cart-actions");
+    const cart = await resolveCart([{ variantId: "laptopid-6224", quantity: 1 }]);
+    expect(cart.lines[0]).toMatchObject({ quantity: 1 });
+    expect(cart.lines[0].item.variant.grade).toBe("NEW");
+
+    const { computeCheckout } = await import("@/server/checkout/checkout-service");
+    const { placeOrder } = await import("@/server/orders/order-service");
+    const items = [{ variantId: "laptopid-5643", quantity: 1 }];
+    const { quote } = await computeCheckout(t.db, { items, couponCode: null });
+    expect(quote.issues).toEqual([]);
+    expect(quote.lines[0]).toMatchObject({ grade: "NEW", unitPriceCents: 134_900 });
+    const created = await placeOrder(t.db, {
+      idempotencyKey: crypto.randomUUID(),
+      items,
+      couponCode: null,
+      form,
+      acknowledged: { lines: quote.lines.map((l) => ({ variantId: l.variantId, unitPriceCents: l.unitPriceCents })), totalCents: quote.totalCents, discountCents: 0 },
+    });
+    if (created.status !== "CREATED") throw new Error(created.status);
+    const [order] = await t.db.select().from(orders).where(eq(orders.orderNumber, created.orderNumber));
+    const [item] = await t.db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
+    expect(item.grade).toBe("NEW");
+  });
+
+  it("Lenovo V330-14IKB: kataloogis õige nimega, V-seeria, otsing 'V330-14IKB' ja 'V330' leiab, duplikaati ei teki", async () => {
+    const { filterItems } = await import("@/domain/catalog/filtering");
+    const { emptyQuery } = await import("@/domain/catalog/query");
+    const items = await catalogItems();
+    const v330 = items.find((i) => i.variant.id === "laptopid-1670")!;
+    expect(v330.product).toMatchObject({ title: "Lenovo V330-14IKB", brand: "lenovo", series: "V Series", model: "V330-14IKB", slug: "lenovo-v330-14ikb" });
+    expect(v330.variant).toMatchObject({ grade: "B", ramGb: 8, storageGb: 256, stock: { available: true, quantity: null } });
+    expect(v330.variant.images).toHaveLength(2);
+    for (const q of ["V330-14IKB", "V330", "lenovo v330"]) {
+      expect(filterItems(items, { ...emptyQuery(), q }).map((i) => i.variant.id)).toContain("laptopid-1670");
+    }
+    const rows = await t.db.select().from(supplierListings).where(and(eq(supplierListings.supplier, "laptopid"), eq(supplierListings.supplierProductId, "1670")));
+    expect(rows).toHaveLength(1);
+    const [{ n }] = await t.db.select({ n: count() }).from(productModels).where(eq(productModels.slug, "lenovo-v330-14ikb"));
+    expect(n).toBe(1);
+  });
+
+  it("puuduv API seadistus → kontrollitud viga (NOT_CONFIGURED), kataloog jääb puutumata", async () => {
+    const { fetchLaptopidRaw } = await import("@/integrations/laptopid/laptopid-client");
+    const before = await t.db.select().from(supplierListings).where(eq(supplierListings.supplier, "laptopid"));
+    const result = await sync(() => fetchLaptopidRaw({ env: {} }));
+    expect(result.status).toBe("FAILED");
+    if (result.status === "FAILED") expect(result.error).toMatch(/LAPTOPID_API_BASE_URL puudub/);
+    const after = await t.db.select().from(supplierListings).where(eq(supplierListings.supplier, "laptopid"));
+    expect(after.map((r) => [r.id, r.available, r.salePriceCents])).toEqual(before.map((r) => [r.id, r.available, r.salePriceCents]));
   });
 
   it("kassa loeb hinna andmebaasist; kogus 1 lubatud, kogus 2 → selge teade ilma '1 tk' väiteta", async () => {
@@ -309,7 +382,7 @@ describe.skipIf(!hasTestDatabase)("Laptopid.ee sync (andmebaas)", () => {
 
   it("pildid: eemaldatud pilt kustub, uus lisatakse (mõõdud loetakse ainult uuel pildil)", async () => {
     const payload = basePayload();
-    payload.images = [...laptopidImages(6678, [30531, 30999]), ...laptopidImages(6675, [30400]), ...laptopidImages(6493, [29001, 29002])];
+    payload.images = [...laptopidImages(6678, [30531, 30999]), ...laptopidImages(6675, [30400]), ...laptopidImages(6493, [29001, 29002]), ...laptopidImages(1670, [8001, 8002])];
     const probesBefore = probeCalls;
     const result = await sync(payload);
     if (result.status !== "SUCCESS") throw new Error(result.status);
@@ -333,7 +406,7 @@ describe.skipIf(!hasTestDatabase)("Laptopid.ee sync (andmebaas)", () => {
     await t.db.update(supplierListings).set({ status: "ARCHIVED" }).where(eq(supplierListings.supplier, "mock"));
     const items = await catalogItems();
     expect(items.every((i) => i.variant.id.startsWith("laptopid-"))).toBe(true);
-    expect(items.length).toBe(24);
+    expect(items.length).toBe(28);
     const [{ n }] = await t.db.select({ n: count() }).from(supplierListings).where(eq(supplierListings.supplier, "mock"));
     expect(n).toBeGreaterThan(0);
   });

@@ -5,6 +5,13 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 ---
 
+## 2026-10-11 — Laptopid.ee järelparandused: "Uus", Lenovo V-seeria, API seadistus
+
+- **Seisukord "Uus":** uus klass `NEW` (kliendile "Uus", URL-is `uus`, filtris esimesena). Laptopid.ee `New` (13), `Demo` (5) ja `Outlet` (1) → "Uus". Tarnija algne klass säilib (`details.sourceGrade` + `raw_data`), admin näeb seda. Märk on sinine (roheline on saadavuse tähendusega). Selgitus ei väida, et seade on avamata pakendis.
+- **Lenovo V-seeria:** V330-14IKB (ID 1670) → seeria `V Series`, mudel `V330-14IKB`, pealkiri "Lenovo V330-14IKB". Tundmatu seeria (kui tootja ja mudel on korras) ei vii enam importimata jäämiseni: toode saab konservatiivse uue seeria ja sync logib hoiatuse. Pealkiri tuleb ühest kohast (`productTitle`).
+- **API seadistus:** üks `LAPTOPID_API_BASE_URL` (Config), klient ehitab `products.php`/`images.php` URL API-ga. Puuduv seadistus → kontrollitud viga, tagavara-URL-i pole. Vana 404 vastanud URL muutuja on Vercelist ja koodist eemaldatud.
+- Normaliseerija versioon 2 (kõik read saavad `sourceGrade`).
+
 ## 2026-10-11 — Poe värvisüsteem: indigo-sinine
 
 - Avaliku poe primary värv teal → indigo-sinine (`#2F4EE0`, valgel 6,4:1 — WCAG AA). Ainult värvid; paigutus, struktuur ja loogika ei muutunud.
@@ -49,7 +56,7 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 **Probleemid ja lahendused**
 
-- **Verceli `LAPTOPID_API_URL` vastas 404.** Töötavad otspunktid leiti GitHubis lisatud `route.ts` failist (products.php + images.php, päis `X-API-Key`). Need on nüüd koodis konstandid.
+- **Verceli vana API URL muutuja (`…/v1/products`) vastas 404.** Töötavad otspunktid leiti GitHubis lisatud `route.ts` failist (products.php + images.php, päis `X-API-Key`). Need on nüüd koodis konstandid.
 - **Avalik `/api/products`:**
   - see avaldas võtmega kaitstud tarnija voo kõigile (CDN `s-maxage=300`);
   - see mõtles välja väärtusi (`wifi: true`, `bluetooth: true`, puuduv USB → 0).

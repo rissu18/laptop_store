@@ -6,7 +6,8 @@ import { seriesSlug } from "@/domain/catalog/facets";
 import { PAGE_SIZE, emptyQuery, type CatalogQuery, type FacetSelection } from "@/domain/catalog/query";
 import { searchScore, tokenize } from "@/domain/catalog/search";
 import { findSimilarItems } from "@/domain/catalog/similar";
-import type { CatalogItem, CatalogProduct, CatalogVariant } from "@/domain/catalog/types";
+import { BRAND_NAMES, type CatalogItem, type CatalogProduct, type CatalogVariant } from "@/domain/catalog/types";
+import { productTitle } from "@/domain/catalog/title";
 import { MockSupplierAdapter } from "@/integrations/supplier/mock/mock-supplier-adapter";
 import { MOCK_FEATURED_SKUS } from "@/integrations/supplier/mock/mock-supplier-data";
 import { toImageView, visibleImages, type ProductImageView } from "@/domain/images/product-image";
@@ -179,7 +180,7 @@ export async function getCatalogStats(): Promise<{ count: number; minPriceCents:
 export async function getPopularModels(limit: number): Promise<{ label: string; query: string }[]> {
   const counts = new Map<string, { label: string; count: number }>();
   for (const { product } of await getItems()) {
-    const label = `${product.series.replace(/ P$/, "")} ${product.model}`;
+    const label = productTitle(BRAND_NAMES[product.brand], product.series, product.model).slice(BRAND_NAMES[product.brand].length + 1);
     counts.set(label, { label, count: (counts.get(label)?.count ?? 0) + 1 });
   }
   return [...counts.values()]

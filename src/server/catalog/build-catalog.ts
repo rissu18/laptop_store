@@ -1,6 +1,7 @@
 import { BRAND_NAMES, type CatalogItem, type CatalogProduct, type CatalogVariant } from "@/domain/catalog/types";
 import type { ProductImageView } from "@/domain/images/product-image";
 import { buildSearchText } from "@/domain/catalog/search";
+import { productTitle } from "@/domain/catalog/title";
 import type { SearchableItem } from "@/domain/catalog/filtering";
 import { PricingError, calculatePrice, type PricingConfig } from "@/domain/pricing/pricing-engine";
 import { slugify } from "@/integrations/supplier/model-names";
@@ -33,7 +34,7 @@ export interface BuiltCatalog {
 }
 
 export function productFromOffer(offer: NormalizedOffer): CatalogProduct {
-  const title = `${BRAND_NAMES[offer.brand]} ${offer.series.replace(/ P$/, "")} ${offer.model}`;
+  const title = productTitle(BRAND_NAMES[offer.brand], offer.series, offer.model);
   const slug = slugify(title);
   return {
     id: slug,

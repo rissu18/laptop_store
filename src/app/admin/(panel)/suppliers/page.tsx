@@ -46,6 +46,7 @@ export default async function SuppliersPage() {
   const data = await getSupplierOverview();
   const last = data.lastSuccess;
   const rejectedSample = Array.isArray(last?.stats.rejectedSample) ? (last.stats.rejectedSample as { externalId: string | null; message: string }[]) : [];
+  const taxonomyWarnings = Array.isArray(last?.stats.taxonomyWarningSample) ? (last.stats.taxonomyWarningSample as { externalId: string; message: string }[]) : [];
 
   return (
     <>
@@ -59,7 +60,7 @@ export default async function SuppliersPage() {
           <Card title="Laptopid.ee">
             <DefinitionList
               items={[
-                { label: "API võti", value: data.configured ? "Seadistatud" : "Puudub (LAPTOPID_API_KEY)" },
+                { label: "API seadistus", value: data.configured ? "Seadistatud" : "Puudub (LAPTOPID_API_BASE_URL / LAPTOPID_API_KEY)" },
                 { label: "Viimane edukas sync", value: fmtDateTime(last?.finishedAt) ?? "Pole veel" },
                 { label: "Saadud (viimati)", value: last ? num(last.stats, "received") : null },
                 { label: "Uued", value: last ? num(last.stats, "created") : null },
@@ -81,6 +82,17 @@ export default async function SuppliersPage() {
                 {rejectedSample.map((r, i) => (
                   <li key={`${r.externalId}-${i}`}>
                     <span className="font-mono">{r.externalId ?? "?"}</span> — <span className="text-muted">{r.message}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+          {taxonomyWarnings.length > 0 && (
+            <Card title="Imporditud hoiatusega (tundmatu seeria)" description="Toode on poes; seeria tuletati mudelinimest. Kontrolli ja paranda vajadusel mudeli andmetes.">
+              <ul className="space-y-1 text-sm">
+                {taxonomyWarnings.map((w) => (
+                  <li key={w.externalId}>
+                    <span className="font-mono">{w.externalId}</span> — <span className="text-muted">{w.message}</span>
                   </li>
                 ))}
               </ul>

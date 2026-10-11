@@ -83,6 +83,7 @@ Seejärel ava <http://localhost:3000/admin/login>. Admini kasutajat ega parooli 
 | `ICECAT_API_TOKEN` | – | Valikuline; saadetakse ainult HTTP päises |
 | `ICECAT_CONTENT_TOKEN` | – | Valikuline; saadetakse ainult HTTP päises |
 | `LAPTOPID_API_KEY` | – | Laptopid.ee API võti (ainult server, ainult HTTP päises `X-API-Key`) |
+| `LAPTOPID_API_BASE_URL` | – | Laptopid.ee API kataloog (`https://laptopid.ee/api/sulearvutid/`); sellest ehitatakse `products.php` ja `images.php`. Puudumisel sync ei käivitu (tagavara-URL-i pole) |
 | `CRON_SECRET` | – | Ajastatud sync'i otspunkti kaitse (`Authorization: Bearer …`, vähemalt 16 märki). Puudumisel otspunkt ei käivitu |
 
 Muutujad valideeritakse käivitamisel failis [`src/config/env.ts`](src/config/env.ts). Saladusi (API võtmed, paroolid, ühendusstringid) ei commit'ita ega logita kunagi. Prototüübirežiim (hoiatusriba + noindex) on nüüd poe seadetes: admin → Seaded → Pood.

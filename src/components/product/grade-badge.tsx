@@ -2,6 +2,8 @@ import { GRADES, type GradeCode } from "@/domain/grade/grades";
 import { cx } from "@/components/ui/class-names";
 
 const GRADE_STYLES: Record<GradeCode, string> = {
+  // Sinine/indigo (mitte roheline — roheline on saadavuse/õnnestumise tähendusega)
+  NEW: "text-primary border-primary/40 bg-primary-soft",
   "A+": "text-grade-aplus border-grade-aplus/30 bg-success-soft",
   A: "text-grade-a border-grade-a/30 bg-primary-soft",
   B: "text-grade-b border-grade-b/30 bg-warning-soft",
@@ -19,12 +21,21 @@ export function GradeBadge({ grade, size = "md", className }: { grade: GradeCode
         className,
       )}
     >
-      <span aria-hidden>{grade}</span>
-      <span className="sr-only">Seisukord {grade}:</span>
-      <span aria-hidden className="opacity-50">
-        ·
-      </span>
-      <span className="font-medium">{GRADES[grade].label}</span>
+      {GRADES[grade].showCode ? (
+        <>
+          <span aria-hidden>{grade}</span>
+          <span className="sr-only">Seisukord {grade}:</span>
+          <span aria-hidden className="opacity-50">
+            ·
+          </span>
+          <span className="font-medium">{GRADES[grade].label}</span>
+        </>
+      ) : (
+        <>
+          <span className="sr-only">Seisukord:</span>
+          <span>{GRADES[grade].label}</span>
+        </>
+      )}
     </span>
   );
 }

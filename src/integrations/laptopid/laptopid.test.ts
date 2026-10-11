@@ -103,9 +103,9 @@ describe("Laptopid normaliseerimine (toode 6678)", () => {
     expect(normalize({}, []).images).toEqual([]);
   });
 
-  it("tundmatu seisukord (New/Demo) ja tundmatu seeria → tagasi lükatud, mitte välja mõeldud", () => {
-    expect(() => normalize({ grade: "New" })).toThrow(/Tundmatu seisukord: New/);
-    expect(() => normalize({ model: "V330-14IKB" })).toThrow(/Tundmatu seeria/);
+  it("päriselt tundmatu seisukord, tühi mudel või vigane hind → tagasi lükatud, mitte välja mõeldud", () => {
+    expect(() => normalize({ grade: "Refurb X" })).toThrow(/Tundmatu seisukord: Refurb X/);
+    expect(() => normalize({ model: "   " })).toThrow();
     expect(() => normalize({ sale_price: "0.00" })).toThrow(/müügihind/);
   });
 
@@ -130,10 +130,10 @@ describe("Laptopid normaliseerimine (toode 6678)", () => {
 describe("snapshot'i usaldusväärsus", () => {
   const snapshot = parseLaptopidSnapshot(laptopidSnapshot().products, laptopidSnapshot().images);
 
-  it("sama mudeli 3 konfiguratsiooni jäävad 3 eraldi pakkumiseks; vigane kirje on vastuses olemas (pole 'puuduv')", () => {
+  it("sama mudeli 3 konfiguratsiooni jäävad 3 eraldi pakkumiseks; New/Demo/Outlet ja V330 ei jää enam vahele", () => {
     expect(snapshot.offers.filter((o) => o.model.slug === "lenovo-thinkpad-x1-carbon-gen-10").map((o) => o.externalId).sort()).toEqual(["6602", "6675", "6678"]);
-    expect(snapshot.rejected).toEqual([{ externalId: "6224", stage: "normalize", message: "Tundmatu seisukord: New" }]);
-    expect(snapshot.receivedIds.has("6224")).toBe(true);
+    expect(snapshot.rejected).toEqual([]);
+    expect(snapshot.offers.map((o) => o.externalId)).toEqual(expect.arrayContaining(["6224", "5643", "6629", "1670"]));
   });
 
   it("väike muutus (paar toodet müüdi) → usaldusväärne, puuduvad võetakse maha", () => {

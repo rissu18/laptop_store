@@ -64,6 +64,37 @@ export function laptopidImages(productId: number | string, imageIds: number[]): 
   }));
 }
 
+/** Lenovo V330-14IKB (Laptopid ID 1670) — päris vastus 2026-10-11, olulisemad väljad */
+export function laptopidV330(): Record<string, unknown> {
+  return laptopidProduct({
+    id: 1670,
+    manufacturer: "Lenovo",
+    model: "V330-14IKB ",
+    cpu: "Intel i5-8250U 3400Mhz",
+    ram: "8GB DDR4",
+    storage: "256GB SSD",
+    screen: '14" FHD (1920x1080) matt',
+    gpu: "Intel UHD 630",
+    os: "Windows 11 Home 64-bit",
+    thunderbolt_4: 0,
+    lan: 1,
+    sd_card_reader: 1,
+    webcam: 0,
+    ir_camera: 0,
+    backlit_keyboard: 0,
+    pointing_stick: 0,
+    mobile_4g: 0,
+    vga: 1,
+    new_price: "1099.00",
+    sale_price: "299.00",
+    ports: "2x USB 3.0, 2x USB-C, SD-kaardilugeja, LAN, webcam, sõrmejäljelugeja",
+    battery_hours: "5",
+    weight: "1.70",
+    slug: "lenovo-v330-14ikb",
+    grade: "B",
+  });
+}
+
 /** Väike, aga realistlik snapshot: sama mudel kolmes konfiguratsioonis + teised mudelid */
 export function laptopidSnapshot() {
   const products = [
@@ -86,7 +117,11 @@ export function laptopidSnapshot() {
       slug: "dell-xps-15-9530",
     }),
     laptopidProduct({ id: 6224, manufacturer: "HP", model: "Elitebook 840 G8", grade: "New", slug: "hp-elitebook-840-g8" }),
+    // Päris andmed (2026-10-11): Demo, Outlet ja Lenovo V-seeria
+    laptopidProduct({ id: 5643, manufacturer: "Dell", model: "XPS 15 9520 ", cpu: "Intel i9-12900HK 5000MHz", ram: "32GB DDR5", storage: "1TB SSD ", screen: '15.6" UHD+ 4K (3840 x 2400) Touchscreen', gpu: "NVIDIA GeForce RTX 3050ti", grade: "Demo", sale_price: "1349.00", slug: "dell-xps-15-9520" }),
+    laptopidProduct({ id: 6629, model: "Thinkpad X1 2in1 G9", cpu: "Intel Ultra 7 155U 4800MHz", ram: "32GB LPDDR5", storage: "512GB SSD ", gpu: "Intel Arc Graphics", grade: "Outlet", sale_price: "1749.00", slug: "lenovo-thinkpad-x1-2in1-g9" }),
+    laptopidV330(),
   ];
-  const images = [...laptopidImages(6678, [30530, 30531]), ...laptopidImages(6675, [30400]), ...laptopidImages(6493, [29001, 29002])];
+  const images = [...laptopidImages(6678, [30530, 30531]), ...laptopidImages(6675, [30400]), ...laptopidImages(6493, [29001, 29002]), ...laptopidImages(1670, [8001, 8002])];
   return { products, images };
 }

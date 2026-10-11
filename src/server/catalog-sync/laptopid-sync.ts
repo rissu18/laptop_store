@@ -69,6 +69,8 @@ export interface LaptopidSyncStats {
   imageErrors: number;
   /** Pakkumised, mille mudel (nimi) muutus tarnija poolel — mudeli seost sync ei muuda */
   modelMismatches: number;
+  /** Imporditud, aga seeria taksonoomia oli tundmatu (tagavara-seeria) — vt taxonomyWarningSample */
+  taxonomyWarnings: number;
   durationMs: number;
 }
 
@@ -94,6 +96,7 @@ const emptyStats = (): LaptopidSyncStats => ({
   imagesRemoved: 0,
   imageErrors: 0,
   modelMismatches: 0,
+  taxonomyWarnings: 0,
   durationMs: 0,
 });
 
@@ -373,11 +376,19 @@ export async function runLaptopidSync(db: Database, options: LaptopidSyncOptions
     const changed =
       stats.created + stats.updated + stats.madeUnavailable + stats.modelsCreated + stats.modelsUpdated + stats.imagesAdded + stats.imagesUpdated + stats.imagesRemoved > 0;
     const rejectedSample = snapshot.rejected.slice(0, 50);
-    await finishSyncRun(db, runId, { status: "SUCCESS", stats: { ...stats, rejectedSample, trustReason: trust.reason }, snapshotTrusted: trust.trusted, error: null, now: clock() });
+    const taxonomyWarningSample = snapshot.offers.flatMap((o) => (o.model.taxonomyWarning ? [{ externalId: o.externalId, message: o.model.taxonomyWarning }] : []));
+    stats.taxonomyWarnings = taxonomyWarningSample.length;
+    await finishSyncRun(db, runId, {
+      status: "SUCCESS",
+      stats: { ...stats, rejectedSample, taxonomyWarningSample: taxonomyWarningSample.slice(0, 50), trustReason: trust.reason },
+      snapshotTrusted: trust.trusted,
+      error: null,
+      now: clock(),
+    });
     await options.log({
-      level: trust.trusted && stats.imageErrors === 0 ? "INFO" : "WARN",
+      level: trust.trusted && stats.imageErrors === 0 && stats.taxonomyWarnings === 0 ? "INFO" : "WARN",
       message: trust.trusted ? "Laptopid sync lõppes" : "Laptopid sync lõppes — snapshot polnud usaldusväärne, puuduvaid maha ei võetud",
-      details: { runId, success: true, snapshotTrusted: trust.trusted, trustReason: trust.reason, ...stats, rejectedSample: rejectedSample.slice(0, 20) },
+      details: { runId, success: true, snapshotTrusted: trust.trusted, trustReason: trust.reason, ...stats, rejectedSample: rejectedSample.slice(0, 20), taxonomyWarningSample: taxonomyWarningSample.slice(0, 20) },
     });
     return { status: "SUCCESS", runId, stats, snapshotTrusted: trust.trusted, trustReason: trust.reason, rejected: snapshot.rejected, changed };
   } catch (error) {
