@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 
-export const revalidate = 300;
-
 const PRODUCTS_URL =
   "https://laptopid.ee/api/sulearvutid/products.php";
 
@@ -57,7 +55,6 @@ type RawProduct = {
   sale_price: string | number | null;
 
   defects: string | null;
-
   mouse: string | null;
   video_outputs: string | null;
   ports: string | null;
@@ -121,25 +118,14 @@ export async function GET() {
       "X-API-Key": apiKey,
     };
 
-    /*
-     * Laptopid.ee andmeid cache'itakse 5 minutit.
-     *
-     * 300 sekundit = 5 minutit.
-     */
     const [productsResponse, imagesResponse] =
       await Promise.all([
         fetch(PRODUCTS_URL, {
           headers,
-          next: {
-            revalidate: 300,
-          },
         }),
 
         fetch(IMAGES_URL, {
           headers,
-          next: {
-            revalidate: 300,
-          },
         }),
       ]);
 
@@ -173,18 +159,14 @@ export async function GET() {
     const images: RawImage[] =
       await imagesResponse.json();
 
-    /*
-     * Kõik pildid grupeeritakse product_id järgi.
-     */
     const imagesByProduct = new Map<
       number,
       RawImage[]
     >();
 
     for (const image of images) {
-      const productId = Number(
-        image.product_id
-      );
+      const productId =
+        Number(image.product_id);
 
       const current =
         imagesByProduct.get(productId) ?? [];
@@ -197,11 +179,6 @@ export async function GET() {
       );
     }
 
-    /*
-     * Pildid seotakse toodetega ning
-     * MySQL-ist stringidena tulevad numbrid
-     * normaliseeritakse.
-     */
     const result = products.map(
       (product) => {
         const id = Number(product.id);
@@ -220,17 +197,13 @@ export async function GET() {
           );
 
         return {
-          /*
-           * Toote põhiinfo
-           */
           id,
+
           manufacturer:
             product.manufacturer,
+
           model: product.model,
 
-          /*
-           * Põhikonfiguratsioon
-           */
           cpu: product.cpu,
           ram: product.ram,
           storage: product.storage,
@@ -238,9 +211,6 @@ export async function GET() {
           gpu: product.gpu,
           os: product.os,
 
-          /*
-           * USB-portide arv
-           */
           usb_c:
             numberOrNull(
               product.usb_c
@@ -256,9 +226,6 @@ export async function GET() {
               product.usb_3
             ) ?? 0,
 
-          /*
-           * Thunderbolt
-           */
           thunderbolt_3:
             booleanValue(
               product.thunderbolt_3
@@ -269,11 +236,10 @@ export async function GET() {
               product.thunderbolt_4
             ),
 
-          /*
-           * Video ja võrk
-           */
           hdmi:
-            booleanValue(product.hdmi),
+            booleanValue(
+              product.hdmi
+            ),
 
           displayport:
             booleanValue(
@@ -281,17 +247,20 @@ export async function GET() {
             ),
 
           vga:
-            booleanValue(product.vga),
+            booleanValue(
+              product.vga
+            ),
 
           dvi:
-            booleanValue(product.dvi),
+            booleanValue(
+              product.dvi
+            ),
 
           lan:
-            booleanValue(product.lan),
+            booleanValue(
+              product.lan
+            ),
 
-          /*
-           * Kaardilugejad
-           */
           sd_card_reader:
             booleanValue(
               product.sd_card_reader
@@ -302,9 +271,6 @@ export async function GET() {
               product.smartcard_reader
             ),
 
-          /*
-           * Kaamera ja biomeetria
-           */
           webcam:
             booleanValue(
               product.webcam
@@ -320,9 +286,6 @@ export async function GET() {
               product.fingerprint_reader
             ),
 
-          /*
-           * Klaviatuur ja sisend
-           */
           docking_support:
             booleanValue(
               product.docking_support
@@ -351,9 +314,6 @@ export async function GET() {
               product.numpad
             ),
 
-          /*
-           * Muud funktsioonid
-           */
           mobile_4g:
             booleanValue(
               product.mobile_4g
@@ -370,18 +330,13 @@ export async function GET() {
             ),
 
           yoga:
-            booleanValue(product.yoga),
+            booleanValue(
+              product.yoga
+            ),
 
-          /*
-           * Sülearvutid.ee ärireegel:
-           * Wi-Fi ja Bluetooth on alati olemas.
-           */
           wifi: true,
           bluetooth: true,
 
-          /*
-           * Hinnad
-           */
           new_price:
             numberOrNull(
               product.new_price
@@ -392,9 +347,6 @@ export async function GET() {
               product.sale_price
             ),
 
-          /*
-           * Garantii, aku ja kaal
-           */
           guarantee:
             numberOrNull(
               product.guarantee
@@ -410,37 +362,34 @@ export async function GET() {
               product.weight
             ),
 
-          /*
-           * Tekstilised andmed
-           */
-          defects: product.defects,
+          defects:
+            product.defects,
 
-          mouse: product.mouse,
+          mouse:
+            product.mouse,
 
           video_outputs:
             product.video_outputs,
 
-          /*
-           * Vana ports-vabatekst jääb
-           * fallbackiks.
-           */
-          ports: product.ports,
+          ports:
+            product.ports,
 
-          pdf_url: product.pdf_url,
+          pdf_url:
+            product.pdf_url,
 
-          slug: product.slug,
+          slug:
+            product.slug,
 
-          grade: product.grade,
+          grade:
+            product.grade,
 
-          /*
-           * Pildid
-           */
           main_image:
             imageUrls.length > 0
               ? imageUrls[0]
               : null,
 
-          images: imageUrls,
+          images:
+            imageUrls,
 
           image_count:
             imageUrls.length,
@@ -448,18 +397,33 @@ export async function GET() {
       }
     );
 
-    return NextResponse.json({
-      count: result.length,
+    return NextResponse.json(
+      {
+        count:
+          result.length,
 
-      image_count: images.length,
+        image_count:
+          images.length,
 
-      cache_seconds: 300,
+        cache_seconds:
+          300,
 
-      updated_at:
-        new Date().toISOString(),
+        updated_at:
+          new Date().toISOString(),
 
-      products: result,
-    });
+        products:
+          result,
+      },
+      {
+        headers: {
+          /*
+           * Vercel/CDN hoiab vastust 5 minutit.
+           */
+          "Cache-Control":
+            "public, s-maxage=300",
+        },
+      }
+    );
   } catch (error) {
     console.error(
       "Laptopid.ee API import error:",
