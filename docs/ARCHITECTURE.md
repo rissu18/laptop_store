@@ -59,6 +59,9 @@ src/
     settings/             poe seaded andmebaasist (vahemäluga)
     logging/              struktureeritud logi + system_logs
     discounts/            sooduskoodi laadimine, ostukorvi kontroll, piirang, kasutused (redemptions)
+    checkout/             kassa arvutus (computeCheckout) ja server action'id
+    orders/               tellimuse loomine (idempotentne tehing), avalik vaade, otsing, teavitused (Noop)
+    payments/             PaymentProvider liides (praegu ühtegi pakkujat pole)
   integrations/           välised süsteemid adapterite taga
     supplier/             SupplierAdapter, normaliseerimine, MockSupplierAdapter
     payment/              PaymentProvider (Phase 6)
@@ -200,6 +203,18 @@ Muudatus algse spetsifikatsiooniga võrreldes: `getStock` ja `getPrice` on ühen
 
 Kui tarnija API on maas: sync märgitakse `FAILED`, pood töötab edasi viimaste andmetega. Kui viimane edukas sync on liiga vana, kuvab admin hoiatuse ja "Laoseis uuendatud X min tagasi" näitab ausat aega.
 
+## Kassa ja tellimused
+
+```
+brauser:  ID-d + kogused + koodi tekst + kontaktandmed + (võrdluseks) nähtud hinnad + checkoutAttemptId
+server:   päritolu kontroll → vorm (zod) → idempotentsus (võtme räsi UNIQUE)
+          → computeCheckout(): PostgreSQL (aktiivsus, hetkehind, laoseis) → DiscountEngine → tarne seadetest
+          → nähtud ≠ arvutatud ? ÜLEVAATUS (tellimust ei looda) : ÜKS TEHING (orders + order_items snapshot + ajalugu)
+          → httpOnly juurdepääsuküpsis → /tellimus/[nr]/kinnitus
+```
+
+Kassa režiim: prototüüp → TEST; prototüüp väljas ilma makseteenuseta → BLOCKED. Testtellimus ei vähenda laoseisu ega kuluta sooduskoodi kasutust. Vt [ORDERS.md](ORDERS.md).
+
 ## Sooduskoodid (DiscountEngine)
 
 ```
@@ -255,6 +270,8 @@ Idempotentsus:
 | XSS | React escape'ib; `dangerouslySetInnerHTML` ainult JSON-LD jaoks (serialiseeritud, `<` escape'itud) |
 | CSRF | Server Actions kontrollivad Origin päist + oma `assertSameOrigin()` admini toimingutes; admini küpsis SameSite=Strict |
 | Hinna võltsimine | Hind arvutatakse alati serveris |
+| Tellimuse võltsimine | Hinnad ja summad arvutab server; kliendi nähtud hindu kasutatakse ainult võrdluseks. Topeltesitus → sama tellimus (idempotentsus) |
+| Tellimuste vaatamine võõrana | Kinnitusleht ainult httpOnly juurdepääsutokeniga; otsing numbri + e-postiga, üldine vastus, piirang 10 / 15 min / IP |
 | Sooduskoodi võltsimine | Brauser saadab ainult koodi teksti; summa arvutab server. Äraarvamise piirang 10 ebaõnnestunud katset / 10 min / IP |
 | Makse võltsimine | Webhook allkiri + staatus pakkuja API-st |
 | Tarnija võltsimine | Tarnija webhook'il jagatud saladus/allkiri; andmed valideeritakse zod-iga |

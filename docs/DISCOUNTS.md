@@ -160,6 +160,10 @@ tellimus tühistatud / makse ebaõnnestus
 - Korduv kinnitus (nt makseteenuse korduv webhook) ei loe kasutust topelt (testitud).
 - Funktsioonid on valmis ja testitud, aga poes veel kasutamata, sest tellimusi pole. Admin näeb kasutust kujul `0 / 500` ja selgitust, et kasutuste arvestus käivitub koos tellimuste süsteemiga.
 
+### Kassa (rakendatud)
+
+Kassa valideerib koodi **uuesti** sama `evaluateDiscount()`-iga. Tellimus salvestab snapshot'i (`orders.discount_*` + `discount_snapshot`, ridadel `discount_amount_cents`). **Testtellimus kasutust ei loo**, seega päris kampaania piirang ei kulu. Vt [ORDERS.md](ORDERS.md#5-sooduskood-kassas).
+
 ### Snapshot
 
 Tellimus salvestab **koopia**, mitte ainult viite koodile:

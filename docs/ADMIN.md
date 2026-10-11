@@ -20,7 +20,7 @@ Poe haldusliides aadressil `/admin`. Selles dokumendis on kirjas, kuidas admin o
 | Logid | `/admin/system/logs` | Süsteemilogi (tase, allikas, aeg, otsing) |
 | Tervis | `/admin/system/health` | Andmebaasi ühendus ja latentsus, migratsioonid, vead 24 h, keskkond |
 
-Tellimused, Kliendid ja Tarnijad on menüüs märgitud **"Tulekul"**. Need ei ole klikitavad ega teeskle töötavat funktsiooni.
+Kliendid ja Tarnijad on menüüs märgitud **"Tulekul"**. Need ei ole klikitavad ega teeskle töötavat funktsiooni. **Tellimused** on aktiivne (§15).
 
 ## 2. Autentimine ja turvalisus
 
@@ -243,3 +243,15 @@ Täielik kirjeldus: [DISCOUNTS.md](DISCOUNTS.md). Adminis:
 - **Eelvaade** („Testi koodi“): test-summa või valitud konfiguratsioonid → soodustus, lõppsumma, millistele ridadele kood rakendub ja kas marginaalikaitse vähendas soodustust. Mustandit saab testida; eraldi näidatakse, kas kood kehtiks praegu poes.
 - **Audit:** loomine, muutmine (vana → uus, sh valikud), aktiveerimine, väljalülitamine, arhiveerimine, duplikaat.
 - **Töölaud:** aktiivsed / ajastatud / aegunud koodid.
+
+## 15. Tellimused
+
+Täielik kirjeldus: [ORDERS.md](ORDERS.md#12-admin).
+
+- **`/admin/orders`:** otsing (number, e-post, nimi), filtrid (olek, makse, test/päris, kuupäevad, sooduskood) ja järjestus. **TEST** märk; testtellimustel rohelisi „makstud“ märke pole.
+- **`/admin/orders/[id]`:** tooted (snapshot), summad, klient, tarne, sooduskoodi snapshot, ajalugu ja sisemärkmed.
+- **Toimingud:** ainult **tühistamine** (kinnitusega) ja **sisemärkmed** (ainult lisamine). Makset (PAID) admin käsitsi märkida ei saa — see tuleb makse faasis makseteenuselt.
+- **Audit:** `order.cancel` (vana → uus olek, vabastatud reserveeringud), `order.note_added` (ilma märkuse tekstita, sest see võib sisaldada isikuandmeid). Tellimuse vaatamist ei logita.
+- **Töölaud:** testtellimusi täna ja kokku ning päris tellimused eraldi. Käivet ei näidata.
+- **Seaded → Tarne:** tarneviisi nimi ja hind (kassa „Standardtarne“) ning tasuta tarne piir.
+

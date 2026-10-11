@@ -95,7 +95,8 @@ erDiagram
 ## Migratsioonid
 
 - `drizzle/0000_init.sql`: algne skeem (12 tabelit, indeksid, CHECK piirangud, välisvõtmed).
-- `drizzle/0001_discount_codes.sql`: sooduskoodid (6 tabelit). Lisab ainult uusi tabeleid, olemasolevaid ei muuda. Kokku on 18 tabelit.
+- `drizzle/0001_discount_codes.sql`: sooduskoodid (6 tabelit). Lisab ainult uusi tabeleid, olemasolevaid ei muuda.
+- `drizzle/0002_orders.sql`: tellimused (`orders`, `order_items`, `order_status_history`, `order_internal_notes`, `order_lookup_attempts`) ja välisvõti `discount_redemptions.order_id → orders` (tühjale tabelile). Lisav; `npm run db:counts` kinnitas enne ja pärast samad arvud. Kokku on 23 tabelit. Kirjeldus: [ORDERS.md](ORDERS.md#8-andmebaas).
 - Migratsioonide ajalugu on tabelis `public.__drizzle_migrations`.
 - Uus muudatus: muuda `schema.ts` → `npm run db:generate` → vaata genereeritud SQL üle → `npm run db:migrate`.
 - Migratsiooni SQL commit'itakse Git'i (`.gitignore`-is on erand `!/drizzle/*.sql`).
@@ -137,7 +138,7 @@ Pildikirjed ja Icecati vasted on andmebaasis (`product_images`, `icecat_metadata
 Andmemudel on valmis neid vastu võtma (UUID võtmed, `supplier` veerg, snapshot-põhimõte):
 
 - `suppliers`, `sync_runs`, `sync_errors`: tarnija ühendus ja sync (Foxway)
-- `customers`, `orders`, `order_items` (hinna- ja spetsifikatsiooni **snapshot**, ei sõltu hiljem kataloogist), `payments`. Tellimus salvestab ka sooduskoodi snapshot'i ja `discount_redemptions.order_id` saab välisvõtme
+- `customers` (kliendikontod), `payments` (makseteenuse faas). Tellimused on juba olemas ([ORDERS.md](ORDERS.md))
 - `supplier_orders` (idempotentsusvõti duplikaatide vastu), `shipments`, `tracking_events`
 - `price_history`, `stock_history` (ainult lisatavad)
 

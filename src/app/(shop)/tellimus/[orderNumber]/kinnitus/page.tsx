@@ -13,6 +13,15 @@ import { findOrderForConfirmation } from "@/server/orders/public-order";
 export const metadata: Metadata = { title: "Tellimuse kinnitus", robots: { index: false, follow: false } };
 
 /**
+ * Cache Components nõuab dünaamilisel teel vähemalt ühte parameetrit. Tellimuste numbreid ehituse ajal ei
+ * teata — kohatäitja (aasta 00, sellist tellimust ei looda) võimaldab eelrenderdada lehe kesta; päris
+ * tellimused renderdatakse päringu ajal ja ilma juurdepääsutokenita näidatakse ainult üldist teadet.
+ */
+export function generateStaticParams() {
+  return [{ orderNumber: "SL-00-AAAAAA" }];
+}
+
+/**
  * Kinnitusleht. Tellimus loetakse serverist (töötab ka pärast lehe värskendamist), aga AINULT koos
  * juurdepääsutokeniga, mis on tellimuse esitanud brauseri httpOnly küpsises. Ilma selleta (nt keegi muudab
  * URL-is numbrit) tellimust ei näidata — selleks on tellimuse otsing (number + e-post).

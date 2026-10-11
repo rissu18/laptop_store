@@ -5,6 +5,34 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 ---
 
+## 2026-10-11 — Kassa ja tellimused (ilma makseta)
+
+**Mis lisati**
+
+- **Andmebaas** (migratsioon `0002_orders.sql`, lisav): `orders`, `order_items` (snapshot), `order_status_history`, `order_internal_notes`, `order_lookup_attempts`, välisvõti `discount_redemptions.order_id → orders`. Uus käsk `npm run db:counts` kinnitas, et olemasolevad andmed jäid samaks (38 / 46 / 320, admin, seaded).
+- **Testtellimused:** prototüübis tekivad ainult testtellimused (`is_test`). Need ei võta makset, ei lähe tarnijale, ei vähenda laoseisu, ei kuluta sooduskoodi kasutust ega saada e-kirja. Kui prototüüp lülitatakse välja ilma makseteenuseta, kassa sulgub.
+- **Kassa** (`/kassa`): külalisost, minimaalne päis, kontakt/tarne/ettevõte/märkus, kokkuvõte paremal (mobiilis enne nuppu), nupp „Esita testtellimus“, topeltklikkide kaitse.
+- **Serveripoolne arvutus:** pakkumised otse PostgreSQL-ist (aktiivsus, hetkehind, laoseis), sooduskood uuesti DiscountEngine'iga, tarne seadetest (Standardtarne + tasuta tarne piir). Hinnamuutuse, kadunud toote, laoseisu või kehtetu koodi korral tellimust ei looda ja klient kinnitab uue summa.
+- **Idempotentsus:** `checkoutAttemptId` räsi on andmebaasis UNIQUE. Sama esitus annab sama tellimuse, ka samaaegsete päringute korral.
+- **Tellimuse loomine** ühes tehingus: tellimus, read (snapshot), sooduskoodi snapshot ja ajalugu. Tellimuse number on kujul `SL-26-XXXXXX`.
+- **Kinnitusleht** (`/tellimus/[nr]/kinnitus`) avaneb ainult httpOnly juurdepääsuküpsisega ja töötab ka pärast värskendust.
+- **Tellimuse otsing** (`/tellimus`): number + e-post, üldine vastus, piirang 10 katset / 15 min / IP, ainult avalikud väljad.
+- **Admin:** `/admin/orders` (otsing, filtrid, järjestus, TEST-märk), detailvaade, tühistamine (olekumasin, ajalugu, audit), sisemärkmed (ainult lisamine), töölaual testtellimuste arvud, seadetes tarneviis ja hind.
+- **Liidesed tulevikuks:** `PaymentProvider` (pakkujat pole, võltsmakset ei tehtud), `OrderNotificationService` (Noop), `ShippingMethod`.
+- **Testid:** 230 → 265.
+- Dokumentatsioon: uus docs/ORDERS.md; uuendatud README, ARCHITECTURE, DATABASE, ADMIN, PROJECT_PLAN ja DISCOUNTS.
+
+**Probleemid ja lahendused** (vt ka ORDERS.md §16)
+
+- **Kliendi hind ei tohi määrata tellimuse summat:** testis saadeti `priceCents: 1`. Server ignoreeris seda ja kasutas andmebaasi hinda. Kliendi nähtud hindu kasutatakse ainult muutuse tuvastamiseks.
+- **Topeltesitus:** kolm kiiret esitust lõid ühe tellimuse (UNIQUE-võti ja olemasoleva tellimuse tagastamine).
+- **Kood muutus kassa ajal kehtetuks:** käsitsi testis lülitati kood välja ajal, mil kassa oli avatud. Server näitas põhjust ja uut summat ega loonud tellimust.
+- **Drizzle'i alampäring:** admini nimekirjas oli toodete arv 0, sest ilma join'ita oli välise tabeli veerg alampäringus kvalifitseerimata (`"id"` → `order_items.id`). Parandatud täieliku viitega, lisatud regressioonitest.
+- **Admini leht ei uuenenud** pärast tühistamist ja märkust. Lahendus: `refresh()` server action'is (Next.js 16).
+- **React lähtestab vormi** pärast server action'it ja otsingu väljad tühjenesid. Lahendus: sisestatud väärtused tulevad vastusega tagasi.
+- **Uus välisvõti muutis vana testi kehtetuks** (väljamõeldud `order_id`). Test loob nüüd päris tellimused.
+- **`"use server"` fail tohib eksportida ainult async-funktsioone:** küpsise nime konstant tõsteti eraldi faili.
+
 ## 2026-10-11 — Sooduskoodid
 
 **Mis lisati**

@@ -16,6 +16,7 @@ Custom veebirakendus — ei kasuta WordPressi, WooCommerce'i, Shopifyd ega muud 
 | 2 — Andmebaas (PostgreSQL + Drizzle) | ✅ valmis |
 | 3 — Admin-liides | ✅ valmis — vt [docs/ADMIN.md](docs/ADMIN.md) |
 | 3b — Sooduskoodid | ✅ valmis — vt [docs/DISCOUNTS.md](docs/DISCOUNTS.md) |
+| 5a — Kassa ja tellimused (ilma makseta, testtellimused) | ✅ valmis — vt [docs/ORDERS.md](docs/ORDERS.md) |
 | 4–9 — Tarnija sync (Foxway), checkout, maksed, automaatika, lihvimine, tootmine | planeeritud |
 
 Vt [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md).
@@ -105,6 +106,7 @@ Ava <http://localhost:3000>.
 | `npm run db:migrate` | Rakenda migratsioonid |
 | `npm run db:seed` | Impordi praegune kataloog andmebaasi (idempotentne, ENNE/PÄRAST kontroll) |
 | `npm run db:verify-catalog` | Võrdle mock-kataloogi ja andmebaasi kataloogi |
+| `npm run db:counts` | Olemasolevate andmete arvud (kontroll enne/pärast migratsiooni) |
 | `npm run db:generate` | Uus migratsioon pärast skeemi muutmist |
 | `npm run admin:create` | Loo admin (parool küsitakse varjatult); `-- --reset-password` vahetab parooli |
 | `npm run admin:delete -- <e-post>` | Kustuta admin |
@@ -145,7 +147,7 @@ Andmebaasi testid jooksevad päris PostgreSQL-is **ajutises skeemis**, mis testi
 
 ## Andmebaas
 
-PostgreSQL (Neon) + Drizzle ORM: 18 tabelit, migratsioonid `drizzle/0000_init.sql` ja `drizzle/0001_discount_codes.sql`. Skeem, ORM valiku põhjendus ja impordi tulemused: [docs/DATABASE.md](docs/DATABASE.md).
+PostgreSQL (Neon) + Drizzle ORM: 23 tabelit, migratsioonid `drizzle/0000_init.sql`, `0001_discount_codes.sql` ja `0002_orders.sql`. Skeem, ORM valiku põhjendus ja impordi tulemused: [docs/DATABASE.md](docs/DATABASE.md).
 
 ## Admin
 
@@ -154,6 +156,10 @@ PostgreSQL (Neon) + Drizzle ORM: 18 tabelit, migratsioonid `drizzle/0000_init.sq
 ## Sooduskoodid
 
 `/admin/discounts`: protsent (+ maksimum), fikseeritud summa, tasuta tarne; kehtivusaeg (Eesti aeg, server otsustab), miinimumsumma, kasutuspiirang, tootja/mudeli/konfiguratsiooni piirang ja välistused, marginaalikaitse. Ostukorvis saab korraga kasutada ühte koodi; brauser saadab ainult koodi teksti ja soodustuse arvutab server. Andmemudel, arvutuse järjekord, turvalisus ja tulevane tellimuste integratsioon: [docs/DISCOUNTS.md](docs/DISCOUNTS.md).
+
+## Kassa ja tellimused
+
+Ostukorv → `/kassa` → serveripoolne kontroll (hinnad, laoseis, sooduskood, tarne) → tellimus PostgreSQL-is → kinnitusleht → `/admin/orders` ja tellimuse otsing (`/tellimus`). **Päris makset ei ole.** Prototüübirežiimis tekivad ainult testtellimused: makset ei võeta, tarnijale ei saadeta ja laoseisu ei vähendata. Kui prototüüp lülitatakse välja ilma makseteenuseta, kassa sulgub. Idempotentsus, tellimuse rea snapshot, olekumasin, juurdepääs ja isikuandmed: [docs/ORDERS.md](docs/ORDERS.md).
 
 ## Deploy
 
