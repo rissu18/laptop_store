@@ -5,6 +5,13 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 ---
 
+## 2026-10-11 — Automaatne 5-minutiline Laptopid.ee sync (Upstash QStash)
+
+- QStash schedule `*/5 * * * *` → `GET /api/cron/laptopid-sync` päisega `Authorization: Bearer <CRON_SECRET>` (QStash edastab), 0 korduskatset, timeout 300 s. Koodi ei muudetud.
+- `CRON_SECRET` roteeriti (uus väärtus otse Vercelisse ja QStashi, kuvamata) + production redeploy. QStashi token on ainult kohalikus `.env.local` failis.
+- Kontroll: vale saladus → 401; QStashi käivitused 17:30 ja 17:35 UTC → HTTP 200, `catalog_sync_runs` CRON SUCCESS (305 saadud, ~3,4 s).
+- Probleem: esimene kord ei olnud `.env.local` salvestatud (QStashi muutujaid ei leitud) — kontrolliti ainult nimesid, väärtusi ei kuvatud; pärast salvestamist töötas.
+
 ## 2026-10-11 — Juriidiline info, garantii ja kontaktid (Laptopid.ee live-lehe põhjal)
 
 - **Müüja andmed** ühes kohas (`src/config/company.ts`): Sülearvutid OÜ, registrikood 11740579, Tartu mnt 83, 10115 Tallinn, tel (+372) 6 835 543, mobiil (+372) 56 665 943, lahtiolekuajad E–R 10–18. Kontrollitud Laptopid.ee live-lehelt (jalus, Kontakt, E-poe tingimused). **E-post ainult info@sylearvutid.ee** — Laptopid.ee e-posti ei kasutata.

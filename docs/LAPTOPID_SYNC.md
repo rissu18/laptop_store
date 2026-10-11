@@ -278,7 +278,15 @@ Authorization: Bearer <CRON_SECRET>
 
 Admin → Tarnijad → **"Sync'i seis"**: viimane edukas sync (aeg + vanus), viimase käivituse tulemus, saadud / muutunud / maha võetud / vead. Kui viimasest edukast sync'ist on **üle 15 minuti** (`SYNC_STALE_AFTER_MS`, `src/domain/catalog/sync-health.ts`), kuvatakse hoiatus **"Automaatne sünkroonimine ei ole ajakohane."** Ainult adminis — poes kliendile mitte. Kuni välist ajastajat pole, on hoiatus ootuspäraselt nähtav.
 
-### Välise ajastaja valikud (otsus kasutajal)
+### Aktiivne ajastaja: Upstash QStash (2026-10-11)
+
+- Schedule `scd_696gjRsEk4PkPVQdGeFCn4qGKqco`: `*/5 * * * *` (UTC), `GET https://laptop-store-rouge.vercel.app/api/cron/laptopid-sync`, edastatud päis `Authorization: Bearer <CRON_SECRET>` (`Upstash-Forward-Authorization`), korduskatseid 0 (järgmine käivitus 5 min pärast), timeout 300 s.
+- `CRON_SECRET` roteeriti seadistamisel (uus juhuslik väärtus otse Vercelisse Production/Preview/Development ja QStashi päisesse, ei kuvatud ega salvestatud mujale) + production redeploy. Edastatud päis on nähtav Upstashi konsoolis konto kasutajatele.
+- QStashi token (`QSTASH_TOKEN`, `QSTASH_URL`) on ainult kohalikus `.env.local` failis (gitignored) schedule'i haldamiseks; rakendus seda ei kasuta ja Vercelis seda pole.
+- Kontrollitud: käivitused 17:30 ja 17:35 UTC → QStash `DELIVERED` HTTP 200 (~4 s), `catalog_sync_runs` CRON SUCCESS, 305 saadud. Verceli igapäevane cron (`vercel.json`) jääb varuvõrguks.
+- Haldus: QStashi konsool (Schedules → paus/kustutamine) või API `GET/DELETE $QSTASH_URL/v2/schedules/<id>`. Saladuse roteerimine: uus väärtus korraga Vercelisse (`--force`) ja schedule uuesti luua, siis redeploy.
+
+### Välise ajastaja valikud (võrdlus, valitud QStash)
 
 | | cron-job.org | Upstash QStash | GitHub Actions | Vercel Pro |
 | --- | --- | --- | --- | --- |

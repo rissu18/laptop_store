@@ -63,7 +63,7 @@ Täielik kirjeldus: **docs/LAPTOPID_SYNC.md**.
 - **Täielik snapshot:** puuduv toode → `available = false` ainult usaldusväärse vastusega (puuduvaid ≤ max(10, 25%)); API viga / vigane vastus → kataloog jääb samaks. Admin saab "Luba suur muutus".
 - **Hinnad:** `sale_price` → müügihind (`price_source = SUPPLIER`); `new_price` ainult kontekst; ostuhind `NULL`; hinnastamismootor neid ei puuduta.
 - **Pildid:** pakkumise tasemel `listing_images` (1135 kaug-URL-i laptopid.ee-st, Git'i ei laeta), kuvamine Next/Image kaudu (`remotePatterns` ainult `laptopid.ee/images/product/**`). 4 pilti on Laptopid.ee poolel 404.
-- **Käivitamine:** admin → Tarnijad → **Sync now**; `npm run laptopid:sync`; `GET /api/cron/laptopid-sync` (`Authorization: Bearer <CRON_SECRET>`; 401 vale/puuduv, 503 seadistamata, 200 SUCCESS/BUSY, 502 FAILED). `CRON_SECRET` on Vercelis **Secret** tüübina (Production/Preview/Development, lisatud 2026-10-11, väärtus pole loetav — välise ajastaja seadistamisel genereeri uus ja pane korraga Vercelisse + ajastajasse). `vercel.json`-is igapäevane Vercel Cron (Hobby lubab ainult kord päevas). **5-min väline ajastaja ootab kasutaja valikut** (võrdlus: LAPTOPID_SYNC.md §13).
+- **Käivitamine:** admin → Tarnijad → **Sync now**; `npm run laptopid:sync`; `GET /api/cron/laptopid-sync` (`Authorization: Bearer <CRON_SECRET>`; 401 vale/puuduv, 503 seadistamata, 200 SUCCESS/BUSY, 502 FAILED). `CRON_SECRET` on Vercelis **Secret** tüübina (Production/Preview/Development, lisatud 2026-10-11, väärtus pole loetav — välise ajastaja seadistamisel genereeri uus ja pane korraga Vercelisse + ajastajasse). `vercel.json`-is igapäevane Vercel Cron (Hobby lubab ainult kord päevas). **Aktiivne: Upstash QStash iga 5 min** (schedule `scd_696gjRsEk4PkPVQdGeFCn4qGKqco`, `CRON_SECRET` roteeritud 2026-10-11; QStashi token ainult kohalikus `.env.local`) — vt LAPTOPID_SYNC.md §13.
 - **Admin → Tarnijad → "Sync'i seis":** viimane edukas sync + vanus, viimase käivituse tulemus, arvud; üle 15 min → hoiatus "Automaatne sünkroonimine ei ole ajakohane." (ainult adminis; kuni ajastajat pole, on see ootuspäraselt nähtav). CLI sync ei tühjenda deploy'tud poe vahemälu — siis vajuta adminis "Sync now".
 - Mock-kataloog: 46 pakkumist `ARCHIVED` (alles testide jaoks), mitte poes.
 
@@ -107,7 +107,7 @@ Viimane edukas Vercel production deploy enne seda handoff'i: `a77e106` → **Rea
 
 ## 10. Teadaolevad TODO-d
 
-- 5-minutiline automaatne sync: tehniliselt valmis (cron-otspunkt + `CRON_SECRET`), aga väline ajastaja on valimata ja aktiveerimata (Hobby ei luba). Igapäevane Vercel Cron käivitub nüüd (`CRON_SECRET` olemas).
+- 5-minutiline automaatne sync töötab Upstash QStashiga (tasuta plaan, 288 sõnumit/päev); Verceli igapäevane cron on varuvõrk.
 - Laptopid pildid on märgitud illustratiivseteks (pole kinnitatud, et foto on müüdavast eksemplarist).
 - Hobby pildioptimeerimise limiit 5000 teisendust/kuus (üle selle → illustratsioon); Hobby on Verceli tingimustes mitteäriline.
 - `battery_hours` salvestatakse, aga ei kuvata (tähendus kinnitamata).
@@ -126,7 +126,7 @@ Viimane edukas Vercel production deploy enne seda handoff'i: `a77e106` → **Rea
 
 ## 12. Järgmise töö soovitused (ainult soovitused — kasutaja otsustab)
 
-1. Välise ajastaja valik ja aktiveerimine (cron-job.org / Upstash QStash / Vercel Pro — vt LAPTOPID_SYNC.md §13), uus `CRON_SECRET` korraga Vercelisse ja ajastajasse.
+1. (Tehtud: QStash 5-min sync.) Jälgi admin → Tarnijad "Sync'i seis"; QStashi tõrke korral ilmub stale-sync hoiatus.
 2. Seisukorra klasside päris kirjeldused ja "Uus" täpsustus (kas Demo/Outlet märkida tootelehel eraldi).
 3. Makseteenuse faas (Montonio / Maksekeskus / Stripe) koos LIVE režiimiga.
 4. Väiksemad: privaatsuspoliitika ja ettevõtte andmed, püsiv pildisalvestus (R2), Icecati CLI → `DbImageRepository`, pakiautomaadid.
