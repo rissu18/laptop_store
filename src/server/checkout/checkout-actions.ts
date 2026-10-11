@@ -100,17 +100,19 @@ export async function placeOrderAction(payload: unknown): Promise<PlaceOrderActi
   }
 }
 
-export type LookupState = (LookupResult & { submitted: true }) | { submitted: false };
+/** values = sisestatud väärtused, et vorm ei tühjeneks pärast ebaõnnestunud otsingut */
+export type LookupState = (LookupResult & { submitted: true; values: { orderNumber: string; email: string } }) | { submitted: false };
 
 export async function lookupOrderAction(_prev: LookupState, formData: FormData): Promise<LookupState> {
-  if (!isDatabaseConfigured()) return { submitted: true, ok: false, message: "Tellimuse otsing ei ole hetkel saadaval." };
+  const values = { orderNumber: String(formData.get("orderNumber") ?? "").slice(0, 40), email: String(formData.get("email") ?? "").slice(0, 200) };
+  if (!isDatabaseConfigured()) return { submitted: true, values, ok: false, message: "Tellimuse otsing ei ole hetkel saadaval." };
   try {
     const { ip } = await getClientMeta();
-    const result = await lookupOrder(getDb(), { orderNumber: String(formData.get("orderNumber") ?? "").slice(0, 40), email: String(formData.get("email") ?? "").slice(0, 200), ip });
-    return { submitted: true, ...result };
+    const result = await lookupOrder(getDb(), { ...values, ip });
+    return { submitted: true, values, ...result };
   } catch (error) {
     const errorId = newErrorId();
     await writeSystemLog({ level: "ERROR", source: "APPLICATION", message: "Tellimuse otsing ebaõnnestus", details: { reason: errorMessage(error) }, errorId });
-    return { submitted: true, ok: false, message: `Otsing ebaõnnestus tehnilise vea tõttu (veakood ${errorId}).` };
+    return { submitted: true, values, ok: false, message: `Otsing ebaõnnestus tehnilise vea tõttu (veakood ${errorId}).` };
   }
 }

@@ -1,6 +1,7 @@
 "use server";
 
 import { and, eq } from "drizzle-orm";
+import { refresh } from "next/cache";
 import { z } from "zod";
 import { canTransition, type OrderStatus } from "@/domain/orders/order-status";
 import { getDb } from "@/server/db/client";
@@ -43,6 +44,7 @@ export async function cancelOrderAction(id: string, reason: string): Promise<Act
       return { ...ok(`Tellimus ${order.orderNumber} tühistatud.`), order };
     });
     if (result.ok && "order" in result) {
+      refresh(); // admini leht näitab kohe uut olekut ja ajalugu
       await getOrderNotificationService().send("CANCELLATION", { orderNumber: result.order.orderNumber, isTest: result.order.isTest, customerEmail: result.order.customerEmail });
       return ok(result.message);
     }
@@ -58,7 +60,7 @@ export async function addOrderNoteAction(id: string, _prev: ActionResult | null,
     if (!uuid.safeParse(id).success) return fail("Vigane tellimuse ID");
     const parsed = noteSchema.safeParse(formData.get("note"));
     if (!parsed.success) return fail(parsed.error.issues[0].message, { note: parsed.error.issues[0].message });
-    return getDb().transaction(async (tx) => {
+    const result = await getDb().transaction(async (tx) => {
       const [order] = await tx.select({ id: orders.id, orderNumber: orders.orderNumber }).from(orders).where(eq(orders.id, id));
       if (!order) return fail("Tellimust ei leitud");
       await tx.insert(orderInternalNotes).values({ orderId: id, adminUserId: admin.id, adminEmail: admin.email, note: parsed.data });
@@ -66,5 +68,7 @@ export async function addOrderNoteAction(id: string, _prev: ActionResult | null,
       await writeAudit(tx, admin, { action: "order.note_added", entityType: "Order", entityId: id, entityLabel: order.orderNumber, changes: { noteLength: { from: null, to: parsed.data.length } } });
       return ok("Märkus lisatud.");
     });
+    if (result.ok) refresh();
+    return result;
   });
 }

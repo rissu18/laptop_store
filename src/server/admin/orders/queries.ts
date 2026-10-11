@@ -55,7 +55,9 @@ export async function listOrders(filters: OrderListFilters) {
     "total-desc": [desc(orders.totalCents), desc(orders.createdAt)],
     "total-asc": [asc(orders.totalCents), desc(orders.createdAt)],
   }[filters.sort ?? "newest"];
-  const itemCount = sql<number>`(SELECT coalesce(sum(${orderItems.quantity}), 0)::int FROM ${orderItems} WHERE ${orderItems.orderId} = ${orders.id})`;
+  // NB! Välise tabeli veerg kirjutatakse täielikult kvalifitseerituna: ilma join'ita jätab Drizzle tabeli nime
+  // ära ("id") ja Postgres seoks selle alampäringu tabeli (order_items.id) külge → vale tulemus (0).
+  const itemCount = sql<number>`(SELECT coalesce(sum(oi.quantity), 0)::int FROM ${orderItems} oi WHERE oi.order_id = "orders"."id")`;
 
   const [rows, [{ total }]] = await Promise.all([
     db

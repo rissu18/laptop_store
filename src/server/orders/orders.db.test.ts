@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestDatabase, hasTestDatabase, type TestDatabase } from "@/test/test-db";
 import {
@@ -28,7 +28,7 @@ const state = vi.hoisted(() => ({
   cookies: new Map<string, string>(),
 }));
 
-vi.mock("next/cache", () => ({ updateTag: () => {}, cacheTag: () => {}, cacheLife: () => {} }));
+vi.mock("next/cache", () => ({ updateTag: () => {}, cacheTag: () => {}, cacheLife: () => {}, refresh: () => {} }));
 vi.mock("next/headers", () => ({
   cookies: async () => ({ set: (name: string, value: string) => state.cookies.set(name, value), get: (name: string) => (state.cookies.has(name) ? { value: state.cookies.get(name) } : undefined) }),
   headers: async () => new Headers(),
@@ -405,6 +405,10 @@ describe.skipIf(!hasTestDatabase)("kassa ja tellimused (andmebaas)", () => {
       expect((await listOrders({ page: 1, kind: "real" })).total).toBe(0);
       expect((await listOrders({ page: 1, coupon: "yes" })).rows.every((r) => r.discountCode)).toBe(true);
       const one = all.rows[0];
+      // Tooteid = ridade koguste summa (regressioon: alampäring andis varem 0)
+      const [{ n }] = await t.db.select({ n: sql<number>`sum(${orderItems.quantity})::int` }).from(orderItems).where(eq(orderItems.orderId, one.id));
+      expect(one.itemCount).toBe(n);
+      expect(one.itemCount).toBeGreaterThan(0);
       expect((await listOrders({ page: 1, q: one.orderNumber })).rows.map((r) => r.id)).toEqual([one.id]);
       expect((await listOrders({ page: 1, q: "mari@example" })).total).toBe(all.total);
       const detail = await getOrderDetail(one.id);

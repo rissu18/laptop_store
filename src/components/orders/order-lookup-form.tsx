@@ -18,11 +18,11 @@ export function OrderLookupForm() {
         <form action={formAction} className="mt-8 space-y-4">
           <label className="block text-sm font-medium">
             Tellimuse number
-            <input name="orderNumber" required maxLength={20} autoCapitalize="characters" className={`${inputClass} font-mono uppercase`} placeholder="nt SL-26-A7K4P9" />
+            <input name="orderNumber" defaultValue={state.submitted ? state.values.orderNumber : ""} required maxLength={20} autoCapitalize="characters" className={`${inputClass} font-mono uppercase`} placeholder="nt SL-26-A7K4P9" />
           </label>
           <label className="block text-sm font-medium">
             E-post
-            <input name="email" type="email" required autoComplete="email" maxLength={200} className={inputClass} />
+            <input name="email" defaultValue={state.submitted ? state.values.email : ""} type="email" required autoComplete="email" maxLength={200} className={inputClass} />
           </label>
           {state.submitted && !state.ok && (
             <p role="alert" className="rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">
