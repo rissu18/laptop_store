@@ -88,6 +88,8 @@ storefront_base AS (
   FROM supplier_listings l
   JOIN product_models m ON m.id = l.product_model_id
   WHERE l.status = 'ACTIVE' AND m.status = 'ACTIVE' AND l.available IS NOT FALSE
+    -- tarnija kvaliteedi kinnipidamine (Foxway rike / ülevaatus); admin võib parandusega avaldada (db-catalog-mapper.ts)
+    AND ${eff("l", "qualityHold", "quality_hold")} IS NULL
 ),
 storefront_eligible AS (
   SELECT b.*,

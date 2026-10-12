@@ -12,7 +12,8 @@ import type { listingImages, productImages, productModels, supplierListings } fr
 /**
  * Andmebaasi read → poe kataloogi kirjed (CatalogItem).
  * - Kasutab EFEKTIIVSEID väärtusi (admini parandus ?? tarnija väärtus).
- * - Poes näidatakse ainult ACTIVE mudelite ACTIVE pakkumisi, mis on saadaval (vt domain/catalog/availability.ts)
+ * - Poes näidatakse ainult ACTIVE mudelite ACTIVE pakkumisi, mis on saadaval (vt domain/catalog/availability.ts),
+ *   millel pole tarnija kvaliteedi kinnipidamist (`quality_hold` REVIEW/BLOCKED, nt Foxway rike — efektiivne väärtus)
  *   ja millel on kõik poe jaoks kohustuslikud andmed (CPU, RAM, SSD, seisukord, müügihind, ekraan).
  *   Puudulikud pakkumised ei kao andmebaasist — need on adminis Data Quality all parandamiseks.
  * - Puuduvaid väärtusi ei asendata võltsitud vaikeväärtustega.
@@ -35,7 +36,7 @@ export const STOREFRONT_LISTING_COLUMNS = [
   "screenSizeIn", "resolution", "resolutionLabel", "panel", "touchscreen", "keyboard", "grade", "features",
   "operatingSystem", "warrantyMonths", "batteryHealthPct", "chargerIncluded", "weightKg", "conditionNotes", "details",
   "stock", "available", "deliveryMinDays", "deliveryMaxDays",
-  "salePriceCents", "referencePriceCents", "vatScheme", "firstSeenAt", "lastSyncedAt",
+  "salePriceCents", "referencePriceCents", "vatScheme", "firstSeenAt", "lastSyncedAt", "qualityHold",
 ] as const;
 export const STOREFRONT_IMAGE_COLUMNS = [
   "productModelId", "position", "isHidden", "type", "thumbnailPath", "mediumPath", "largePath", "width", "height", "alt",
@@ -133,7 +134,7 @@ export function mapCatalogRows(
   // tarnija pilte (nt Laptopid.ee fotod Techi sama mudeli pakkumisel). Need on MODEL_GENERIC → "illustratiivne" märge.
   const siblingImagesByModel = new Map<string, ProductImageView[]>();
   for (const listing of listings) {
-    if (siblingImagesByModel.has(listing.productModelId) || listing.status !== "ACTIVE" || listing.available === false) continue;
+    if (siblingImagesByModel.has(listing.productModelId) || listing.status !== "ACTIVE" || listing.available === false || effectiveListing(listing).qualityHold) continue;
     const own = imagesByListing.get(listing.id);
     if (own?.length) siblingImagesByModel.set(listing.productModelId, own);
   }
@@ -146,6 +147,8 @@ export function mapCatalogRows(
     const model = modelById.get(raw.productModelId);
     if (!model || model.status !== "ACTIVE" || raw.status !== "ACTIVE") continue;
     const listing = effectiveListing(raw);
+    // Kinni peetud (ülevaatus / blokeeritud rike) → poes, ostukorvis ega kassas ei kuvata
+    if (listing.qualityHold) continue;
     const stock = resolveStock({ stock: listing.stock, available: listing.available });
     if (!stock.available) continue;
 

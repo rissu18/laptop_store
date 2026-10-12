@@ -33,6 +33,8 @@ export const LISTING_OVERRIDABLE_FIELDS = [
   "warrantyMonths",
   "batteryHealthPct",
   "chargerIncluded",
+  // Tarnija kvaliteedi/ohutuse kinnipidamine (Foxway rikked): admin võib teadlikult avaldada (null) või kinni pidada
+  "qualityHold",
 ] as const;
 export type ListingOverridableField = (typeof LISTING_OVERRIDABLE_FIELDS)[number];
 
