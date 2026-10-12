@@ -163,6 +163,23 @@ export default async function ModelDetailPage({ params }: PageProps<"/admin/prod
             )}
           </Card>
 
+          <Card title="Piltide päritolu" description="Rikastus: meie andmed → Laptopid.ee → Icecat">
+            <DefinitionList
+              items={[
+                { label: "Mudelipildid", value: Object.entries(visibleImages.reduce<Record<string, number>>((acc, image) => ({ ...acc, [image.source]: (acc[image.source] ?? 0) + 1 }), {})).map(([source, n]) => `${source} ${n}`).join(", ") || "puuduvad" },
+                ...(supplier.enrichment?.images
+                  ? [
+                      { label: "Rikastuse otsus", value: supplier.enrichment.images.status },
+                      ...(supplier.enrichment.images.matchedModelSlug ? [{ label: "Laptopid.ee vaste", value: supplier.enrichment.images.matchedModelSlug }] : []),
+                      ...(supplier.enrichment.images.matchedBy ? [{ label: "Vaste alus", value: supplier.enrichment.images.matchedBy }] : []),
+                      ...(supplier.enrichment.images.candidates?.length ? [{ label: "Kandidaadid (ülevaatus)", value: supplier.enrichment.images.candidates.join(", ") }] : []),
+                      ...(supplier.enrichment.images.icecat ? [{ label: "Icecat", value: supplier.enrichment.images.icecat }] : []),
+                    ]
+                  : []),
+              ]}
+            />
+          </Card>
+
           <IcecatPanel modelId={model.id} icecat={icecat} downloadEnabled={!process.env.VERCEL} />
 
           <Card title="Identifikaatorid">

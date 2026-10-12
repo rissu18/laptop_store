@@ -14,7 +14,7 @@ export const metadata: Metadata = { title: "Töölaud" };
 
 export default async function AdminDashboardPage() {
   const [admin, d, discounts, orderCounts] = await Promise.all([requireAdmin(), getDashboard(), getDiscountStatusCounts(), getOrderCounts()]);
-  const issueHref = (key: string) => (["no-images", "icecat-not-found", "icecat-needs-review"].includes(key) ? `/admin/products/models?issue=${key}` : `/admin/products/listings?issue=${key}`);
+  const issueHref = (key: string) => (["no-images", "images-review", "icecat-not-found", "icecat-needs-review"].includes(key) ? `/admin/products/models?issue=${key}` : `/admin/products/listings?issue=${key}`);
 
   return (
     <>

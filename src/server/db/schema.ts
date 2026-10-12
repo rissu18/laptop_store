@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import type { ListingEnrichment, ModelEnrichment } from "@/domain/catalog/enrichment";
 import type { ListingDetails } from "@/domain/catalog/listing-details";
 import {
   bigserial,
@@ -133,6 +134,8 @@ export const productModels = pgTable(
     status: text("status", { enum: CATALOG_STATUSES }).notNull().default("ACTIVE"),
     /** Admini parandused tarnijalt tulnud väljadele (vt docs/ADMIN.md → Manual override) */
     manualOverrides: jsonb("manual_overrides").$type<Record<string, unknown>>().notNull().default({}),
+    /** Rikastuse otsused ja päritolu (pildid: LOCAL / LAPTOPID / ICECAT / REVIEW / UNRESOLVED). Kirjutab ainult `enrich:catalog`; sync ei puutu */
+    enrichment: jsonb("enrichment").$type<ModelEnrichment>(),
     ...timestamps,
   },
   (t) => [
@@ -248,6 +251,11 @@ export const supplierListings = pgTable(
     qualityHoldReason: text("quality_hold_reason"),
     /** Tarnija toorandmed silumiseks — äriloogika neid ei loe */
     rawData: jsonb("raw_data"),
+    /**
+     * Rikastatud tehnilised andmed koos päritoluga (nt integreeritud GPU nimi CPU järgi, kui tarnija ütles "Integrated").
+     * Efektiivne = parandus ?? tarnija ?? rikastus (domain/catalog/enrichment.ts). Kirjutab `enrich:catalog`; sync ei puutu.
+     */
+    enrichment: jsonb("enrichment").$type<ListingEnrichment>(),
     firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
     /** Viimane kord, kui sync selle rea andmeid kinnitas või muutis */
     lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
@@ -387,7 +395,8 @@ export const productImages = pgTable(
     productModelId: uuid("product_model_id")
       .notNull()
       .references(() => productModels.id, { onDelete: "cascade" }),
-    source: text("source", { enum: ["ICECAT", "MANUAL", "SUPPLIER", "PLACEHOLDER"] }).notNull(),
+    /** ICECAT = alla laaditud (meie /media); LAPTOPID = Laptopid.ee tootepildid mudeli tasemel (kaug-URL, enrich:catalog) */
+    source: text("source", { enum: ["ICECAT", "LAPTOPID", "MANUAL", "SUPPLIER", "PLACEHOLDER"] }).notNull(),
     type: text("type", { enum: ["MODEL_GENERIC", "ACTUAL_UNIT", "PLACEHOLDER"] }).notNull(),
     sourceId: text("source_id").notNull(),
     position: integer("position").notNull(),

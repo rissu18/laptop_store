@@ -1,6 +1,7 @@
 import { displayModelName, displayProductTitle } from "@/domain/catalog/display-name";
 import { BRAND_CODES, FEATURE_KEYS, type BrandCode, type CatalogItem, type CpuFamily, type FeatureFlags, type VatScheme } from "@/domain/catalog/types";
 import { resolveStock } from "@/domain/catalog/availability";
+import { applyListingEnrichment, displayGpu } from "@/domain/catalog/enrichment";
 import { buildSearchText } from "@/domain/catalog/search";
 import type { SearchableItem } from "@/domain/catalog/filtering";
 import { MODEL_OVERRIDABLE_FIELDS, applyOverrides, listingOverridableFields } from "@/domain/catalog/overrides";
@@ -37,6 +38,8 @@ export const STOREFRONT_LISTING_COLUMNS = [
   "operatingSystem", "warrantyMonths", "batteryHealthPct", "chargerIncluded", "weightKg", "conditionNotes", "details",
   "stock", "available", "deliveryMinDays", "deliveryMaxDays",
   "salePriceCents", "referencePriceCents", "vatScheme", "firstSeenAt", "lastSyncedAt", "qualityHold",
+  // Väike JSON (rikastatud GPU / resolutsioon + päritolu), mitte toorandmed
+  "enrichment",
 ] as const;
 export const STOREFRONT_IMAGE_COLUMNS = [
   "productModelId", "position", "isHidden", "type", "thumbnailPath", "mediumPath", "largePath", "width", "height", "alt",
@@ -146,7 +149,8 @@ export function mapCatalogRows(
   for (const raw of listings) {
     const model = modelById.get(raw.productModelId);
     if (!model || model.status !== "ACTIVE" || raw.status !== "ACTIVE") continue;
-    const listing = effectiveListing(raw);
+    // Efektiivne: admini parandus ?? tarnija ?? rikastus (enrich:catalog; lehe renderdamisel välisallikaid ei küsita)
+    const listing = applyListingEnrichment(effectiveListing(raw), raw.enrichment);
     // Kinni peetud (ülevaatus / blokeeritud rike) → poes, ostukorvis ega kassas ei kuvata
     if (listing.qualityHold) continue;
     const stock = resolveStock({ stock: listing.stock, available: listing.available });
@@ -192,7 +196,7 @@ export function mapCatalogRows(
         ramGb: listing.ramGb!,
         ramType: listing.ramType,
         storageGb: listing.storageGb!,
-        gpu: { model: listing.gpu ?? "", dedicated: listing.gpuDedicated ?? false },
+        gpu: { model: displayGpu(listing.gpu, listing.gpuDedicated), dedicated: listing.gpuDedicated ?? false },
         display: { resolution: listing.resolution, resolutionLabel: listing.resolutionLabel, panel: listing.panel, touch: listing.touchscreen },
         keyboardLayout: listing.keyboard?.trim() ? listing.keyboard.trim() : null,
         features,

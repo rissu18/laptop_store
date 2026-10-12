@@ -6,7 +6,8 @@
  * Erand: tulevikus `ACTUAL_UNIT` pildid konkreetsest ühikust.
  */
 
-export const IMAGE_SOURCES = ["ICECAT", "MANUAL", "SUPPLIER", "PLACEHOLDER"] as const;
+/** ICECAT = alla laaditud meie salvestusse; LAPTOPID = Laptopid.ee tootepildid mudeli tasemel (kaug-URL, enrich:catalog) */
+export const IMAGE_SOURCES = ["ICECAT", "LAPTOPID", "MANUAL", "SUPPLIER", "PLACEHOLDER"] as const;
 export type ImageSource = (typeof IMAGE_SOURCES)[number];
 
 export const IMAGE_TYPES = ["MODEL_GENERIC", "ACTUAL_UNIT", "PLACEHOLDER"] as const;

@@ -78,7 +78,7 @@ storefront_base AS (
     ${eff("l", "storageGb", "storage_gb", "numeric")} AS storage,
     ${eff("l", "grade", "grade")} AS grade,
     ${eff("l", "keyboard", "keyboard")} AS kb,
-    ${eff("l", "gpu", "gpu")} AS gpu,
+    COALESCE(${eff("l", "gpu", "gpu")}, l.enrichment->'gpu'->>'value') AS gpu,
     ${eff("l", "gpuDedicated", "gpu_dedicated", "boolean")} AS gpu_dedicated,
     ${eff("l", "stock", "stock", "numeric")} AS stock,
     l.available,
@@ -161,7 +161,7 @@ storefront AS (
     COALESCE((
       SELECT CASE split_part(e.cpu_gen, '-', 1)
         WHEN 'intel' THEN g.v WHEN 'ultra' THEN 13 + g.v WHEN 'amd' THEN 6 + g.v / 1000
-        WHEN 'amdai' THEN 15 WHEN 'apple' THEN 10 + g.v ELSE 0 END
+        WHEN 'amdai' THEN 15 WHEN 'apple' THEN 10 + g.v WHEN 'core' THEN 12 + g.v WHEN 'snapdragon' THEN 15 ELSE 0 END
       FROM (SELECT CASE WHEN split_part(e.cpu_gen, '-', 2) ~ '^\d+$' THEN split_part(e.cpu_gen, '-', 2)::numeric END AS v) g
     ), 0) AS gen_rank,
     ${normalize(String.raw`concat_ws(' ',

@@ -154,6 +154,20 @@ export default async function ListingDetailPage({ params }: PageProps<"/admin/pr
               lastSyncedAt={listing.lastSyncedAt}
             />
           )}
+          {(supplier.enrichment?.gpu || supplier.enrichment?.resolution) && (
+            <Card title="Rikastatud andmed" description="Täidavad ainult tarnija tühja välja; admini parandus võidab alati (npm run enrich:catalog / Andmekvaliteet → Rikasta).">
+              <DefinitionList
+                items={[
+                  ...(supplier.enrichment.gpu
+                    ? [{ label: "Graafika", value: `${supplier.enrichment.gpu.value} — ${supplier.enrichment.gpu.source}, ${supplier.enrichment.gpu.matchedBy}` }]
+                    : []),
+                  ...(supplier.enrichment.resolution
+                    ? [{ label: "Resolutsioon", value: `${supplier.enrichment.resolution.value.resolution} — ${supplier.enrichment.resolution.source}, ${supplier.enrichment.resolution.matchedBy}` }]
+                    : []),
+                ]}
+              />
+            </Card>
+          )}
           <Card title="Andmekvaliteet">
             {issues.length === 0 ? (
               <p className="text-sm text-success">Probleeme ei leitud.</p>

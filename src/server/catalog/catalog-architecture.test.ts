@@ -42,6 +42,37 @@ describe("kataloogi lugemistee leping", () => {
   });
 });
 
+describe("rikastus ei jookse lehe renderdamisel (LOCAL-FIRST)", () => {
+  // Poe lugemistee: lehed → catalog-service → SQL-päringud → mapper → komponendid. Ükski neist ei tohi küsida
+  // Laptopid.ee API-t, Icecatit ega käivitada rikastust — rikastuse tulemus on juba meie andmebaasis.
+  const STOREFRONT_PATH = [
+    "src/app/(shop)/toode/[slug]/page.tsx",
+    "src/app/(shop)/sulearvutid/catalog-listing.tsx",
+    "src/app/(shop)/page.tsx",
+    "src/app/api/catalog/route.ts",
+    "src/server/catalog/catalog-service.ts",
+    "src/server/catalog/catalog-queries.ts",
+    "src/server/catalog/db-catalog.ts",
+    "src/server/catalog/db-catalog-mapper.ts",
+    "src/components/product/quick-specs.tsx",
+    "src/components/product/spec-sections.tsx",
+    "src/domain/catalog/enrichment.ts",
+    "src/domain/catalog/quick-specs.ts",
+  ];
+
+  it.each(STOREFRONT_PATH)("%s ei impordi välisallikaid ega rikastusteenust", (file) => {
+    const code = source(file);
+    expect(code).not.toMatch(/@\/integrations\/icecat|@\/integrations\/laptopid\/laptopid-client|@\/server\/enrichment|@\/server\/images\/icecat-image-import/);
+    expect(code).not.toMatch(/\bfetch\(\s*["'`]https?:/);
+  });
+
+  it("mapper rakendab rikastust ainult andmebaasi väljast (supplier_listings.enrichment)", () => {
+    const mapper = source("src/server/catalog/db-catalog-mapper.ts");
+    expect(mapper).toContain("applyListingEnrichment(effectiveListing(raw), raw.enrichment)");
+    expect(mapper).toMatch(/STOREFRONT_LISTING_COLUMNS = \[[\s\S]*"enrichment"/);
+  });
+});
+
 describe("kaardi pildid", () => {
   const image = (largeUrl: string): ProductImageView => ({ thumbnailUrl: "/t.webp", mediumUrl: "/m.webp", largeUrl, width: 800, height: 600, alt: "pilt", type: "MODEL_GENERIC" });
 

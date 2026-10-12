@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Card, PageHeader } from "@/components/admin/ui";
+import { EnrichCatalogButton } from "@/components/admin/enrich-catalog-button";
 import { cx } from "@/components/ui/class-names";
 import { getDataQualityCounts, type IssueCount } from "@/server/admin/data-quality/queries";
 
@@ -41,6 +42,31 @@ export default async function DataQualityPage() {
         breadcrumbs={[{ label: "Kataloog" }, { label: "Andmekvaliteet" }]}
         description={`Kontrollid arvestavad parandatud (efektiivseid) väärtusi. Kokku ${totalIssues} probleemi. Klõpsa kategoorial, et näha kirjeid; "Paranda" avab detailvaate.`}
       />
+      <div className="mb-6 grid gap-6 lg:grid-cols-2">
+        <Card title="Pildiallikad" description="Mudelid poes kuvatava pildi päritolu järgi (rikastuse prioriteet: meie andmed → Laptopid.ee → Icecat)">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-muted">
+                <th className="py-1 font-normal">Allikas</th>
+                <th className="py-1 text-right font-normal">Mudeleid</th>
+                <th className="py-1 text-right font-normal">neist müügis</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {data.imageSources.map((row) => (
+                <tr key={row.key}>
+                  <td className="py-1.5">{row.label}</td>
+                  <td className="py-1.5 text-right tabular-nums">{row.all}</td>
+                  <td className="py-1.5 text-right tabular-nums">{row.onSale}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+        <Card title="Rikastus" description="Laptopid.ee pildid mudelitele (kindla vastega) ning integreeritud GPU / resolutsioon meie andmetest. Admini parandusi ega peidetud pilte ei puudutata; ebakindel vaste läheb ülevaatusele. Icecat: lokaalselt `npm run enrich:catalog -- --images --icecat`.">
+          <EnrichCatalogButton />
+        </Card>
+      </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <Card title={`Mudelid (${data.modelTotal})`} description="Pildid ja Icecati vasted">
           <IssueList items={data.models} total={data.modelTotal} basePath="/admin/products/models" unit="mudelitest" />

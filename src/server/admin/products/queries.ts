@@ -5,7 +5,7 @@ import type { ListingIssue, ModelIssue } from "@/domain/admin/data-quality-rules
 import { effectiveListing, effectiveModel } from "@/server/catalog/db-catalog-mapper";
 import { requireAdmin } from "@/server/auth/auth";
 import { getDb } from "@/server/db/client";
-import { icecatMetadata, productIdentifiers, productImages, productModels, supplierInventoryUnits, supplierListings } from "@/server/db/schema";
+import { icecatMetadata, listingImages, productIdentifiers, productImages, productModels, supplierInventoryUnits, supplierListings } from "@/server/db/schema";
 
 /**
  * Admini andmepäringud tootekataloogi jaoks. Iga eksporditud funktsioon kontrollib ise admini
@@ -21,6 +21,9 @@ function effectiveSql(overrides: AnyColumn, column: AnyColumn, field: string): S
 const listingEff = (field: (typeof LISTING_OVERRIDABLE_FIELDS)[number]) =>
   effectiveSql(supplierListings.manualOverrides, supplierListings[field] as AnyColumn, field);
 
+/** = data-quality-rules.ts → keyboardReportedMissing (keyboard.ts MISSING_PATTERN): tarnija teatas "Missing Keyboard" */
+const KEYBOARD_REPORTED_MISSING = sql`(COALESCE(${supplierListings.rawData}->'foxway'->>'keyboard', ${supplierListings.details}->>'keyboardRaw', '') ~* '^\s*((missing|no|without)\s*keyboard|keyboard\s*missing)\s*$')`;
+
 export function listingIssueCondition(issue: ListingIssue): SQL {
   switch (issue) {
     case "missing-cpu":
@@ -34,7 +37,9 @@ export function listingIssueCondition(issue: ListingIssue): SQL {
     case "missing-grade":
       return sql`${listingEff("grade")} IS NULL`;
     case "unknown-keyboard":
-      return sql`${listingEff("keyboard")} IS NULL`;
+      return sql`${listingEff("keyboard")} IS NULL AND NOT ${KEYBOARD_REPORTED_MISSING}`;
+    case "missing-keyboard":
+      return sql`${listingEff("keyboard")} IS NULL AND ${KEYBOARD_REPORTED_MISSING}`;
     case "missing-sale-price":
       return isNull(supplierListings.salePriceCents);
     case "missing-stock":
@@ -48,7 +53,10 @@ const visibleImageCount = sql<number>`(SELECT count(*)::int FROM ${productImages
 export function modelIssueCondition(issue: ModelIssue): SQL {
   switch (issue) {
     case "no-images":
-      return sql`${visibleImageCount} = 0`;
+      // Efektiivne (sama mis pood): mudelipildid VÕI mõne müügis pakkumise oma fotod (Laptopid.ee)
+      return sql`${visibleImageCount} = 0 AND NOT EXISTS (SELECT 1 FROM ${listingImages} li JOIN ${supplierListings} sl ON sl.id = li.supplier_listing_id WHERE sl.product_model_id = ${productModels.id} AND NOT li.is_hidden AND sl.status = 'ACTIVE' AND sl.available IS NOT FALSE)`;
+    case "images-review":
+      return sql`${productModels.enrichment}->'images'->>'status' = 'REVIEW'`;
     case "icecat-not-found":
       return sql`EXISTS (SELECT 1 FROM ${icecatMetadata} WHERE ${icecatMetadata.productModelId} = ${productModels.id} AND ${icecatMetadata.status} = 'NOT_FOUND')`;
     case "icecat-needs-review":
