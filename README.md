@@ -20,7 +20,8 @@ Custom veebirakendus — ei kasuta WordPressi, WooCommerce'i, Shopifyd ega muud 
 | 4a — Päris kataloog Laptopid.ee API-st (sync → PostgreSQL) | ✅ valmis — vt [docs/LAPTOPID_SYNC.md](docs/LAPTOPID_SYNC.md) |
 | Laptopid.ee automaatne sync (Upstash QStash: päeval iga 30 min, öösel iga 2 h) | ✅ töötab |
 | 4b — Teine tarnija: Tech hinnakiri (Google Sheets XLSX → PostgreSQL, füüsilised seadmed + seerianumbrid) | ✅ valmis — vt [docs/TECH_SYNC.md](docs/TECH_SYNC.md) |
-| 4–9 — Foxway, maksed, automaatika, lihvimine, tootmine | planeeritud |
+| 4c — Kolmas tarnija: Foxway API (SKU, täpne laoseis, rikete ohutusklassifikaator, käsitsi hange; QStash päeval 30 min / öösel 2 h) | ✅ valmis — vt [docs/FOXWAY_SYNC.md](docs/FOXWAY_SYNC.md) |
+| 5–9 — maksed, automaatika, lihvimine, tootmine | planeeritud |
 
 Vt [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md).
 
@@ -86,6 +87,8 @@ Seejärel ava <http://localhost:3000/admin/login>. Admini kasutajat ega parooli 
 | `ICECAT_CONTENT_TOKEN` | – | Valikuline; saadetakse ainult HTTP päises |
 | `LAPTOPID_API_KEY` | – | Laptopid.ee API võti (ainult server, ainult HTTP päises `X-API-Key`) |
 | `LAPTOPID_API_BASE_URL` | – | Laptopid.ee API kataloog (`https://laptopid.ee/api/sulearvutid/`); sellest ehitatakse `products.php` ja `images.php`. Puudumisel sync ei käivitu (tagavara-URL-i pole) |
+| `FOXWAY_API_BASE_URL` | – | Foxway API aadress (`https://foxway.shop`, Config). Puudumisel Foxway sync ei käivitu |
+| `FOXWAY_API_KEY` | – | Foxway API võti (**saladus**, ainult server, HTTP päises `X-ApiKey`; Vercelis Sensitive) |
 | `TECH_SHEET_URL` | – | Techi avaliku Google Sheetsi hinnakirja aadress (Config, mitte saladus); sellest ehitatakse XLSX ekspordi URL. Puudumisel Tech sync ei käivitu |
 | `CRON_SECRET` | – | Ajastatud sync'i otspunkti kaitse (`Authorization: Bearer …`, vähemalt 16 märki). Puudumisel otspunkt ei käivitu. Vercelis Secret-tüübina |
 
@@ -176,6 +179,10 @@ Laptopid.ee API → valideerimine → normaliseerimine → sync → PostgreSQL �
 ## Teine tarnija (Tech hinnakiri)
 
 Techi avalik Google Sheet → **XLSX** (mitte CSV — müüdud seadmed on tähistatud Brand/Model lahtri taustavärviga) → ainult sülearvutite tabid/sektsioonid → iga rida = füüsiline seade (Tech ID + seerianumber, ainult admin) → sama konfiguratsiooni ja hinnaga seadmed üheks pakkumiseks täpse laoseisuga. Seisukord B, müügihind = hinnakirja hind + 60 € (ostuhind − 20 €), tarne 1–2 tööpäeva. Defekti või tundmatu märkusega seadmed, tahvelarvutid ja vigased read jäävad välja. Sync: admin → Tarnijad → Tech → **Sync now**, `npm run tech:sync` või `/api/cron/tech-sync` (QStash: tööpäeviti 10–20 iga tund + iga öö 03:00). Vt [docs/TECH_SYNC.md](docs/TECH_SYNC.md).
+
+## Kolmas tarnija (Foxway API)
+
+Foxway API (ainult sülearvutid: working + new × PC + Mac) → Zod → normaliseerimine → **rikete ohutusklassifikaator** (mõlemad rikkeväljad; kosmeetika/nõrgad LCD laigud müüki eestikeelse märkusega, katkine riistvara ja tundmatu rike poodi ei lähe) → dedup **SKU** järgi → PostgreSQL. Täpne laoseis, tarne 2–4 tööpäeva, hind = Foxway hind + KM + 60 € + laadija (0/35/90 €). Seisukord Brand New → Uus, A+/A/B/C+/C. Tellimine Foxwayst käsitsi (hankekirje tellimusel). Sync: admin → Tarnijad → Foxway → **Sync now**, `npm run foxway:sync [-- --dry-run]` või `/api/cron/foxway-sync` (QStash). Vt [docs/FOXWAY_SYNC.md](docs/FOXWAY_SYNC.md).
 
 ## Kassa ja tellimused
 

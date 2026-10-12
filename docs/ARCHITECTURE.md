@@ -239,6 +239,30 @@ Google Sheet → XLSX eksport (mitte CSV: müüdud = Brand/Model lahtri taustav�
 
 Täpsemalt: [TECH_SYNC.md](TECH_SYNC.md).
 
+## Foxway API (kolmas päris tarnija)
+
+```
+Foxway API (working/new × PC/Mac sülearvutid, 4 päringut; ainult server, X-ApiKey env-ist)
+  → Zod (rida-haaval) → normaliseerimine + rikete ohutusklassifikaator (INFO / NOTICE / REVIEW / BLOCK)
+  → dedup SKU järgi üle kataloogide (kogust ei liideta) → usaldusväärsus → sync (lukk FOXWAY, üks tehing)
+  → product_models (olemasolev mudel taaskasutatakse) + supplier_listings (quality_hold, supplier_vat_margin)
+  → catalog-queries (SQL-filtrid, LIMIT, quality_hold gate) → pood / otsing / ostukorv / kassa
+```
+
+Lõputöö jaoks olulised otsused:
+
+- **Supplier API → local DB → storefront:** pood ei tee kunagi runtime-päringut Foxway API-sse; Foxway seisak ei mõjuta poodi (müüakse viimast edukat seisu).
+- **SKU on pakkumise identiteet, ItemVariantId mitte:** ühel ItemVariantId-l on mitu eri seisukorra/klaviatuuri/hinna/rikkega SKU-d. Sama SKU kahes kataloogis (working + new) = üks pakkumine, kogus ei kahekordistu.
+- **Täpne laoseis** (Foxway Quantity) vs Laptopid.ee "teadmata kogus" — mõlemat toetab sama `availability.ts` (`stock` + `available`).
+- **Usaldusväärne snapshot:** puuduvaid võetakse maha ainult siis, kui kõik 4 päringut õnnestusid ja muutus pole kahtlaselt suur; tühi HTTP 200 vastus (Foxway ilma gzip-päiseta) on viga, mitte tühi nimekiri.
+- **Rikete ohutus "default closed":** tundmatu rikketekst ei ole kunagi ohutu (REVIEW/BLOCK); kontrollitakse mõlemat rikkevälja ka "Working" ridadel. Gate on andmebaasis (`quality_hold`) ja rakendub SQL-is ning mapperis ühtviisi (pood, tooteleht, ostukorv, kassa); admin saab teadlikult üle kirjutada (manual override).
+- **Laadija lisatasu** keskses helperis (`domain/catalog/charger.ts`, võimsusklass `power-class.ts` — sama, mida kasutab sarnaste toodete järjestus), mitte if'idena koodis.
+- **Mudeli taaskasutus + pildid:** sama jagatud resolver mis Laptopid.ee/Tech + Apple'i võtmete vaste; pildid sama hierarhiaga (Icecat → teise tarnija pildid → illustratsioon).
+- **Käsitsi hange:** automaatset tarnija tellimust ei ole; tellimusel tekib `order_item_procurements` kirje (SKU, ItemVariantId, hinnakirja hinna snapshot), tegelik ostuhind eraldi.
+- **Klaviatuur kogu poe ulatuses:** üks register (`domain/catalog/keyboard.ts`), filtri valikud SQL-ist.
+
+Täpsemalt: [FOXWAY_SYNC.md](FOXWAY_SYNC.md).
+
 ## Hulgilao integratsioon
 
 ```ts

@@ -280,3 +280,15 @@ Täielik kirjeldus: [TECH_SYNC.md](TECH_SYNC.md).
 - **Parandused:** nagu Laptopid.ee puhul — tarnija veerud + `manual_overrides`; sync parandusi ei puutu (testitud: parandus 429 € jääb kehtima, tarnija väärtus 440 € on nähtav, "Taasta" viib tagasi).
 - **Tellimuse leht:** kaart "Seerianumbrid (tarnija seadmed)" — vt [ORDERS.md](ORDERS.md#17-tarnija-seadmed-ja-seerianumbrid-tech).
 - Süsteemilogi filtris on uus allikas **Tech**.
+
+## 18. Tarnijad (Foxway API)
+
+Täielik kirjeldus: [FOXWAY_SYNC.md](FOXWAY_SYNC.md).
+
+- **`/admin/suppliers` → sektsioon "Foxway (API)":** API ja cron'i seadistus, viimane edukas sync / viimane katse + kestus, read feed'i kaupa (Working PC, Working Mac, Brand New PC, Brand New Mac), unikaalsed SKU-d pärast dedup'i, täpne laoseis kokku, uued / muutunud / muutmata / maha võetud, poodi sobivad, blokeeritud, ülevaatusel, duplikaat-SKU-d ja konfliktid, vigased read, mudelid (olemasolev/uus), pildid (taaskasutatud / Icecat / puudu), tundmatud rikketekstid, rikete jaotus, näidised (blokeeritud, ülevaatus, vigased, duplikaadid, piltideta mudelid), käivituste tabel, stale-hoiatus (päeval 45 min / öösel 150 min), loendur **"Tellida Foxwayst"**.
+- **Sync now (Foxway):** `syncFoxwayNowAction` — sama kaitse ja teenus mis cron; "Luba suur muutus". Audit `foxway.sync`; detailid süsteemilogis (allikas Foxway).
+- **Konfiguratsiooni leht (Foxway):** kaart "Foxway" — avaldamise otsus + põhjus, Foxway SKU, ItemVariantId, algne ProductName, kataloog(id), täpne Quantity, Foxway hind ja müügihinna arvutus (hind + KM + 60 € + laadija), IsVatMargin, Appearance, Functionality, primaarne ja lisarike + klass (tundmatu märgitud), Boxed + laadija lisatasu ja põhjus (0/35/90 €), Keyboard, Battery status (kliendile ei kuvata), LCD, GPU, Drive, COA, värv, MPN, viimane sync.
+- **"Kvaliteedi kinnipidamine"** (vormis, parandusena): admin saab ülevaatusel/blokeeritud pakkumise teadlikult avaldada või mis tahes pakkumise kinni pidada; sync parandust üle ei kirjuta, "Taasta" viib tarnija otsuse juurde. Vormist puuduv väli ei tekita enam tahtmatut parandust.
+- **Konfiguratsioonide nimekiri:** filtrid **Tarnija** ja **Avaldamine** (avaldatav / ülevaatus / blokeeritud), veerg "Avaldamine".
+- **Tellimuse leht:** kaart "Tarnijalt tellimine (Foxway)" — vt [ORDERS.md](ORDERS.md#18-tarnijalt-käsitsi-tellimine-foxway).
+- Klaviatuuri valik konfiguratsiooni vormis tuleb registrist (`keyboard.ts`), seisukorra valikus on **C+**.

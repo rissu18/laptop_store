@@ -250,3 +250,14 @@ Tech müüb konkreetseid füüsilisi seadmeid (Tech ID + seerianumber, vt [TECH_
 - `order_items` jääb muutumatuks snapshot'iks (mudel, CPU, RAM, salvestus, seisukord, hind, soodustus). Seerianumber on eraldi admini seos.
 - **Klient ei näe seerianumbrit:** kinnitusleht ja tellimuse otsing (`public-order.ts`) seda tabelit ei loe (test kontrollib).
 - **TODO (makse/LIVE faas):** makse kinnitamisel tuleb seade reserveerida/kulutada samas tehingus tellimuse ja makse kinnitusega, käsitleda olukorda, kus Tech müüs seadme vahepeal mujal, ning vajadusel määrata seade automaatselt.
+
+## 18. Tarnijalt käsitsi tellimine (Foxway)
+
+Foxway kaupa ei tellita automaatselt (ei Foxway order API-t, dropshippingut ega tarnija kassat) — tellime käsitsi, sest enne võib küsida erihinda. Admin peab nägema, mida tellida.
+
+- Tabel **`order_item_procurements`** (1:1 tellimuse reaga). Luuakse `placeOrder` tehingus (`createProcurementRecords`), kui rea pakkumine on tarnijalt, kellelt kaup tuleb eraldi tellida (`PROCUREMENT_SUPPLIERS = ["foxway"]`). Snapshot (ei muutu, ka kui Foxway hind hiljem muutub): tarnija, **Foxway SKU**, **ItemVariantId**, Foxway tootenimi, **hinnakirja hind tellimuse hetkel** (neto) ja valuuta. Kliendi müügihind = `order_items.unit_price_cents`.
+- Seis: **Tellida Foxwayst → Foxwayst tellitud → Tarnija saatnud → Meieni jõudnud** (`TO_ORDER → ORDERED → SUPPLIER_SHIPPED → RECEIVED`); kuupäevad (`ordered_at`, `supplier_shipped_at`, `received_at`) täituvad seisu muutmisel ise, tagasi parandades tühjenevad hilisemad.
+- Muudetav: tarnija tellimuse viide, märkus, **tegelik ostuhind** (`actual_purchase_price_cents` — võib erineda hinnakirja hinnast; mõlemad säilivad), valikuline seerianumber (Foxway annab selle alles pärast tellimist; ei ole kohustuslik).
+- `updateProcurementAction`: sessioon + päritolu/CSRF (`runAdminAction`), tehingus `FOR UPDATE`, audit `order.procurement`.
+- Testtellimusel tekib kirje samuti (adminis märge "Testtellimus — tarnijalt ei tellita"); Tarnijad → Foxway loendur arvestab ainult päris tühistamata tellimusi.
+- Kliendile hankeinfot ei näidata (avalik tellimuse vaade seda tabelit ei loe).

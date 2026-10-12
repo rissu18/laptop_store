@@ -5,6 +5,34 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 ---
 
+## 2026-10-12 — Foxway: kolmas päris tarnija (API → PostgreSQL → pood)
+
+**Miks:** Foxway (Tartu ladu) on suur kasutatud ja uute sülearvutite hulgimüüja. Eesmärk: importida ainult sülearvutid (PC + Mac, working + new), müüa ainult töökorras seadmeid, hoida pood kiire ka 1000+ pakkumisega ja tellida Foxwayst käsitsi.
+
+**Mis tehti:**
+- **API klient** (server-only, `X-ApiKey` env-ist, Zod): 4 päringut (working/new × PC/Mac); kõik peavad õnnestuma, muidu sync FAILED ja kataloog jääb samaks.
+- **Identiteet SKU**, mitte ItemVariantId; sama SKU kahes kataloogis → üks pakkumine (kogust ei liideta, konflikt logitakse).
+- **Rikete ohutusklassifikaator** (INFO / NOTICE / REVIEW / BLOCK, tundmatu = REVIEW): kontrollib mõlemat rikkevälja ka "Working" ridadel; `quality_hold` gate SQL-is ja mapperis (pood, tooteleht, ostukorv, kassa). Kliendile eestikeelne "Seisukorra märkus".
+- **Hind** = Foxway hind + KM + 60 € + laadija; **laadija lisatasu** keskses helperis (0 / 35 / 90 €, tööjaam või jõudlusgraafika).
+- **Seisukord C+** uue eraldi klassina; **klaviatuuri register kogu poe jaoks** + SQL-ist tulev filter; Snapdragon X CPU filter; uued tootjad (MSI, Huawei, LG …).
+- **Mudelite taaskasutus** (sama slug kui Laptopid.ee/Tech, Apple'i võtmete vaste), garantii max(12, Laptopid.ee mudeli garantii), aku 6 kuud, Maci "Retina" → mudeli resolutsioon.
+- **Admin:** Foxway kaart (feed'id, SKU-d, blokeeritud/ülevaatus, duplikaadid, pildid, tundmatud rikked, Sync now), konfiguratsiooni Foxway andmed + "Kvaliteedi kinnipidamine", filtrid Tarnija/Avaldamine, **käsitsi hange** tellimusel (`order_item_procurements`: Tellida Foxwayst → tellitud → saadetud → kohal, tegelik ostuhind eraldi).
+- **QStash** päeval iga 30 min, öösel iga 2 h; `npm run foxway:sync [-- --dry-run]`.
+- Migratsioon **0005** (ainult lisav).
+
+**Tulemus (esimene tootmissync):** 743 rida → 741 SKU-d, 1374 tk; poodi 630, blokeeritud 94, ülevaatus 17; mudelid 71 olemasolevat + 248 uut. Pood kokku 1128 pakkumist; kataloogi lehekülg ikka 24 kaarti, filtri vastus 1,6–6,9 KB gzip.
+
+**Probleemid ja lahendused:**
+1. Foxway API tagastab ilma `Accept-Encoding: gzip` päiseta **HTTP 200 ja tühja keha** — ohtlik, sest "tühi nimekiri" võtaks kõik maha. Lahendus: päis alati, tühi keha = viga (EMPTY_BODY), `[]` = tühi nimekiri.
+2. Esimene tootmissync Vercelis ebaõnnestus (TimeoutError keha lugemisel, kohalikult < 0,5 s) — **ohutusreeglid töötasid, midagi ei muutunud**. Põhjus oli Next.js-i paigatud `fetch`; lahendus `node:https` + zlib transport → 4 päringut ~1 s.
+3. Feedis oli 32 erinevat rikketeksti (juhendis ~15) — kõik klassifitseeriti konservatiivselt (nt "Port Not Working (USB)", "Loose Hinge" → BLOCK; "SIM Tray Missing" → REVIEW). Klaviatuuri väljal "Missing Keyboard" → BLOCK.
+4. Tehniliste andmete tabel näitas tarnija andmata omadusi (HDMI, sõrmejälg …) "Ei"-na (ka Techil) — mapper annab nüüd puuduvale võtmele NULL (rida peidetakse).
+5. Admini vormis puuduv väli oleks salvestamisel tekitanud tahtmatu paranduse (`qualityHold: null` → avaldanuks blokeeritud SKU) — `pick` jätab nüüd puuduvad väljad välja ja väli on vormis.
+
+**Jõudlus (lokaalselt → Neon, soe):** 500 → 1128 pakkumist: lehekülg 86 → 134 ms, filter 79 → 107 ms, tooteleht 30 → 29 ms, otsing 151 → 270 ms. Vana 2 MB täiskataloogi arhitektuuri tagasi ei tulnud (SQL-filtrid, LIMIT, ainult lehe pildid).
+
+---
+
 ## 2026-10-12 — Jõudluse sprint: kataloog, filtrid ja tooteleht andmebaasipäringutega
 
 **Miks:** filtriklikk võttis tootmises 0,7–0,9 s ja saatis ~300 KB RSC-d; tooteleht 0,6–0,9 s. Võrdlus: Laptopid.ee vana (Yii/PHP) filter vastab ~170 ms ja ~2,3 KB gzip HTML-iga, sest server filtreerib SQL-is ja tagastab ainult ~40 tulemust. Võtsime üle põhimõtte (mitte koodi: vanas süsteemis on SQL-i stringiliitmine, EAV + LIKE ja sessioonipõhine filter).
