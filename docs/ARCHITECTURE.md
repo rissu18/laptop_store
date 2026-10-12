@@ -150,7 +150,8 @@ ProductModel (+ tarnija GTIN/MPN + data/icecat/model-identifiers.json)
 | Andmed | Allikas (source of truth) |
 | --- | --- |
 | CPU, RAM, SSD, GPU, ekraan, puuteekraan, klaviatuur, OS, seisukord, laoseis, hind, garantii, aku | **Tarnija pakkumine** (SupplierListing) |
-| Mudeli üldpildid, galerii, Icecati identifikaatorid | **Icecat** |
+| Mudeli üldpildid, galerii, Icecati identifikaatorid | **Laptopid.ee fotod (rikastus) → Icecat** (vt Kataloogi rikastus) |
+| Integreeritud GPU nimi, kui tarnija ütles "Integrated"; Apple "Retina" resolutsioon | Rikastus meie andmetest (`supplier_listings.enrichment`), tarnija väärtus ja admini parandus võidavad |
 
 Icecati vaste on tihti üks konkreetne SKU (nt Saksa klaviatuur, puuteekraan, teine RAM/SSD). Selle tehnilisi andmeid **ei kirjutata kunagi** meie pakkumistesse — `ProductImageRecord` ei sisalda ühtegi tehnilist välja (test kontrollib seda). Mudelitaseme lisaandmeid võib Icecatist võtta ainult eraldi otsusega. Kuna Icecati pildil võib olla teine klaviatuur, kuvatakse galerii juures alati märge *"Tootepildid on illustratiivsed. Seadme tegelik konfiguratsioon ja kosmeetiline seisukord vastavad tootekirjelduses märgitule."* (`ACTUAL_UNIT` piltide puhul seda ei kuvata).
 
@@ -199,6 +200,26 @@ Icecati vaste on tihti üks konkreetne SKU (nt Saksa klaviatuur, puuteekraan, te
 | Kas pildid jäävad alles, kui deploy asendatakse? | Vercelis neid praegu pole. Kui import jookseks Verceli runtime'is, kaoksid failid järgmise deploy'ga (failisüsteem ei ole püsiv) — seetõttu seda ei tehta. |
 
 Tootmises on vaja püsivat S3-ühilduvat salvestusruumi (`S3CompatibleImageStorageAdapter`). Teenus on valimata (vajab omaniku otsust, vt PROJECT_PLAN.md R13). Import jookseb siis serveris/arvutis, failid lähevad salvestusruumi ja kirjed (Phase 2-s) andmebaasi.
+
+## Kataloogi rikastus (LOCAL-FIRST)
+
+Pildid ja osa tehnilisi andmeid rikastatakse **prioriteediga meie andmebaas → Laptopid.ee andmed → Icecat**, aga **mitte kunagi lehe renderdamisel**:
+
+```
+tarnija sync / npm run enrich:catalog / admin "Rikasta kataloogi"
+  → src/server/enrichment/catalog-enrichment.ts (offline, idempotentne, taaskäivitatav)
+  → MEIE andmebaas: product_images (LAPTOPID / ICECAT), product_models.enrichment, supplier_listings.enrichment
+  → pood loeb AINULT andmebaasi (catalog-queries + mapper: efektiivne = parandus ?? tarnija ?? rikastus)
+```
+
+- **"Laptopid.ee andmed"** = Laptopid.ee pakkumised ja nende fotod meie andmebaasis (sync'itud `products.php`/`images.php`, ka müüdud pakkumiste pildid jäävad alles). Eraldi Laptopid.ee andmebaasi ega API päringut rikastus ei tee.
+- **Pildid (mudeli tasemel):** (1) mudelil on juba nähtavad pildid (Icecat, admin, varasem rikastus) → ei puututa; admini peidetud Laptopid.ee pilte tagasi ei lisata. (2) Sama mudeli Laptopid.ee fotod (parim galerii: müügis → enim pilte; < 500 px pisipildid ja duplikaadid välja, max 12) või **kindel vaste** teise Laptopid.ee mudeliga → `product_images` allikaga `LAPTOPID` (kaug-URL, Next/Image nagu pakkumise fotod). (3) Ainult vasteta + müügis + GTIN/MPN-iga mudel → Icecat (olemasolev pipeline: pealkirja kontroll, allalaadimine `public/media/products` alla — ainult lokaalselt, failid commit'itakse). Identifikaatorita mudelile Icecati päringut ei tehta.
+- **Vaste (`domain/catalog/model-match.ts`):** sama tootja + normaliseeritud seeria/mudeli sõnade hulk (`Gen 6` = `(6th Gen)` = `G6`; "Touch", "(Intel)", aasta, ekraani tollid välja) + ekraan ±0,7". **Apple:** rida (MacBook/Air/Pro) + suurus + aasta + kiip (M1/M2…/Intel) tarnija algsest tootenimest ja CPU-st (Foxway "Apple MacBook Pro (16" 2023, M2)" → mudel "M2 Pro 2023" ei kaota suurust). Täpselt üks kandidaat → MATCH (0,95); mitu või üks sõna erineb ("7310" vs "7310 Carbon", "L15" vs "L15 Gen 1") → **REVIEW, pilte ei lisata**; muu → UNRESOLVED. Fuzzy-vastet ei tehta.
+- **GPU:** tarnija ütles "Integrated" (NULL + `gpu_dedicated = false`) → integreeritud GPU nimi **sama CPU** järgi (iGPU sõltub ainult protsessorist), Laptopid.ee pakkumiste väärtus eelistatud, muidu meie muude pakkumiste oma; ainult üksmeelne väärtus. Täpset tarnija GPU-d ega admini parandust ei asendata. Kui täpsemat pole → kuvatakse "Integreeritud graafika".
+- **Resolutsioon:** tarnija andis ainult nime (Apple "Retina") → sama mudeli + sama ekraani pakkumiste üksmeelne resolutsioon (kui on).
+- **CPU põlvkond ja klaviatuur** on tarnija toorväärtusest tuletatavad → teeb tarnija sync (keskne parser `cpu-filter.ts → parseCpuInfo`, klaviatuuriregister `keyboard.ts`); tarnija toorväärtus säilib (`raw_data`, `details.keyboardRaw`). Laptopid.ee/Icecat ei anna konfiguratsiooni CPU-d/klaviatuuri mudeli kaupa, seega neid sealt ei võeta.
+- **Vahemälu:** QStashi/HTTP sync'id kutsuvad muudatuse korral `revalidateTag('catalog')`; admini nupp `updateTag`. CLI (`enrich:catalog`, `*:sync`) ei saa deploy'tud poe vahemälu tühjendada — tulemus jõuab poodi järgmise muutva cron-sync'iga (päeval ≤ 30 min) või admini nupuga.
+- **Lepingud testides:** poe lugemistee failid ei impordi Laptopid.ee/Icecati klienti ega rikastusteenust (`catalog-architecture.test.ts`); allikate prioriteet, Icecati väljakutse ainult vajadusel, idempotentsus ja admini otsused (`catalog-enrichment.db.test.ts`).
 
 ## Laptopid.ee kataloog (päris andmed)
 

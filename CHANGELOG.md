@@ -5,6 +5,24 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 ---
 
+## 2026-10-12 — Andmekvaliteet ja rikastus: pildid, klaviatuur, CPU põlvkond, GPU kast
+
+**Miks:** adminis oli "pildiga mudeleid" 34/521, "tundmatu klaviatuur" 273, "puudub CPU põlvkond" 111 ja tootelehe kiirinfos puudus Foxway pakkumistel graafika kast (514 pakkumist) ning paaritu arvu korral jäi tühi lahter (767 pakkumist).
+
+**Arhitektuur (LOCAL-FIRST):** meie andmebaas → Laptopid.ee andmed → Icecat; rikastus käib offline (`npm run enrich:catalog`, admin "Rikasta kataloogi", tarnija sync) ja salvestub meie andmebaasi. Pood loeb ainult andmebaasi — lehe renderdamisel ei küsita Laptopid.ee-d ega Icecatit (arhitektuuritest). Migratsioon **0007** (lisav): `product_models.enrichment`, `supplier_listings.enrichment`; `product_images.source = LAPTOPID`.
+
+- **Pildid:** Laptopid.ee fotod seotakse mudeliga (sama mudel 141, kindel vaste teise Laptopid.ee mudeliga 2: Latitude 5430 Rugged ↔ 14 Rugged 5430, MacBook Pro 13" 2022 M2); ebakindlad 8 → ülevaatus (7310 vs 7310 Carbon, L15/X13/P15 ilma põlvkonnata, EliteBook 1040 G9 vs x360 1040 G9, Galaxy Book 4 360 …), pilte ei lisatud. Icecat ainult 6 identifikaatoriga vasteta mudelile → 1 kindel (ThinkPad E495, MPN, 12 pilti), X1 Carbon Gen 6 ülevaatusel (Icecati pealkirjas pole "Gen 6"), 4 ei leitud; 302 identifikaatorita mudelit jäeti päringuta.
+- **Pildikate:** mudelitasemel pildiga mudeleid 34 → 178 (admini "ilma pildita" 487 → 343); poes nähtava pildiga (ka pakkumise fotod) 173 → 178. Ülejäänud 343 (peamiselt Foxway tarbijamudelid ja Tech) — Laptopid.ee-s pole vastet ning tarnijad ei anna GTIN/MPN-i.
+- **Klaviatuur:** `ENG` (Inglise, US/UK täpsustamata — ei arvata) ja `SWE/RUS` tuntud; sildid "Saksa (DE)", "Rootsi (SWE)", "Araabia (ARA)"; "Missing Keyboard" on eraldi kvaliteediprobleem. Tundmatu 273 → 233 (37 parandati mappinguga, 3 on "Missing Keyboard"); allesjäänud 233 = Tech 206 (hinnakirjas pole klaviatuuri veergu) + Laptopid.ee 27 (API annab tühja väärtuse).
+- **CPU põlvkond:** üks parser (`parseCpuInfo`) sync'idele ja filtrile: Core i, Core seeria 1 (Core 7 150U), Core m, Core Ultra (ka "Ultra 7 165H"), Ryzen (turunduse seeria), Ryzen AI, Apple M (kiibi põlvkond; Pro/Max perekonnas), Snapdragon X. Puudu 111 → 19 (92 täitis parser tarnija sync'is); 19 on Intel N/Celeron, AMD A-seeria, "AMD Ryzen 7" ilma numbrita jms — jäetakse NULL-iks (ei arvata). Laptopid.ee/Icecat CPU põlvkonda mudeli kaupa ei anna, seega sealt ei täidetud ühtegi.
+- **GPU:** Foxway "Integrated" → sama CPU integreeritud GPU nimi (Laptopid.ee 238, meie muud andmed 50); muul juhul "Integreeritud graafika". Tooteleht: kiirinfo kastid domeenist (`quick-specs.ts`) järjekorras Protsessor, Mälu, Salvestus, Ekraan, Klaviatuur, Graafika; paaritu arvu korral järgmine olemasolev omadus (kaal, OS, garantii) või täislaiuses viimane kast. GPU kast puudus 514 → 1 pakkumisel (Tech, tarnija GPU teadmata), tühi lahter 767 → 0.
+- **Admin:** Andmekvaliteet — pildiallikate jaotus, "Rikasta kataloogi", "Pildivaste vajab ülevaatust", "Klaviatuur puudub (füüsiline)", efektiivne "ilma pildita"; päritolu konfiguratsiooni ja mudeli lehel.
+- **Testid:** 591 → 680 (allikate prioriteet, Laptopid.ee vaste → Icecati ei küsita, ebakindel vaste, Apple'i toornimi + ekraan, klaviatuurid, CPU parser, GPU kast, idempotentsus, admini otsused, poe lugemistee ilma välisallikateta).
+
+**Probleemid:** (1) Tech ümardab ekraani (15,6" → 15) — vaste ekraanipiir ±0,7". (2) Foxway hoiab MPN-i ainult 7 mudelil ja EAN-i mitte ühelgi → Icecat saab automaatselt vähe aidata. (3) CLI ei tühjenda poe vahemälu; tootmises jõudis tulemus poodi järgmise muutva cron-sync'iga.
+
+---
+
 ## 2026-10-12 — Foxway järelparandused: erikorra hinnastus, Apple'i laadijad, TrackPoint
 
 - **IsVatMargin = true (kasutatud kauba erikord, KMS §41):** müügihind = Foxway hind + 60 € + laadija (varem lisati ekslikult 24% KM kogu ostuhinnale, nt 500 € → 680 € asemel nüüd 560 €); `vat_scheme = MARGIN` (poes olemasolev erikorra märge, sooduskoodi marginaalikaitse arvestab KM-i marginaalilt). Tavaline KM-kaup ei muutunud. Erikord ei blokeeri pakkumist.

@@ -1,6 +1,6 @@
 # HANDOFF — üleandmine järgmisele Claude Code sessioonile
 
-> Seis: **2026-10-12**, haru `main` = `origin/main`. Live: <https://laptop-store-rouge.vercel.app> · GitHub: <https://github.com/rissu18/laptop_store>
+> Seis: **2026-10-12** (õhtu, rikastuse sprint), haru `main` = `origin/main`. Live: <https://laptop-store-rouge.vercel.app> · GitHub: <https://github.com/rissu18/laptop_store>
 > Kasutaja kirjutab eesti keeles; vasta eesti keeles. Projekt on 12. klassi praktiline lõputöö — dokumentatsioon (docs/, CHANGELOG.md) on osa tööst.
 > Püsireeglid: **AGENTS.md** (ainus juhiste fail). Detailid: docs/LAPTOPID_SYNC.md, **TECH_SYNC.md**, **FOXWAY_SYNC.md**, ARCHITECTURE.md, DATABASE.md, ADMIN.md, ORDERS.md, DISCOUNTS.md, PROJECT_PLAN.md.
 
@@ -31,7 +31,10 @@ Custom e-pood **kasutatud äriklassi sülearvutitele** — **Sülearvutid.ee** (
 - **Tech (teine tarnija):** iga hinnakirja rida = füüsiline seade (`supplier_inventory_units`: Tech ID + seerianumber, **ainult admin**). Sama konfiguratsiooni + hinnaga müügis seadmed = üks SupplierListing, **täpne laoseis** ("Partnerlaos 4 tk"). Brand/Model lahtri värv = müüdud. Seisukord **B**, hind **M + 60 €**, ostuhind **M − 20 €**, KM **MARGIN**, tarne **1–2 tööpäeva** (pakkumise `delivery_min/max_days`), garantii NULL. Defekt / tundmatu märkus / tahvel / detachable / vigased andmed / mitte-SSD → välja. Täpselt: docs/TECH_SYNC.md.
 - **Mudeli piltide varu:** kui mudelil Icecati pilte pole, kasutatakse sama mudeli teise müügis pakkumise tarnija pilte (nt Techi pakkumisel Laptopid.ee fotod).
 - **Foxway (kolmas tarnija, 2026-10-12):** identiteet **foxway + SKU** (ItemVariantId ei ole identiteet); sama SKU working + new → üks pakkumine, kogust ei liideta. **Täpne laoseis** (Quantity), tarne **2–4 tööpäeva**, hind: **IsVatMargin = false → Foxway hind + KM 24% + 60 € + laadija**, `vat_scheme = STANDARD`; **IsVatMargin = true → Foxway hind + 60 € + laadija** (kasutatud kauba erikord, `vat_scheme = MARGIN`, KM marginaalilt; ei blokeeri). Laadija: 0 / 35 / 60 / 90 € (Apple: Air/MacBook/Pro 13" 35, Pro 14" 60, Pro 15–16" ja tundmatu suurusega Pro 90). Tellimuse snapshot `order_items.vat_scheme` + hankekirjel `supplier_vat_margin`. **KMS §41 arvestus (eriti erikorra kaubale lisatud uus laadija) tuleb enne arvemootorit raamatupidajaga kinnitada.** TrackPointi nupu rike (pointer nub) = REVIEW, mitte BLOCK. Seisukord Appearance'ist: Brand New → Uus, A+/A/B/**C+**/C (C+ on uus eraldi klass). **Rikete ohutus** (`foxway-faults.ts`): mõlemad rikkeväljad alati; INFO/NOTICE → müüki + eestikeelne "Seisukorra märkus"; REVIEW (ebamäärane/**tundmatu**) ja BLOCK (katkine riistvara) → `quality_hold`, poes ei kuvata. Garantii max(12, sama mudeli Laptopid.ee garantii), aku 6 kuud. Foxway "Battery status" kliendile ei kuvata. Tellimine Foxwayst **käsitsi** (hankekirje tellimusel, automaatset tellimust pole). Täpselt: docs/FOXWAY_SYNC.md.
-- **Klaviatuur kogu poes:** üks register `src/domain/catalog/keyboard.ts` (SCA, DEU → "Saksa (DEU)", FRA, INT …; tundmatu kood toorkujul), filtri valikud SQL-ist (kõik tarnijad).
+- **Klaviatuur kogu poes:** üks register `src/domain/catalog/keyboard.ts` (SCA, DEU → "Saksa (DE)", FRA, INT, Laptopid.ee `ENG` = "Inglise (ENG)" (US/UK täpsustamata) ja `SWE/RUS` …; tundmatu kood toorkujul; "Missing Keyboard" = eraldi kvaliteediprobleem), filtri valikud SQL-ist (kõik tarnijad).
+- **CPU perekond/põlvkond:** üks parser `cpu-filter.ts → parseCpuInfo` (sync'id + filter): Core i, Core seeria 1 (`core-1`), Core m, Ultra, Ryzen (turunduse seeria), Ryzen AI, Apple M (`apple-N`, Pro/Max perekonnas), Snapdragon X (`snapdragon-1`); ebakindel (Intel N, AMD A, "Ryzen 7") → NULL.
+- **Rikastus (LOCAL-FIRST, 2026-10-12):** meie andmebaas → Laptopid.ee andmed (sync'itud pakkumised ja fotod) → Icecat; käib offline (`npm run enrich:catalog [-- --dry-run|--images|--specs|--icecat]`, admin → Andmekvaliteet → "Rikasta kataloogi"), tulemus `product_images` (allikas LAPTOPID/ICECAT), `product_models.enrichment`, `supplier_listings.enrichment`. Pood loeb ainult andmebaasi; efektiivne = parandus ?? tarnija ?? rikastus. Vaste konservatiivne (`model-match.ts`, ebakindel → REVIEW). Täpsemalt ARCHITECTURE.md → Kataloogi rikastus.
+- **Tootelehe kiirinfo kastid:** `domain/catalog/quick-specs.ts` — Protsessor, Mälu, Salvestus, Ekraan, Klaviatuur, Graafika ("Integreeritud graafika", kui tarnija ütles Integrated ja täpsemat pole); tühja lahtrit ei jää.
 - **Tarnija omadused, mida ei antud** (HDMI, sõrmejälg …) on poes NULL (rida ei kuvata) — varem näitas tehniliste andmete tabel Techi ja Foxway pakkumistel neid ekslikult "Ei" (parandatud mapperis).
 
 ## 4. Laptopid.ee sync — praegune seis
@@ -79,7 +82,7 @@ Täielik kirjeldus: **docs/FOXWAY_SYNC.md**.
 
 ## 6. Testid ja kontrollid
 
-- **578 testi / 54 testifaili — kõik läbivad** (Foxway: 51 ühik- + klienditesti, 16 andmebaasitesti, 6 cron-testi, 3 poe kuvamise testi) (`npm test`, DB testid päris Neonis ajutises skeemis `test_xxxx`, ~45 s).
+- **680 testi / 56 testifaili — kõik läbivad** (2026-10-12 rikastuse sprint; enne 591) — varasem kirjeldus: **578 testi / 54 testifaili** (Foxway: 51 ühik- + klienditesti, 16 andmebaasitesti, 6 cron-testi, 3 poe kuvamise testi) (`npm test`, DB testid päris Neonis ajutises skeemis `test_xxxx`, ~45 s).
 - `npm run typecheck` ✅ · `npm run lint` ✅ · `npm run build` ✅ (Git Bashis: `set -a; . ./.env.development.local; . ./.env.local; set +a; npm run build`).
 - Viimane production deploy: Foxway integratsioon (HEAD, vt `git log`). Jõudlus pärast Foxway importi (1128 pakkumist, lokaalselt → Neon, soe): kataloogi lehekülg 134 ms (enne 86 ms / 500 pakkumist), filter 107 ms (79), lk 3 112 ms (75), tooteleht 29 ms (30), otsing 270 ms (151); lehekülje andmemaht sama (24 kaarti). Tootmises filtri JSON 1,6–6,9 KB gzip.
 - Dev-serveri vana CSS (Turbopacki vahemälu) → peata server, kustuta `.next`, käivita uuesti. `next start` ei loe `.env.development.local` faili (kassa/DB ei tööta) — brauseris testimiseks kasuta `dev`. Brauseripaan on sageli peidetud → Suspense jääb `hidden` alla ja `requestAnimationFrame`/kerimissündmused ei käi; tee enne kuvatõmmis.
@@ -87,7 +90,9 @@ Täielik kirjeldus: **docs/FOXWAY_SYNC.md**.
 ## 7. Viimased commitid
 
 ```
-(HEAD)   feat/fix/docs(foxway): Foxway integratsioon — 6+ commit'i, vt git log (skeem+klient → sync → storefront → admin+hange → transport → docs)
+(HEAD)   feat(catalog)+feat(enrichment)+docs: CPU parser, klaviatuur, LOCAL-FIRST rikastus, GPU kast (2026-10-12, vt git log)
+7b42d64  fix(foxway): erikorra (IsVatMargin) hinnastus, Apple'i laadija profiil, TrackPoint → REVIEW
+(varem)  feat/fix/docs(foxway): Foxway integratsioon — 6+ commit'i, vt git log (skeem+klient → sync → storefront → admin+hange → transport → docs)
 (HEAD)   perf: jõudluse sprint (SQL-filtrid + LIMIT, otsene tooteleht, /api/catalog) — 4 commit'i, vt git log
 40d1451  feat(storefront): sülearvutispetsialist + salong — hero foto, leidja, seeriad, info vasakul / galerii paremal
 1224031  docs: Tech sync'i QStash ajastus (tööpäeviti 10–20 + öösel 03:00) ja deploy kontroll
@@ -105,6 +110,8 @@ a77e106  fix(laptopid): "Uus" seisukord, Lenovo V-seeria ja LAPTOPID_API_BASE_UR
 ```
 
 ## 8. Lahtised teemad (ära lahenda omal algatusel)
+
+- **Rikastus (2026-10-12):** 343 mudelil pole pilti (Foxway tarbijamudelid, Tech; Laptopid.ee-s vastet pole, GTIN/MPN puudub) → lahendused: käsitsi Icecati vaste adminis, tarnijalt GTIN/MPN, püsiv pildisalvestus (R13). 8 mudelit "Pildivaste vajab ülevaatust" (7310 vs 7310 Carbon, L15/X13/P15 ilma Gen-ita jne) — admin otsustab. X1 Carbon Gen 6: Icecati MPN vaste ülevaatusel (pealkirjas pole "Gen 6"). Tech hinnakirjas pole klaviatuuri veergu (206 "tundmatut") ja Laptopid.ee annab 27-l tühja väärtuse — ei arvata; vajadusel kasutaja otsus (nt Techi vaikepaigutus). Laptopid.ee `ENG` ei ütle US vs UK. Apple "Retina" resolutsiooni ei leitud ühestki allikast (79 Foxway pakkumist) — kuvatakse "Retina". CPU põlvkond NULL 19-l (Intel N/Celeron, AMD A, "Ryzen 7") — teadlikult. CLI ei tühjenda poe vahemälu (järgmine muutev cron või admini nupp).
 
 - **Tech — tundmatud märkused (31 seadet müügist väljas):** Apple `n-650`/`sr-420` (aku tsüklid?), aastad, `safety`/`saf`, `new KB`/`new lcd`, `type-c`, `L00164…`, `0`, `M.M.`, `kolonki`, `5min`, `1 aku ok`, `war 35` — tähendus vajab kasutaja kinnitust, siis lisada `src/integrations/tech/tech-notes.ts` reeglitesse. Nimekiri: admin → Tarnijad → Tech.
 - **Tech — rikastus:** 96 mudelil pole pilte ega mudeliandmeid (Tech ei anna GTIN/MPN-i, Icecati auto-vaste pole võimalik, püsiv pildisalvestus R13 puudub) → poes illustratsioon. Lahendus: käsitsi Icecati vasted adminis või tulevikus muu allikas.
