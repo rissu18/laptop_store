@@ -1,14 +1,13 @@
 import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
-import { sql } from "drizzle-orm";
 import { pricingConfig } from "@/config/pricing";
 import { computeFacets, filterItems, sortItems, type CatalogFacets, type SearchableItem } from "@/domain/catalog/filtering";
 import { groupBusinessSeries, seriesStatsKey, summarizeBusinessSeries, type BusinessSeriesGroup, type SeriesStats } from "@/domain/catalog/business-series";
 import { isImmediatelyAvailable } from "@/domain/storefront/showroom";
 import { PAGE_SIZE, emptyQuery, type CatalogQuery, type FacetSelection } from "@/domain/catalog/query";
 import { searchScore, tokenize } from "@/domain/catalog/search";
-import { SIMILAR_PRICE_TOLERANCE, findSimilarItems, type SimilarityItem } from "@/domain/catalog/similar";
-import { type BrandCode, type CatalogItem, type CatalogProduct, type CatalogVariant, type CpuFamily } from "@/domain/catalog/types";
+import { findSimilarItems, type SimilarityItem } from "@/domain/catalog/similar";
+import { type CatalogItem, type CatalogProduct, type CatalogVariant } from "@/domain/catalog/types";
 import { MockSupplierAdapter } from "@/integrations/supplier/mock/mock-supplier-adapter";
 import { MOCK_FEATURED_SKUS } from "@/integrations/supplier/mock/mock-supplier-data";
 import { toImageView, visibleImages, type ProductImageView } from "@/domain/images/product-image";
@@ -19,11 +18,10 @@ import { buildCatalog, type BuiltCatalog } from "./build-catalog";
 import {
   queryCatalogPage,
   queryCatalogStats,
-  queryItemsByListingIds,
   queryItemsByVariantIds,
-  queryKeyRows,
   queryProductDetail,
   queryProductSlugs,
+  querySimilarItems,
   querySearchSuggestions,
   querySeriesStats,
   queryTopItems,
@@ -217,33 +215,10 @@ export async function getAllItems(): Promise<CatalogItem[]> {
 
 // ---- Sarnased tooted ---------------------------------------------------------------------------------------
 
-async function cachedSimilarItems(current: SimilarityItem, modelId: string | null, limit: number): Promise<CatalogItem[]> {
+async function cachedSimilarItems(current: SimilarityItem, limit: number): Promise<CatalogItem[]> {
   "use cache";
   cached();
-  const db = getDb();
-  const price = current.variant.price.saleCents;
-  // Kohustuslik hinnavahemik ±25% ja teine mudel juba SQL-is; punktid arvutatakse kitsa projektsiooni peal
-  const rows = await queryKeyRows(
-    db,
-    sql`price BETWEEN ${Math.ceil(price * (1 - SIMILAR_PRICE_TOLERANCE))} AND ${Math.floor(price * (1 + SIMILAR_PRICE_TOLERANCE))}${modelId ? sql` AND model_id <> ${modelId}` : sql``}`,
-  );
-  const candidates = rows.map((row) => ({
-    row,
-    product: { slug: row.model_id, brand: row.brand as BrandCode, series: row.family, screenSizeIn: row.screen },
-    variant: {
-      id: row.id,
-      sku: row.sku,
-      ramGb: row.ram,
-      storageGb: row.storage,
-      cpu: { family: row.cpu_family_db as CpuFamily | null, model: row.cpu },
-      gpu: { dedicated: row.gpu_dedicated ?? false },
-      price: { saleCents: row.price },
-      stock: { available: true },
-    },
-  }));
-  const self: SimilarityItem = { ...current, product: { ...current.product, slug: modelId ?? current.product.slug } };
-  const best = findSimilarItems(self, candidates, limit);
-  return queryItemsByListingIds(db, best.map(({ row }) => row));
+  return querySimilarItems(getDb(), current, limit);
 }
 
 /** Sarnased sülearvutid valitud konfiguratsioonile (hind ±25%, ka teised tootjad) — vt domain/catalog/similar.ts */
@@ -264,16 +239,9 @@ export async function getSimilarItems(current: CatalogItem, limit: number): Prom
         stock: { available: variant.stock.available },
       },
     };
-    return cachedSimilarItems(key, await modelIdForSlug(product.slug), limit);
+    return cachedSimilarItems(key, limit);
   }
   return findSimilarItems(current, (await getMockItems()).map(toPublic), limit);
-}
-
-async function modelIdForSlug(slug: string): Promise<string | null> {
-  "use cache";
-  cached();
-  const rows = await getDb().execute<{ id: string }>(sql`SELECT id FROM product_models WHERE slug = ${slug}`);
-  return rows.rows[0]?.id ?? null;
 }
 
 // ---- Avalehe statistika ja seeriad -------------------------------------------------------------------------

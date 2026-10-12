@@ -5,7 +5,8 @@ import { FEATURE_LABELS, FEATURE_ORDER } from "@/domain/catalog/features";
 import type { CatalogFacets, FacetOption } from "@/domain/catalog/filtering";
 import { PAGE_SIZE, type CatalogQuery, type FacetSelection, type SortKey } from "@/domain/catalog/query";
 import { tokenize } from "@/domain/catalog/search";
-import { BRAND_CODES, BRAND_NAMES, FEATURE_KEYS, KEYBOARD_LAYOUTS, type CatalogItem, type FeatureKey } from "@/domain/catalog/types";
+import { SIMILAR_PRICE_TOLERANCE, findSimilarItems, type SimilarityItem } from "@/domain/catalog/similar";
+import { BRAND_CODES, BRAND_NAMES, FEATURE_KEYS, KEYBOARD_LAYOUTS, type BrandCode, type CatalogItem, type CpuFamily, type FeatureKey } from "@/domain/catalog/types";
 import { GRADES, GRADE_CODES } from "@/domain/grade/grades";
 import type { Database } from "@/server/db/client";
 import { listingImages, productImages, productModels, supplierListings } from "@/server/db/schema";
@@ -506,4 +507,35 @@ export async function querySeriesStats(db: Db): Promise<{ brand: string; series:
     withStorefront(sql`SELECT brand, series, count(*)::int AS count, min(price)::int AS min_price FROM storefront GROUP BY brand, series`),
   );
   return rows.rows;
+}
+
+/**
+ * Sarnased tooted: kohustuslik hinnavahemik (±25%) ja "mitte sama mudel" SQL-is, punktid (domain/catalog/similar.ts)
+ * kitsa projektsiooni peal, seejärel hüdreeritakse ainult `limit` valitud pakkumist.
+ */
+export async function querySimilarItems(db: Db, current: SimilarityItem, limit: number): Promise<CatalogItem[]> {
+  const price = current.variant.price.saleCents;
+  // Kohustuslik hinnavahemik ±25% ja teine mudel juba SQL-is; punktid arvutatakse kitsa projektsiooni peal
+  const rows = await queryKeyRows(
+    db,
+    sql`price BETWEEN ${Math.ceil(price * (1 - SIMILAR_PRICE_TOLERANCE))} AND ${Math.floor(price * (1 + SIMILAR_PRICE_TOLERANCE))}
+      AND model_id NOT IN (SELECT id FROM product_models WHERE slug = ${current.product.slug})`,
+  );
+  const candidates = rows.map((row) => ({
+    row,
+    product: { slug: row.model_id, brand: row.brand as BrandCode, series: row.family, screenSizeIn: row.screen },
+    variant: {
+      id: row.id,
+      sku: row.sku,
+      ramGb: row.ram,
+      storageGb: row.storage,
+      cpu: { family: row.cpu_family_db as CpuFamily | null, model: row.cpu },
+      gpu: { dedicated: row.gpu_dedicated ?? false },
+      price: { saleCents: row.price },
+      stock: { available: true },
+    },
+  }));
+  // Kandidaadi "slug" = mudeli ID (sama mudel on SQL-is juba välja jäetud; ühe pakkumise reegel mudeli kohta jääb)
+  const best = findSimilarItems(current, candidates, limit);
+  return queryItemsByListingIds(db, best.map(({ row }) => row));
 }

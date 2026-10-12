@@ -15,7 +15,8 @@ import { computeFacets, filterItems, sortItems, type SearchableItem } from "@/do
 import { PAGE_SIZE, SORT_OPTIONS, parseCatalogQuery, type CatalogQuery, type RawSearchParams } from "@/domain/catalog/query";
 import { getDb } from "@/server/db/client";
 import { redactConnectionStrings } from "@/server/db/database-url";
-import { queryCatalogPage, queryProductDetail, queryStorefrontKeysForVerify } from "@/server/catalog/catalog-queries";
+import { queryCatalogPage, queryProductDetail, querySimilarItems, queryStorefrontKeysForVerify } from "@/server/catalog/catalog-queries";
+import { findSimilarItems } from "@/domain/catalog/similar";
 import { queryStorefrontCatalogRows } from "@/server/catalog/db-catalog";
 import { mapCatalogRows } from "@/server/catalog/db-catalog-mapper";
 
@@ -94,6 +95,14 @@ async function verify() {
   const page = await queryCatalogPage(db, parseCatalogQuery({ sort: "price-asc" }));
   const byId = new Map(all.map((item) => [item.variant.id, { product: item.product, variant: item.variant }]));
   for (const item of page.items) if (!isDeepStrictEqual(item, byId.get(item.variant.id))) failures.push({ check: "item", id: item.variant.id });
+
+  // 4. Sarnased tooted: SQL-i eelvalik + punktid = varasem täiskataloogi arvutus (iga 10. pakkumine)
+  const publicAll = all.map((item) => ({ product: item.product, variant: item.variant }));
+  for (const current of publicAll.filter((_, i) => i % 10 === 0)) {
+    const expected = findSimilarItems(current, publicAll, 4).map((i) => i.variant.id);
+    const got = (await querySimilarItems(db, current, 4)).map((i) => i.variant.id);
+    if (!isDeepStrictEqual(expected, got)) failures.push({ check: "similar", id: current.variant.id, expected, got });
+  }
 
   console.log(JSON.stringify({ verify: failures.length === 0 ? "OK" : "FAILED", queries: params.length, listings: all.length, failures: failures.slice(0, 15), failureCount: failures.length }, null, 1));
   if (failures.length) process.exitCode = 1;

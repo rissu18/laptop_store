@@ -68,7 +68,6 @@ async function ProductDetail({ params, searchParams }: PageProps<"/toode/[slug]"
   const variant =
     data.variants.find((v) => v.id === requested) ?? data.variants.find((v) => v.stock.available) ?? data.variants[0];
   const item: CatalogItem = { product: data.product, variant };
-  const related = await getSimilarItems(item, 4);
   const settings = await getSettings();
   // "Turvaline maksmine" ainult siis, kui päris maksed on avatud (mitte prototüübis)
   const showSecurePayment = arePaymentsLive(settings) && visibleTrustItems(settings).some((t) => t.key === "payment");
@@ -125,18 +124,27 @@ async function ProductDetail({ params, searchParams }: PageProps<"/toode/[slug]"
         <SpecSections item={item} />
       </section>
 
-      {related.length > 0 && (
-        <section aria-labelledby="sarnased" className="mt-16">
-          <h2 id="sarnased" className="mb-6 text-2xl font-bold tracking-tight">
-            Sarnased sülearvutid
-          </h2>
-          <ProductGrid items={related} />
-        </section>
-      )}
+      {/* Sarnased tooted on lehe lõpus: eraldi päring, mis ei blokeeri toote enda kuvamist (voogedastus) */}
+      <Suspense fallback={null}>
+        <SimilarProducts item={item} />
+      </Suspense>
 
       <StickyBuyBar item={item} />
       <JsonLd data={productJsonLd(item, data.variants)} />
     </>
+  );
+}
+
+async function SimilarProducts({ item }: { item: CatalogItem }) {
+  const related = await getSimilarItems(item, 4);
+  if (related.length === 0) return null;
+  return (
+    <section aria-labelledby="sarnased" className="mt-16">
+      <h2 id="sarnased" className="mb-6 text-2xl font-bold tracking-tight">
+        Sarnased sülearvutid
+      </h2>
+      <ProductGrid items={related} />
+    </section>
   );
 }
 
