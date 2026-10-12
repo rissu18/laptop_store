@@ -5,6 +5,34 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 ---
 
+## 2026-10-12 — Jõudluse sprint: kataloog, filtrid ja tooteleht andmebaasipäringutega
+
+**Miks:** filtriklikk võttis tootmises 0,7–0,9 s ja saatis ~300 KB RSC-d; tooteleht 0,6–0,9 s. Võrdlus: Laptopid.ee vana (Yii/PHP) filter vastab ~170 ms ja ~2,3 KB gzip HTML-iga, sest server filtreerib SQL-is ja tagastab ainult ~40 tulemust. Võtsime üle põhimõtte (mitte koodi: vanas süsteemis on SQL-i stringiliitmine, EAV + LIKE ja sessioonipõhine filter).
+
+**Tegelik pudelikael:** iga kataloogi-, filtri- ja tootelehe päring luges **kogu kataloogi** (504 pakkumist, 272 mudelit, 1451 pildirida → ~2 MB JSON), filtreeris mälus ja tooteleht otsis slug'i sellest nimekirjast. `'use cache'` ei aidanud, sest Verceli serverless'is ei püsi mälu-vahemälu päringute vahel. Lisaks: kaardid saatsid kõigi piltide kõik 3 URL-i, iga nähtav filtrilink (Next `<Link>`) eellaadis oma lehe.
+
+**Mis muutus:**
+- `catalog-queries.ts`: filtrid, tahud (üks päring), sorteerimine ja `LIMIT 24 OFFSET` PostgreSQL-is; kaardi andmed ja pildid ainult leitud pakkumiste mudelite kohta; kõik ühe paralleelse andmebaasiringiga. Sisend on alati SQL-parameeter.
+- Tooteleht: `queryProductDetail(slug)` — üks mudel; "Sarnased sülearvutid" voogedastatakse eraldi (ei blokeeri tootelehte), hinnavahemik SQL-is.
+- Filtriklikk: `GET /api/catalog` (JSON, 24 kaarti + tahud), URL `history.pushState`-iga (jagatav, tagasi-nupp), AbortController katkestab vanema päringu. Ainult tulemuste ala uueneb.
+- Avaleht, ostukorv, otsingusoovitused: LIMIT- / agregaatpäringud. Täiskataloog jääb ainult laptop finderile.
+- `npm run perf:bench [-- --verify]` — mõõtmine ja SQL vs varasema mälus filtreerimise vastavus päris andmetel.
+
+**Mõõdetud (enne → pärast):**
+
+| | Enne | Pärast |
+| --- | --- | --- |
+| Andmebaasist loetud read kataloogi/filtri kohta | 504 pakkumist + 272 mudelit + 1451 pilti (~2 MB) | 24 kaarti (+ nende mudelite pildid) |
+| Andmebaasi aeg (lokaalselt → Neon) | 170–220 ms soe, 550 ms külm | lehekülg 72–86 ms, tooteleht 30 ms |
+| SQL täitmisaeg (EXPLAIN ANALYZE) | — | lehekülg 1,1 ms, tahud 28 ms, tooteleht 0,05 ms |
+| Filtri vastus | RSC ~300 KB | JSON ~71 KB, **~5 KB gzip** |
+| Filtriklikk tootmises (Eestist, võrgu põhi ~150 ms) | 663–903 ms, külm 1,5 s | **363–535 ms**, külm 1,3–1,8 s |
+| Tooteleht tootmises (RSC) | 613–876 ms, kogu kataloogi lugemine | 460–680 ms, üks mudel; külm 1–2,7 s |
+
+**Probleemid:** (1) Next `useSearchParams` ei sünkrooninud `pushState`-i kiirete klikkide vahel → järgmine klikk lähtus vanast filtrist; lahendus: päring Reacti olekus + `popstate`. (2) 6 paralleelset päringut ületas Pooli `max: 5` → `max: 8`. (3) Allesjäänud latentsi põhjus on regioon: Vercel iad1 ↔ Neon Frankfurt (~90 ms ring).
+
+---
+
 ## 2026-10-12 — Storefronti visuaalne ja UX-värskendus: sülearvutispetsialist + päris salong
 
 **Miks:** pood meenutas visuaalselt ja informatsiooniarhitektuurilt liiga palju üldist "kasutatud elektroonika" turuplatsi. Uus suund: **äriklassi sülearvutite spetsialist + suur professionaalne Tallinna salong**. Head e-poe mustrid (filtrid, võrdlus, kleepuv mobiili ostunupp, breadcrumb'id, kaartide pildisirvija) jäid alles. Äriloogika (sync, hinnad, laoseis, kassa, tellimused, admin) ei muutunud.

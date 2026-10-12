@@ -83,7 +83,8 @@ Reegel: `domain/` ei impordi kunagi `server/`, `app/` ega `components/`. `compon
 ```
 Praegu (andmebaasi etapp):
   import:  MockSupplierAdapter → normaliseerimine → hinnastamine → PostgreSQL (npm run db:seed, idempotentne upsert)
-  pood:    PostgreSQL → db-catalog-mapper (efektiivsed väärtused, nähtavus) → 'use cache' + cacheTag('catalog') → lehed
+  pood:    PostgreSQL (catalog-queries.ts: filtrid + tahud + LIMIT SQL-is) → db-catalog-mapper (ainult leitud mudelid)
+           → 'use cache' + cacheTag('catalog') → lehed / GET /api/catalog (filtriklikk)
   admin:   server action → valideerimine → tehing (muudatus + audit) → updateTag('catalog') → pood näeb kohe
 
 Ilma DATABASE_URL-ita (lokaalne arendus, CI):
@@ -92,6 +93,28 @@ Ilma DATABASE_URL-ita (lokaalne arendus, CI):
 Järgmine etapp (tarnija sync):
   worker: SupplierAdapter (Foxway) → normaliseerimine → upsert ainult tarnija veergudesse → updateTag('catalog')
 ```
+
+### Kataloogi päringud (jõudluse sprint 2026-10-12)
+
+Varem luges iga kataloogi-, filtri- ja tootelehe päring **kogu kataloogi** (504 pakkumist + 1451 pildirida, ~2 MB JSON) ja filtreeris mälus. `'use cache'` seda ei päästnud: Verceli serverless'is ei püsi mälu-vahemälu päringute vahel (Next docs → `use cache` → Serverless), nii et tegelikult loeti kogu kataloog peaaegu igal päringul.
+
+Nüüd (Laptopid.ee vana filtri põhimõte, aga parameetritega SQL ja tüübitud JSON):
+
+```
+filtriklikk → history.pushState (URL jagatav, tagasi-nupp töötab)
+  → GET /api/catalog?brand=lenovo&ram=16   (eelmine päring katkestatakse: AbortController)
+  → ÜKS paralleelne andmebaasiring:
+       1. lehekülje ID-d:  storefront CTE → WHERE filtrid → ORDER BY → LIMIT 24 OFFSET n (+ count(*) OVER())
+       2. tahud:           üks UNION ALL päring (iga tahk: kõik teised filtrid, GROUP BY)
+       3. kaardi andmed + pildid ainult (1) mudelite kohta (sama mapper, mis varem)
+  → JSON: 24 kaarti (toCardItem) + tahud ≈ 70 KB / ~5 KB gzip → uueneb ainult tulemuste ala
+tooteleht → queryProductDetail(slug): üks mudel (slug unikaalindeks) + selle pakkumised + pildid
+```
+
+- `storefront` CTE (`src/server/catalog/catalog-queries.ts`) kordab SQL-is domeenireegleid: efektiivsed väärtused `manual_overrides`-ist, saadavus (`resolveStock`), kohustuslikud väljad, filtri bucket'id, ThinkPadi alamseeria, CPU perekond/põlvkond nimest, otsingutekst (Lenovo `Gen N` ↔ `GN`). Vastavust kontrollib `npm run perf:bench -- --verify` päris andmetel (501 pakkumist, 141 päringut, 51 sarnaste toodete arvutust — identne) ja `catalog-queries.db.test.ts`.
+- Indekseid ei lisatud: EXPLAIN ANALYZE — lehekülg 1,1 ms, tahud 28 ms, tooteleht 0,05 ms (`product_models_slug_uq`, `supplier_listings_model_idx`). Tuletatud võtmeid (regex, JSONB parandused) tavaline indeks ei kata; 500 rea juures on seq scan optimaalne.
+- Täiskataloogi laadija (`loadDbCatalogItems`) jääb ainult laptop finderile (punktiarvutus vajab kõiki välju).
+- Latentsi suurim allesjäänud osa on võrk: Verceli funktsioonid jooksevad **iad1** (USA), Neon **eu-central-1** (Frankfurt) — iga andmebaasiring ~90 ms üle Atlandi. Funktsioonide regioon `fra1` (vercel.json `regions`) vähendaks seda — kasutaja otsus.
 
 Lehed ja komponendid ei sõltu andmeallikast: üleminek andmebaasile ei muutnud ühtegi poe komponenti. Andmebaasi viga ei vaheta vaikselt mock-andmetele: see logitakse ja leht näitab veateadet. Tarnija ja admini andmete eraldamine (`manual_overrides`) on kirjeldatud failis [ADMIN.md](ADMIN.md#4-andmete-omanik-tarnija-vs-admin).
 

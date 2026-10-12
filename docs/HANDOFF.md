@@ -67,7 +67,7 @@ Täielik kirjeldus: **docs/TECH_SYNC.md**.
 
 ## 6. Testid ja kontrollid
 
-- **490 testi / 47 testifaili — kõik läbivad** (`npm test`, DB testid päris Neonis ajutises skeemis `test_xxxx`, ~45 s).
+- **502 testi / 49 testifaili — kõik läbivad** (`npm test`, DB testid päris Neonis ajutises skeemis `test_xxxx`, ~45 s).
 - `npm run typecheck` ✅ · `npm run lint` ✅ · `npm run build` ✅ (Git Bashis: `set -a; . ./.env.development.local; . ./.env.local; set +a; npm run build`).
 - Viimane production deploy: storefronti värskendus (HEAD, vt `git log`) — kontrolli Verceli staatust.
 - Dev-serveri vana CSS (Turbopacki vahemälu) → peata server, kustuta `.next`, käivita uuesti. `next start` ei loe `.env.development.local` faili (kassa/DB ei tööta) — brauseris testimiseks kasuta `dev`. Brauseripaan on sageli peidetud → Suspense jääb `hidden` alla ja `requestAnimationFrame`/kerimissündmused ei käi; tee enne kuvatõmmis.
@@ -75,7 +75,8 @@ Täielik kirjeldus: **docs/TECH_SYNC.md**.
 ## 7. Viimased commitid
 
 ```
-(HEAD)   feat(storefront): sülearvutispetsialist + salong — hero foto, leidja, seeriad, info vasakul / galerii paremal   ← viimane funktsionaalne
+(HEAD)   perf: jõudluse sprint (SQL-filtrid + LIMIT, otsene tooteleht, /api/catalog) — 4 commit'i, vt git log
+40d1451  feat(storefront): sülearvutispetsialist + salong — hero foto, leidja, seeriad, info vasakul / galerii paremal
 1224031  docs: Tech sync'i QStash ajastus (tööpäeviti 10–20 + öösel 03:00) ja deploy kontroll
 6d67317  feat(tech): teine tarnija — Tech hinnakiri (Google Sheets XLSX → PostgreSQL)
 9f8994d  fix(admin): stale-sync hoiatus järgib QStashi päeva/öö ajastust
@@ -107,7 +108,7 @@ a77e106  fix(laptopid): "Uus" seisukord, Lenovo V-seeria ja LAPTOPID_API_BASE_UR
 - **Privaatsus:** IP-aadress salvestatakse sooduskoodi- ja tellimuse otsingu katsete piiramiseks — võiks privaatsustekstis eraldi mainida.
 - **Flaky test:** Laptopid sync'i DB-test ("API viga … eelmine kataloog jääb alles") kukkus korra täiskäivitusel, kordustel läbis.
 - **Otsingu täpsus:** "X1 Carbon Gen 10" (12) ja "X1 Carbon G10" (11) annavad veidi erineva arvu (sõnaalguse vaste "10").
-- **Jõudlus:** otsing/filtrid töötavad mälus — suure kataloogi (Foxway) jaoks üle vaadata (PostgreSQL `pg_trgm`). Poe kataloogipäring valib ainult vajalikud veerud/read ja pildilaiused on piiratud (CHANGELOG 2026-10-11 „Optimeerimine“). Auditi ootel (kasutaja otsustab Neon/Vercel Usage põhjal): sync'i sagedus / Neoni autosuspend, `'use cache: remote'`, muutumata pakkumiste `lastSeenAt` uuendused, `system_logs` / `catalog_sync_runs` säilitus, otsingu `s-maxage`.
+- **Jõudlus (sprint 2026-10-12, vt CHANGELOG + ARCHITECTURE → Kataloogi päringud):** filtrid/tahud/LIMIT SQL-is (`catalog-queries.ts`), tooteleht üks mudel, filtriklikk = `GET /api/catalog` JSON (~5 KB gzip). Järgmised sammud (P2, kasutaja otsus): **Verceli funktsioonide regioon `fra1`** (praegu iad1 ↔ Neon Frankfurt, ~90 ms iga DB-ring); `'use cache: remote'` (serverless'is mälu-vahemälu päringute vahel ei püsi); 10 000+ pakkumise jaoks filtri võtmed/otsingutekst salvestatud veergudesse (sync arvutab) + indeksid; laptop finder loeb veel kogu kataloogi; otsingusoovitused ~150 ms (otsingutekst arvutatakse päringus). Auditi ootel (kasutaja otsustab Neon/Vercel Usage põhjal): sync'i sagedus / Neoni autosuspend, `'use cache: remote'`, muutumata pakkumiste `lastSeenAt` uuendused, `system_logs` / `catalog_sync_runs` säilitus, otsingu `s-maxage`.
 - Väiksemad: A+/A/B/C kirjeldused näidistekstid; `battery_hours` ei kuvata; Laptopid pildid märgitud illustratiivseks (4 pilti Laptopid.ee poolel 404); Hobby pildioptimeerimise limiit 5000/kuu; `npm run icecat` CLI kasutab JSON-faile, püsiv pildisalvestus (R13) puudub.
 
 ## 9. Mida EI TOHI omal algatusel teha
