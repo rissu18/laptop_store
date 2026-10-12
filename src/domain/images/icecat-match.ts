@@ -9,7 +9,7 @@
  * meie müüdava seadme kirjeldamiseks. Seadme andmed tulevad alati tarnija pakkumisest.
  */
 
-export const ICECAT_MATCH_TYPES = ["GTIN", "MPN", "ICECAT_ID", "MODEL_NAME", "MANUAL"] as const;
+export const ICECAT_MATCH_TYPES = ["GTIN", "MPN", "ICECAT_ID", "MODEL_NAME", "MODEL_IDENTITY", "MANUAL"] as const;
 export type IcecatMatchType = (typeof ICECAT_MATCH_TYPES)[number];
 
 export const ICECAT_MATCH_STATUSES = [
@@ -39,6 +39,8 @@ export const MATCH_CONFIDENCE: Record<IcecatMatchType, number> = {
   MPN: 0.95,
   ICECAT_ID: 0.9,
   MODEL_NAME: 0.7,
+  // Indeksi mudelinimi + JSON pealkirja identiteedi kontroll (domain/images/model-identity.ts)
+  MODEL_IDENTITY: 0.9,
 };
 
 /** Alates sellest kindlusest võib pildid automaatselt live'i panna. */

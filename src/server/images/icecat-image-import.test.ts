@@ -4,7 +4,7 @@ import type { IcecatMatchRecord } from "@/domain/images/icecat-match";
 import type { ProductImageRecord } from "@/domain/images/product-image";
 import { galleryItem, icecatProduct } from "@/integrations/icecat/icecat-fixtures";
 import type { IcecatLookupResult, IcecatProduct } from "@/integrations/icecat/icecat-types";
-import { importModelImages, type ImportDependencies } from "./icecat-image-import";
+import { importIcecatProduct, importModelImages, type ImportDependencies } from "./icecat-image-import";
 import type { ProductImageRepository } from "./image-repository";
 import type { ImageStorageAdapter } from "./storage/image-storage";
 
@@ -218,5 +218,74 @@ describe("importModelImages", () => {
     await importModelImages(model, ids, env.deps);
     const record = env.images.get(model.id)![0] as unknown as Record<string, unknown>;
     for (const field of ["ram", "ramGb", "cpu", "keyboard", "keyboardLayout", "touch", "storageGb"]) expect(record).not.toHaveProperty(field);
+  });
+});
+
+/** Mustriga foto (mitte ühtlane) — visuaalse räsi testideks */
+function patterned(seed: number, width = 1200, height = 900): Promise<Buffer> {
+  const bars = Array.from({ length: 6 }, (_, i) => `<rect x="${i * (width / 6)}" y="0" width="${width / 12}" height="${height}" fill="rgb(${(seed * 37 + i * 40) % 255},${(seed * 91) % 255},${(i * 60) % 255})"/>`).join("");
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="100%" height="100%" fill="#fff"/>${bars}<circle cx="${(seed * 97) % width}" cy="${(seed * 53) % height}" r="${120 + seed * 7}" fill="#123"/></svg>`;
+  return sharp(Buffer.from(svg)).jpeg().toBuffer();
+}
+
+describe("importIcecatProduct (mudeli identiteedi vaste)", () => {
+  const match = (product: IcecatProduct) => ({ product, matchType: "MODEL_IDENTITY" as const, confidence: 0.92, matchedBy: "Icecat mudelinimi", titleVerified: true });
+  const galleryOf = (n: number) => Array.from({ length: n }, (_, i) => galleryItem(String(200 + i), i + 1));
+
+  it.each([
+    [12, 10],
+    [7, 7],
+    [3, 3],
+  ])("Icecat annab %i head pilti → salvestatakse %i (max 10, kunstlikult ei korrata)", async (given, stored) => {
+    const env = setup(null);
+    const report = await importIcecatProduct(model, match(icecatProduct({ gallery: galleryOf(given) })), env.deps);
+    expect(report).toMatchObject({ status: "MATCHED", imageCount: stored, matchType: "MODEL_IDENTITY" });
+    const records = env.images.get(model.id)!;
+    expect(records).toHaveLength(stored);
+    expect(new Set(records.map((r) => r.sourceId)).size).toBe(stored);
+    expect(records.every((r) => r.source === "ICECAT")).toBe(true);
+    expect(env.matches.get(model.id)).toMatchObject({ status: "MATCHED", matchType: "MODEL_IDENTITY", titleVerified: true, imageCount: stored });
+  });
+
+  it("sama pildi väike/keskmine/suur variant → üks galeriipilt suurimast allikast", async () => {
+    const env = setup(null);
+    await importIcecatProduct(model, match(icecatProduct({ gallery: [galleryItem("300", 1)] })), env.deps);
+    const [record] = env.images.get(model.id)!;
+    expect(env.images.get(model.id)).toHaveLength(1);
+    expect(record.originalSourceUrl).toBe("https://images.icecat.biz/img/gallery/300.jpg");
+  });
+
+  it("visuaalselt sama foto (teine suurus + valge ääris) jäetakse välja", async () => {
+    const env = setup(null);
+    const a = await patterned(1);
+    const aSmallPadded = await sharp(await sharp(a).resize(600, 450).toBuffer())
+      .extend({ top: 175, bottom: 175, left: 100, right: 100, background: "#ffffff" })
+      .jpeg({ quality: 70 })
+      .toBuffer();
+    const b = await patterned(5);
+    env.deps.download = async (url) => ({ data: url.includes("401") ? aSmallPadded : url.includes("402") ? b : a, contentType: "image/jpeg" });
+    const report = await importIcecatProduct(model, match(icecatProduct({ gallery: [galleryItem("400", 1), galleryItem("401", 2), galleryItem("402", 3)] })), env.deps);
+    expect(report.duplicates).toBe(1);
+    expect(env.images.get(model.id)!.map((r) => r.sourceId)).toEqual(["400", "402"]);
+  }, 30_000);
+
+  it("galerii täiendamine: Icecati pildid tulevad teiste allikate järel (positionOffset) ja maxImages piirab", async () => {
+    const env = setup(null);
+    await importIcecatProduct(model, match(icecatProduct({ gallery: galleryOf(8) })), env.deps, { maxImages: 6, positionOffset: 2 });
+    const records = env.images.get(model.id)!;
+    expect(records).toHaveLength(6);
+    expect(records.map((r) => r.position)).toEqual([2, 3, 4, 5, 6, 7]);
+    expect(records.some((r) => r.isMain)).toBe(false); // põhipilt jääb olemasolevale (nt Laptopid.ee) pildile
+  });
+
+  it("korduv käivitus ei lae alla ega dubleeri", async () => {
+    const env = setup(null);
+    const product = icecatProduct({ gallery: galleryOf(5) });
+    await importIcecatProduct(model, match(product), env.deps);
+    const downloads = env.downloads.length;
+    const second = await importIcecatProduct(model, match(product), env.deps);
+    expect(env.downloads.length).toBe(downloads);
+    expect(second).toMatchObject({ downloaded: 0, unchanged: 5, imageCount: 5 });
+    expect(env.images.get(model.id)).toHaveLength(5);
   });
 });

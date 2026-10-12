@@ -65,8 +65,10 @@ describe("rikastus ei jookse lehe renderdamisel (LOCAL-FIRST)", () => {
 
   it.each(STOREFRONT_PATH)("%s ei impordi välisallikaid ega rikastusteenust", (file) => {
     const code = source(file);
-    expect(code).not.toMatch(/@\/integrations\/icecat|@\/integrations\/laptopid\/laptopid-client|@\/server\/enrichment|@\/server\/images\/icecat-image-import/);
+    expect(code).not.toMatch(/@\/integrations\/icecat|@\/integrations\/laptopid\/laptopid-client|@\/server\/enrichment|@\/server\/images\/icecat-|@\/domain\/images\/model-identity/);
     expect(code).not.toMatch(/\bfetch\(\s*["'`]https?:/);
+    // Icecati API-d, indeksit ega pildiservereid poe renderdamisel ei kasutata (ainult offline rikastus)
+    expect(code).not.toMatch(/icecat\.biz/);
   });
 
   it("mapper rakendab rikastust ainult andmebaasi väljast (supplier_listings.enrichment)", () => {

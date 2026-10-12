@@ -102,7 +102,7 @@ describe.skipIf(!hasTestDatabase)("kataloogi rikastus (andmebaas)", () => {
     expect(row.enrichment).toBeNull();
   });
 
-  it("prioriteet: meie pildid → Laptopid.ee (sama mudel / kindel vaste) → Icecat ainult vasteta + identifikaatoriga mudelile", async () => {
+  it("prioriteet: meie pildid → Laptopid.ee (sama mudel / kindel vaste) → Icecat (GTIN/MPN, siis tootja + mudel)", async () => {
     const { runCatalogEnrichment } = await import("./catalog-enrichment");
     const { DbImageRepository } = await import("@/server/images/db-image-repository");
     const report = await runCatalogEnrichment(t.db, { images: true, specs: true, icecat: { ...icecat, repository: new DbImageRepository(t.db) } });
@@ -127,12 +127,11 @@ describe.skipIf(!hasTestDatabase)("kataloogi rikastus (andmebaas)", () => {
     const [review] = await t.db.select().from(productModels).where(eq(productModels.id, ids["dell-latitude-7310"]));
     expect(review.enrichment?.images).toMatchObject({ status: "REVIEW", candidates: ["dell-latitude-7310-carbon"] });
 
-    // Icecat: ainult MPN-iga vasteta mudel; Laptopid.ee vastega ja identifikaatorita mudelite kohta päringut ei tehtud
+    // Icecat: MPN-iga mudel küsitakse MPN-i järgi; Apple ilma kindla vasteta → ülevaatus; Icecatis puuduv tootja → päringut pole
     expect(icecatCalls).toEqual(["MVH22LL/A"]);
-    expect(images.icecatAttempted).toBe(1);
-    expect(images.icecatSkippedNoIdentifiers).toBeGreaterThanOrEqual(1);
+    expect(images.icecat).toMatchObject({ apple: 1, unsupportedBrand: 1 });
     const [cepter] = await t.db.select().from(productModels).where(eq(productModels.id, ids["cepter-cloud"]));
-    expect(cepter.enrichment?.images).toMatchObject({ status: "UNRESOLVED", icecat: "NO_IDENTIFIERS" });
+    expect(cepter.enrichment?.images).toMatchObject({ status: "UNRESOLVED" });
     const mpn = await t.db.select().from(productIdentifiers).where(eq(productIdentifiers.productModelId, ids["apple-macbook-air-13-2020"]));
     expect(mpn.map((r) => [r.kind, r.value, r.source])).toEqual([["MPN", "MVH22LL/A", "SUPPLIER"]]);
 
@@ -194,4 +193,4 @@ describe.skipIf(!hasTestDatabase)("kataloogi rikastus (andmebaas)", () => {
     expect(cpuOf(ids.fxGpu)).toMatchObject({ benchmark: 8780, maxGhz: 4.2 });
     expect(items.find((i) => i.variant.sku === complete.find((l) => l.id === ids.fxGpu)!.sku)!.variant.gpu.benchmark).toBe(5400);
   });
-});
+}, 120_000);

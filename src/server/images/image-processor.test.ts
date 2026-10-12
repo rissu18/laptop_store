@@ -43,8 +43,8 @@ describe("renderVariant", () => {
     expect([result.width, result.height]).toEqual([500, 500]);
   });
 
-  it("large: 4000 px originaal vähendatakse 2000 px-ni", async () => {
+  it("large: 4000 px originaal vähendatakse 1600 px-ni", async () => {
     const result = await renderVariant(await jpeg(4000, 4000), "large", false);
-    expect(result.width).toBe(2000);
+    expect(result.width).toBe(1600);
   });
 });

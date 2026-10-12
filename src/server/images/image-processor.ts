@@ -66,7 +66,9 @@ export const VARIANT_SPECS: Record<ImageVariant, { maxSize: number; quality: num
   thumbnail: { maxSize: 300, quality: 82, square: true },
   medium: { maxSize: 700, quality: 82, square: false },
   // Tooteleht: hea kvaliteet; 4000 px originaal vähendatakse mõistlikule suurusele
-  large: { maxSize: 2000, quality: 90, square: false },
+  // Tooteleht + täisekraan (galerii ~690 px, 2× tihedus): 4000 px originaal → 1600 px. Failid on Git-is
+  // (public/media/products), seega mõõdukas suurus hoiab repo ja deploy väiksena.
+  large: { maxSize: 1600, quality: 84, square: false },
 };
 
 export interface ProcessedImage {
@@ -95,3 +97,39 @@ export async function renderVariant(buffer: Buffer, variant: ImageVariant, hasAl
   const { data, info } = await pipeline.toBuffer({ resolveWithObject: true });
   return { data, contentType: "image/webp", width: info.width, height: info.height };
 }
+
+/**
+ * Visuaalne räsi (dHash, 64 bitti) duplikaatide tuvastamiseks: sama foto eri suuruses / eri pakkimisega / valge
+ * äärisega (Icecati 1200×1200 vs 1000×750) annab peaaegu sama räsi. Ääred kärbitakse enne võrdlemist.
+ */
+export async function visualHash(buffer: Buffer): Promise<bigint | null> {
+  const base = () => sharp(buffer).rotate().flatten({ background: "#ffffff" });
+  let image = base();
+  try {
+    image = sharp(await base().trim({ background: "#ffffff", threshold: 12 }).toBuffer());
+  } catch {
+    // ühtlase taustaga pilt — kärpida pole midagi
+  }
+  const { data } = await image.greyscale().resize(9, 8, { fit: "fill" }).raw().toBuffer({ resolveWithObject: true });
+  let hash = BigInt(0);
+  for (let y = 0; y < 8; y++) {
+    for (let x = 0; x < 8; x++) {
+      hash = (hash << BigInt(1)) | (data[y * 9 + x] > data[y * 9 + x + 1] ? BigInt(1) : BigInt(0));
+    }
+  }
+  // Ühtlane pilt (kõik bitid 0) ei anna visuaalset allkirja — seda võrreldakse ainult faili sisu järgi
+  return hash === BigInt(0) ? null : hash;
+}
+
+/** Erinevate bittide arv; ≤ VISUAL_DUPLICATE_DISTANCE → sama pilt */
+export function hashDistance(a: bigint, b: bigint): number {
+  let diff = a ^ b;
+  let count = 0;
+  while (diff > BigInt(0)) {
+    count += Number(diff & BigInt(1));
+    diff >>= BigInt(1);
+  }
+  return count;
+}
+
+export const VISUAL_DUPLICATE_DISTANCE = 4;

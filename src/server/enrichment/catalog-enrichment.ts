@@ -13,12 +13,24 @@ import {
 import { findModelMatch, type MatchableModel } from "@/domain/catalog/model-match";
 import { applyOverrides, listingOverridableFields, MODEL_OVERRIDABLE_FIELDS } from "@/domain/catalog/overrides";
 import { BRAND_NAMES, type BrandCode } from "@/domain/catalog/types";
-import type { ModelIdentifiers } from "@/integrations/icecat/icecat-matcher";
+import type { IcecatLookup, ModelIdentifiers } from "@/integrations/icecat/icecat-matcher";
 import { stableStringify } from "@/integrations/supplier/stable-stringify";
 import type { Database } from "@/server/db/client";
 import { listingImages, productIdentifiers, productImages, productModels, supplierListings } from "@/server/db/schema";
 import { loadModelIdentifiers, normalizeImageOrder } from "@/server/images/db-image-repository";
-import { importModelImages, type ImportDependencies, type ModelImportReport, type ModelToImport } from "@/server/images/icecat-image-import";
+import { buildModelIdentity, requiresStrictIdentifier, titleHasIdentity } from "@/domain/images/model-identity";
+import { resolveIcecatImages } from "@/integrations/icecat/icecat-image-resolver";
+import { ICECAT_SUPPLIER_IDS, type IcecatIndexRow, type IndexStreamStats } from "@/integrations/icecat/icecat-index";
+import { mapWithConcurrency } from "@/server/concurrency/map-with-concurrency";
+import {
+  importIcecatProduct,
+  importModelImages,
+  saveIcecatDecision,
+  type ImportDependencies,
+  type ModelImportReport,
+  type ModelToImport,
+} from "@/server/images/icecat-image-import";
+import { IcecatIndexCandidates, MODEL_IDENTITY_MATCH_TYPE, resolveByIdentity } from "@/server/images/icecat-model-search";
 
 /**
  * Kataloogi rikastus — LOCAL-FIRST (vt domain/catalog/enrichment.ts):
@@ -45,8 +57,12 @@ const MIN_IMAGE_WIDTH = 500;
 export interface EnrichmentOptions {
   images?: boolean;
   specs?: boolean;
-  /** Icecat (viimane allikas) — vajab `icecat` sõltuvusi ja lokaalset pildisalvestust */
+  /** Icecat (viimane allikas) — vajab `icecat` sõltuvusi ja lokaalset pildisalvestust (dry-run: ainult lugemine) */
   icecat?: ImportDependencies | null;
+  /** Icecati indeksi voog tootja + mudeli identiteedi otsinguks (GTIN/MPN puudumisel) */
+  icecatIndex?: IcecatIndexSource | null;
+  /** Töötle ainult esimesed N Icecati kandidaati (proovikäivitus) */
+  icecatLimit?: number;
   dryRun?: boolean;
   now?: Date;
   log?: (message: string) => void;
@@ -73,10 +89,13 @@ export interface EnrichmentReport {
     unresolved: number;
     icecatAttempted: number;
     icecatMatched: number;
-    icecatSkippedNoIdentifiers: number;
     examples: ImageExample[];
     reviewExamples: { model: string; candidates: string[]; matchedBy: string }[];
-    icecatResults: { model: string; status: string; matchedBy: string | null; images: number; title: string | null }[];
+    /** Icecati samm (GTIN/MPN + tootja ja mudeli identiteet); null, kui `--icecat` polnud */
+    icecat: IcecatImageReport | null;
+    /** Mudelid nähtavate mudelipiltide arvu järgi enne ja pärast (dry-run: eeldatav) */
+    galleryBefore: GalleryBuckets;
+    galleryAfter: GalleryBuckets;
   } | null;
   specs: {
     listings: number;
@@ -196,7 +215,6 @@ function modelTitle(m: ModelRow): string {
 }
 
 async function enrichImages(db: Database, models: ModelRow[], listings: ListingRow[], options: EnrichmentOptions, now: Date): Promise<NonNullable<EnrichmentReport["images"]>> {
-  const log = options.log ?? (() => {});
   const imageRows = await db.select({ productModelId: productImages.productModelId, source: productImages.source, isHidden: productImages.isHidden }).from(productImages);
   const listingImageRows = await db.select().from(listingImages);
 
@@ -243,10 +261,11 @@ async function enrichImages(db: Database, models: ModelRow[], listings: ListingR
     unresolved: 0,
     icecatAttempted: 0,
     icecatMatched: 0,
-    icecatSkippedNoIdentifiers: 0,
     examples: [],
     reviewExamples: [],
-    icecatResults: [],
+    icecat: null,
+    galleryBefore: galleryBuckets([]),
+    galleryAfter: galleryBuckets([]),
   };
 
   const decisions = new Map<string, ModelImageEnrichment>();
@@ -332,51 +351,16 @@ async function enrichImages(db: Database, models: ModelRow[], listings: ListingR
     }
   }
 
-  // 3. Icecat — viimane allikas: ainult vasteta, poes müügis ja identifikaatoriga mudelid (muidu päringut ei tehta)
+  // 3. Icecat — viimane allikas: mudelid, mille galeriis on alla 5 nähtava pildi (poes müügis).
+  //    GTIN/MPN → täpne päring; muidu tootja + mudeli identiteet Icecati indeksist (+ pealkirja kontroll).
+  const visibleBefore = new Map(effModels.map((m) => [m.id, (productImagesByModel.get(m.id) ?? []).filter((r) => !r.isHidden).length]));
   if (options.icecat) {
-    for (const model of effModels) {
-      const decision = decisions.get(model.id)!;
-      if (decision.status !== "UNRESOLVED" && decision.status !== "REVIEW") continue;
-      const own = listingsByModel.get(model.id) ?? [];
-      if (!own.some(onSale)) continue;
-      const ids = await loadModelIdentifiers(db, model.id);
-      const supplierMpns = [...new Set(own.map((l) => l.mpn?.trim()).filter((v): v is string => Boolean(v)))];
-      const supplierGtins = [...new Set(own.map((l) => l.ean?.trim()).filter((v): v is string => Boolean(v)))];
-      const merged: ModelIdentifiers = { ...ids, mpns: [...new Set([...supplierMpns, ...ids.mpns])], gtins: [...new Set([...supplierGtins, ...ids.gtins])] };
-      if (!merged.gtins.length && !merged.mpns.length && !merged.icecatIds.length && !merged.confirmedIcecatId) {
-        report.icecatSkippedNoIdentifiers++;
-        decision.icecat = "NO_IDENTIFIERS";
-        continue;
-      }
-      report.icecatAttempted++;
-      if (options.dryRun) {
-        decision.icecat = "DRY_RUN";
-        continue;
-      }
-      // Tarnija MPN/EAN salvestatakse mudeli identifikaatoriks (admin näeb, mille järgi otsiti)
-      for (const [kind, values] of [["MPN", supplierMpns], ["GTIN", supplierGtins]] as const) {
-        for (const value of values) await db.insert(productIdentifiers).values({ productModelId: model.id, kind, value, source: "SUPPLIER" }).onConflictDoNothing();
-      }
-      const brandName = BRAND_NAMES[model.manufacturer as BrandCode] ?? model.manufacturer;
-      const importModel: ModelToImport = { id: model.slug, title: modelTitle(model), brandName, modelName: modelTitle(model).slice(brandName.length + 1) };
-      let result: ModelImportReport;
-      try {
-        result = await importModelImages(importModel, merged, options.icecat);
-      } catch (error) {
-        decision.icecat = "ERROR";
-        log(`Icecat ${model.slug}: ${error instanceof Error ? error.message : String(error)}`);
-        continue; // olemasolevaid andmeid ei muudeta, töö jätkub
-      }
-      decision.icecat = result.status;
-      report.icecatResults.push({ model: model.slug, status: result.status, matchedBy: result.matchedBy, images: result.imageCount, title: result.icecatTitle });
-      if (result.status === "MATCHED" && result.imageCount > 0) {
-        report.icecatMatched++;
-        Object.assign(decision, { status: "ICECAT", matchedBy: result.matchedBy, confidence: result.confidence, imageCount: result.imageCount, matchedModelSlug: null, candidates: undefined });
-        added.set(model.id, result.imageCount);
-      }
-      log(`Icecat ${model.slug}: ${result.status} (${result.imageCount} pilti)`);
-    }
+    const icecatAdded = await enrichIcecatImages(db, effModels, listingsByModel, productImagesByModel, decisions, added, report, options, now);
+    for (const [id, count] of icecatAdded) added.set(id, (added.get(id) ?? 0) + count);
   }
+
+  report.galleryBefore = galleryBuckets(effModels.map((m) => visibleBefore.get(m.id) ?? 0));
+  report.galleryAfter = galleryBuckets(effModels.map((m) => (visibleBefore.get(m.id) ?? 0) + (added.get(m.id) ?? 0)));
 
   for (const model of effModels) {
     const decision = decisions.get(model.id)!;
@@ -392,6 +376,283 @@ async function enrichImages(db: Database, models: ModelRow[], listings: ListingR
     }
   }
   return report;
+}
+
+// ---- Icecat (GTIN/MPN → tootja + mudeli identiteet) -----------------------------------------------------------------
+
+/** Alates sellest nähtavate piltide arvust mudeli galeriid ei täiendata */
+const GALLERY_COMPLETE = 5;
+const ICECAT_MODEL_CONCURRENCY = 3;
+
+export interface GalleryBuckets {
+  zero: number;
+  oneToFour: number;
+  fiveToTen: number;
+  overTen: number;
+}
+
+export function galleryBuckets(counts: number[]): GalleryBuckets {
+  const b: GalleryBuckets = { zero: 0, oneToFour: 0, fiveToTen: 0, overTen: 0 };
+  for (const n of counts) {
+    if (n === 0) b.zero++;
+    else if (n < GALLERY_COMPLETE) b.oneToFour++;
+    else if (n <= 10) b.fiveToTen++;
+    else b.overTen++;
+  }
+  return b;
+}
+
+/** Icecati indeksi voog (CLI: `streamIcecatIndex`; testides massiiv) */
+export type IcecatIndexSource = (supplierIds: Set<string>, onRow: (row: IcecatIndexRow) => void) => Promise<IndexStreamStats>;
+
+export interface IcecatModelResult {
+  model: string;
+  /** IDENTIFIER / NAME_EXACT / NAME_FAMILY / REUSED / REVIEW / UNRESOLVED / SKIPPED_REJECTED_BY_ADMIN / ERROR */
+  outcome: string;
+  icecatId: string | null;
+  icecatName: string | null;
+  icecatTitle: string | null;
+  reason: string | null;
+  imagesBefore: number;
+  /** Icecati pildid pärast (dry-run: kasutatavate piltide arv, max lubatud) */
+  icecatImages: number;
+  downloaded: number;
+}
+
+export interface IcecatImageReport {
+  candidates: number;
+  index: IndexStreamStats | null;
+  identifierMatches: number;
+  nameExact: number;
+  nameFamily: number;
+  reused: number;
+  review: number;
+  unresolved: number;
+  unsupportedBrand: number;
+  apple: number;
+  rejectedByAdmin: number;
+  errors: number;
+  jsonRequests: number;
+  imagesExpected: number;
+  downloaded: number;
+  duplicates: number;
+  results: IcecatModelResult[];
+}
+
+async function enrichIcecatImages(
+  db: Database,
+  models: ModelRow[],
+  listingsByModel: Map<string, ListingRow[]>,
+  productImagesByModel: Map<string, { source: string; isHidden: boolean }[]>,
+  decisions: Map<string, ModelImageEnrichment>,
+  added: Map<string, number>,
+  report: NonNullable<EnrichmentReport["images"]>,
+  options: EnrichmentOptions,
+  now: Date,
+): Promise<Map<string, number>> {
+  const log = options.log ?? (() => {});
+  const deps = options.icecat!;
+  const result: IcecatImageReport = {
+    candidates: 0, index: null, identifierMatches: 0, nameExact: 0, nameFamily: 0, reused: 0, review: 0, unresolved: 0,
+    unsupportedBrand: 0, apple: 0, rejectedByAdmin: 0, errors: 0, jsonRequests: 0, imagesExpected: 0, downloaded: 0, duplicates: 0, results: [],
+  };
+  report.icecat = result;
+  const delta = new Map<string, number>();
+
+  // Kandidaadid: poes müügis, alla 5 nähtava mudelipildi (pärast Laptopid.ee sammu)
+  const rowsOf = (m: ModelRow) => productImagesByModel.get(m.id) ?? [];
+  const visibleOf = (m: ModelRow) => rowsOf(m).filter((r) => !r.isHidden).length + (added.get(m.id) ?? 0);
+  let candidates = models.filter((m) => (listingsByModel.get(m.id) ?? []).some(onSale) && visibleOf(m) < GALLERY_COMPLETE);
+  if (options.icecatLimit) candidates = candidates.slice(0, options.icecatLimit);
+  result.candidates = candidates.length;
+
+  // Indeks: üks voog, võrdlus kohe voos (Icecati indeksit ei salvestata)
+  const searchable = candidates.filter((m) => !requiresStrictIdentifier(m.manufacturer));
+  const index = new IcecatIndexCandidates(searchable.map((m) => ({ id: m.slug, manufacturer: m.manufacturer, family: m.family, model: m.model, screenSizeIn: m.screenSizeIn })));
+  if (options.icecatIndex && index.supplierIds.size) {
+    log(`Icecati indeks: voog algab (${searchable.length} mudelit, tootjad ${[...index.supplierIds].join(",")})`);
+    result.index = await options.icecatIndex(index.supplierIds, (row) => index.consider(row));
+    log(`Icecati indeks: ${result.index.products} toodet, sülearvuteid meie tootjatelt ${result.index.kept}`);
+  }
+
+  const counting: IcecatLookup = {
+    getProduct: (identifier) => {
+      result.jsonRequests++;
+      return deps.icecat.getProduct(identifier);
+    },
+  };
+  const countingDeps: ImportDependencies = { ...deps, icecat: { getProduct: counting.getProduct, assetHeaders: () => deps.icecat.assetHeaders() } };
+
+  await mapWithConcurrency(candidates, ICECAT_MODEL_CONCURRENCY, async (model) => {
+    const rows = rowsOf(model);
+    const icecatVisible = rows.filter((r) => r.source === "ICECAT" && !r.isHidden).length;
+    const otherVisible = visibleOf(model) - icecatVisible;
+    const maxImages = Math.max(0, 10 - otherVisible);
+    // Teiste allikate pildid (ka peidetud) jäävad galeriis ette
+    const positionOffset = rows.filter((r) => r.source !== "ICECAT").length + (added.get(model.id) ?? 0);
+    const brandName = BRAND_NAMES[model.manufacturer as BrandCode] ?? model.manufacturer;
+    const importModel: ModelToImport = { id: model.slug, title: modelTitle(model), brandName, modelName: modelTitle(model).slice(brandName.length + 1) };
+    const entry: IcecatModelResult = { model: model.slug, outcome: "UNRESOLVED", icecatId: null, icecatName: null, icecatTitle: null, reason: null, imagesBefore: visibleOf(model), icecatImages: icecatVisible, downloaded: 0 };
+    result.results.push(entry);
+    const decision = decisions.get(model.id)!;
+    const importOptions = { maxImages, positionOffset };
+
+    const expect = (count: number) => {
+      entry.icecatImages = Math.min(count, maxImages);
+      result.imagesExpected += entry.icecatImages;
+      delta.set(model.id, entry.icecatImages - icecatVisible);
+    };
+    const applied = (imported: ModelImportReport, outcome: string) => {
+      entry.outcome = outcome;
+      entry.icecatId = imported.icecatId;
+      entry.icecatTitle = imported.icecatTitle;
+      entry.icecatImages = imported.imageCount;
+      entry.downloaded = imported.downloaded;
+      result.downloaded += imported.downloaded;
+      result.duplicates += imported.duplicates;
+      result.imagesExpected += imported.imageCount;
+      delta.set(model.id, imported.imageCount - icecatVisible);
+      decision.icecat = imported.status;
+      if (imported.status === "MATCHED" && imported.imageCount > 0 && (decision.status === "UNRESOLVED" || decision.status === "REVIEW")) {
+        Object.assign(decision, { status: "ICECAT", matchedBy: imported.matchedBy, confidence: imported.confidence, matchedModelSlug: null, candidates: undefined });
+      }
+      if (imported.status === "MATCHED") decision.imageCount = otherVisible + imported.imageCount;
+      log(`Icecat ${model.slug}: ${outcome} ${imported.status} (${imported.imageCount} pilti, alla laetud ${imported.downloaded})`);
+    };
+
+    try {
+      const previous = await deps.repository.getMatch(model.slug);
+      const ids = await loadModelIdentifiers(db, model.id);
+      const own = listingsByModel.get(model.id) ?? [];
+      const supplierMpns = [...new Set(own.map((l) => l.mpn?.trim()).filter((v): v is string => Boolean(v)))];
+      const supplierGtins = [...new Set(own.map((l) => l.ean?.trim()).filter((v): v is string => Boolean(v)))];
+      const merged: ModelIdentifiers = { ...ids, mpns: [...new Set([...supplierMpns, ...ids.mpns])], gtins: [...new Set([...supplierGtins, ...ids.gtins])] };
+
+      if (previous?.status === "REJECTED" && !merged.confirmedIcecatId) {
+        entry.outcome = "SKIPPED_REJECTED_BY_ADMIN";
+        result.rejectedByAdmin++;
+        return;
+      }
+
+      // a) Varasem mudeli identiteedi vaste → sama Icecati toode (1 päring), pealkiri kontrollitakse uuesti
+      const identity = index.identity(model.slug) ?? buildModelIdentity(model);
+      if (previous?.status === "MATCHED" && previous.matchType === MODEL_IDENTITY_MATCH_TYPE && previous.icecatId && !merged.confirmedIcecatId) {
+        const found = await counting.getProduct({ kind: "ICECAT_ID", icecatId: previous.icecatId });
+        if (found.status === "FOUND" && titleHasIdentity(identity, `${found.product.GeneralInfo.Brand} ${found.product.GeneralInfo.Title}`)) {
+          result.reused++;
+          if (options.dryRun) {
+            entry.outcome = "REUSED";
+            entry.icecatId = previous.icecatId;
+            expect(resolveIcecatImages(found.product).length);
+            return;
+          }
+          const match = { product: found.product, matchType: MODEL_IDENTITY_MATCH_TYPE, confidence: previous.confidence ?? 0.9, matchedBy: previous.matchedBy ?? `Icecat ID ${previous.icecatId}`, titleVerified: true };
+          applied(await importIcecatProduct(importModel, match, countingDeps, importOptions), "REUSED");
+          return;
+        }
+        if (found.status === "ERROR") {
+          entry.outcome = "ERROR";
+          entry.reason = "Icecat ei vastanud — olemasolevad pildid jäid alles";
+          result.errors++;
+          return;
+        }
+        // Toode kadus või pealkiri ei klapi enam → otsitakse uuesti allpool
+      }
+
+      // b) GTIN / MPN / kinnitatud Icecat ID (dry-run neid ei küsi)
+      const hasIds = Boolean(merged.gtins.length || merged.mpns.length || merged.icecatIds.length || merged.confirmedIcecatId);
+      if (hasIds && !options.dryRun) {
+        for (const [kind, values] of [["MPN", supplierMpns], ["GTIN", supplierGtins]] as const) {
+          for (const value of values) await db.insert(productIdentifiers).values({ productModelId: model.id, kind, value, source: "SUPPLIER" }).onConflictDoNothing();
+        }
+        const byId = await importModelImages(importModel, merged, countingDeps, importOptions);
+        if (byId.status !== "MATCHED" && icecatVisible) delta.set(model.id, -icecatVisible); // kindlat vastet enam pole → ICECAT pildid eemaldati
+        if (byId.status === "MATCHED" || merged.confirmedIcecatId) {
+          if (byId.status === "MATCHED") result.identifierMatches++;
+          applied(byId, "IDENTIFIER");
+          return;
+        }
+      }
+
+      // c) Tootja + mudeli identiteet Icecati indeksist
+      if (requiresStrictIdentifier(model.manufacturer)) {
+        entry.outcome = "REVIEW";
+        entry.reason = 'Apple: Icecati mudelinimi on ainult "MacBook Air/Pro" (suurus/aasta/kiip puudub) — vaja GTIN/MPN-i või käsitsi vastet';
+        result.apple++;
+        result.review++;
+        return;
+      }
+      if (!index.has(model.slug)) {
+        const supported = Boolean(ICECAT_SUPPLIER_IDS[model.manufacturer]);
+        entry.reason = supported ? "mudelinimes pole eristavat numbrit" : "tootjat pole Open Icecati sülearvutite kategoorias";
+        if (!supported) result.unsupportedBrand++;
+        result.unresolved++;
+        return;
+      }
+      const found = await resolveByIdentity(identity, index.candidatesFor(model.slug), counting, {
+        rejectedIcecatIds: new Set(merged.rejectedIcecatIds ?? []),
+        targetImages: maxImages,
+        ourCpus: [...new Set(own.map((l) => effective(l).cpu).filter((c): c is string => Boolean(c)))],
+        ambiguousGeneration: index.hasGenerationVariants(model.slug),
+      });
+      if (found.status === "MATCHED") {
+        const outcome = found.candidate.verdict === "EXACT" ? "NAME_EXACT" : "NAME_FAMILY";
+        if (found.candidate.verdict === "EXACT") result.nameExact++;
+        else result.nameFamily++;
+        if (options.dryRun) {
+          Object.assign(entry, { outcome, icecatId: found.product.GeneralInfo.IcecatId, icecatTitle: found.product.GeneralInfo.Title });
+          expect(found.imageCount);
+        } else {
+          const match = { product: found.product, matchType: MODEL_IDENTITY_MATCH_TYPE, confidence: found.confidence, matchedBy: found.matchedBy, titleVerified: true };
+          applied(await importIcecatProduct(importModel, match, countingDeps, importOptions), outcome);
+        }
+        entry.icecatName = found.candidate.row.modelName;
+        entry.reason = found.matchedBy;
+        return;
+      }
+      if (found.status === "ERROR") {
+        entry.outcome = "ERROR";
+        entry.reason = found.reason;
+        result.errors++;
+        return;
+      }
+      const review = found.status === "NEEDS_REVIEW";
+      entry.outcome = review ? "REVIEW" : "UNRESOLVED";
+      entry.reason = found.reason;
+      if (review) {
+        entry.icecatId = found.candidate.row.productId;
+        entry.icecatName = found.candidate.row.modelName;
+        entry.icecatTitle = found.title;
+        result.review++;
+      } else result.unresolved++;
+      decision.icecat = review ? "NEEDS_REVIEW" : "NOT_FOUND";
+      if (!options.dryRun) {
+        await saveIcecatDecision(
+          importModel,
+          deps.repository,
+          {
+            status: review ? "NEEDS_REVIEW" : "NOT_FOUND",
+            reason: review ? (found.candidate.verdict === "REVIEW" ? "LOW_CONFIDENCE" : "TITLE_MISMATCH") : "NOT_IN_ICECAT",
+            icecatId: review ? found.candidate.row.productId : null,
+            icecatTitle: review ? found.title : null,
+            matchedBy: review ? `Icecati indeks: "${found.candidate.row.modelName}"` : null,
+            error: found.reason,
+          },
+          now,
+        );
+      }
+    } catch (error) {
+      entry.outcome = "ERROR";
+      entry.reason = error instanceof Error ? error.message : String(error);
+      result.errors++;
+      log(`Icecat ${model.slug}: ${entry.reason}`);
+    }
+  });
+
+  result.results.sort((a, b) => a.model.localeCompare(b.model));
+  report.icecatAttempted = result.candidates;
+  report.icecatMatched = result.identifierMatches + result.nameExact + result.nameFamily + result.reused;
+  return delta;
 }
 
 // ---- Tehnilised andmed --------------------------------------------------------------------------------------------

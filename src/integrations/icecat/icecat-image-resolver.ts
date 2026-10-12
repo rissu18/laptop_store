@@ -38,7 +38,8 @@ export const VARIANT_TARGET_WIDTH: Record<ImageVariant, number> = {
   large: 1000,
 };
 
-const MAX_GALLERY_IMAGES = 12;
+/** Max pilte mudeli kohta (galerii siht 5–10; vähem, kui Icecatil vähem häid erinevaid pilte — kunstlikult ei korrata) */
+export const MAX_GALLERY_IMAGES = 10;
 /** Põhipildiks sobiva pildi minimaalne laius */
 const MIN_MAIN_WIDTH = 500;
 
@@ -84,7 +85,8 @@ function looksLikeProductPhoto(candidates: Record<ImageVariant, ImageSourceCandi
   const largest = candidates.large[0] ?? candidates.medium[0];
   if (!largest?.width || !largest.height) return true;
   const ratio = largest.width / largest.height;
-  return Math.min(largest.width, largest.height) >= 100 && ratio <= 4 && ratio >= 0.25;
+  // Pisipildid (suurim versioon < 400 px) ei sobi tootelehe galeriisse
+  return Math.min(largest.width, largest.height) >= 100 && Math.max(largest.width, largest.height) >= 400 && ratio <= 4 && ratio >= 0.25;
 }
 
 /** Pildi "identiteet" duplikaatide tuvastamiseks: suurima versiooni URL ilma päringuparameetriteta. */
@@ -93,7 +95,8 @@ function identityUrl(candidates: Record<ImageVariant, ImageSourceCandidate[]>): 
   return url ? url.split("?")[0].toLowerCase() : null;
 }
 
-export function resolveIcecatImages(product: IcecatProduct): ResolvedIcecatImage[] {
+export function resolveIcecatImages(product: IcecatProduct, maxImages = MAX_GALLERY_IMAGES): ResolvedIcecatImage[] {
+  if (maxImages <= 0) return [];
   const gallery = [...(product.Gallery ?? [])]
     // Ainult avalikud tootepildid (mitte nt privaatsed või muud tüüpi failid)
     .filter((item) => item.IsPrivate !== "1" && (!item.Type || item.Type === "ProductImage"))
@@ -129,7 +132,7 @@ export function resolveIcecatImages(product: IcecatProduct): ResolvedIcecatImage
 
   // 2. Galerii Icecati järjekorras
   for (const item of gallery) {
-    if (images.length >= MAX_GALLERY_IMAGES) break;
+    if (images.length >= maxImages) break;
     add(item.ID, fromGalleryItem(item), item.Updated ?? null);
   }
 
