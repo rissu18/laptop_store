@@ -14,25 +14,36 @@ import type { CatalogItem } from "./types";
 
 export const SIMILAR_PRICE_TOLERANCE = 0.25;
 
+/** Võrdluseks vajalikud väljad — CatalogItem sobib; server võib anda ka kitsa projektsiooni (catalog-queries.ts). */
+export interface SimilarityItem {
+  product: Pick<CatalogItem["product"], "slug" | "brand" | "series" | "screenSizeIn">;
+  variant: Pick<CatalogItem["variant"], "id" | "sku" | "ramGb" | "storageGb"> & {
+    cpu: Pick<CatalogItem["variant"]["cpu"], "family" | "model">;
+    gpu: Pick<CatalogItem["variant"]["gpu"], "dedicated">;
+    price: Pick<CatalogItem["variant"]["price"], "saleCents">;
+    stock: Pick<CatalogItem["variant"]["stock"], "available">;
+  };
+}
+
 /** Kasutusklass: mobiilne tööjaam vs tavaline äriklass. */
-function usageClass(item: CatalogItem): "workstation" | "business" {
+function usageClass(item: SimilarityItem): "workstation" | "business" {
   const series = item.product.series;
   if (series === "Precision" || series === "ThinkPad P" || series === "ZBook") return "workstation";
   return item.variant.gpu.dedicated ? "workstation" : "business";
 }
 
-function effectiveCpuTier(item: CatalogItem): number {
+function effectiveCpuTier(item: SimilarityItem): number {
   return (cpuTier(item.variant.cpu.family) ?? 2) + (isHighPerformanceCpu(item.variant.cpu.model) ? 1 : 0);
 }
 
 const log2 = (n: number) => Math.log2(Math.max(1, n));
 
 export interface SimilarityScore {
-  item: CatalogItem;
+  item: SimilarityItem;
   score: number;
 }
 
-export function similarityScore(current: CatalogItem, candidate: CatalogItem): number {
+export function similarityScore(current: SimilarityItem, candidate: SimilarityItem): number {
   const a = current;
   const b = candidate;
   let score = 0;
@@ -66,13 +77,13 @@ export function similarityScore(current: CatalogItem, candidate: CatalogItem): n
   return score;
 }
 
-export function isWithinPriceRange(current: CatalogItem, candidate: CatalogItem): boolean {
+export function isWithinPriceRange(current: SimilarityItem, candidate: SimilarityItem): boolean {
   const price = current.variant.price.saleCents;
   const diff = Math.abs(candidate.variant.price.saleCents - price);
   return diff <= price * SIMILAR_PRICE_TOLERANCE;
 }
 
-export function findSimilarItems(current: CatalogItem, candidates: CatalogItem[], limit = 4): CatalogItem[] {
+export function findSimilarItems<T extends SimilarityItem>(current: SimilarityItem, candidates: T[], limit = 4): T[] {
   const ranked = candidates
     .filter(
       (candidate) =>
@@ -86,7 +97,7 @@ export function findSimilarItems(current: CatalogItem, candidates: CatalogItem[]
 
   // Üks pakkumine mudeli kohta, et soovitused oleksid mitmekesised
   const seenModels = new Set<string>();
-  const result: CatalogItem[] = [];
+  const result: T[] = [];
   for (const { item } of ranked) {
     if (seenModels.has(item.product.slug)) continue;
     seenModels.add(item.product.slug);

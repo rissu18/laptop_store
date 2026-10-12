@@ -35,7 +35,7 @@ export async function loadDbCatalogItems(): Promise<SearchableItem[]> {
   }
 }
 
-function pickColumns<T extends Table, K extends keyof T["_"]["columns"] & string>(table: T, keys: readonly K[]): Pick<T["_"]["columns"], K> {
+export function pickColumns<T extends Table, K extends keyof T["_"]["columns"] & string>(table: T, keys: readonly K[]): Pick<T["_"]["columns"], K> {
   const all = getTableColumns(table) as T["_"]["columns"];
   return Object.fromEntries(keys.map((key) => [key, all[key]])) as Pick<T["_"]["columns"], K>;
 }

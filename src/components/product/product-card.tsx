@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { formatDisplaySummary, formatStorage } from "@/domain/catalog/format";
 import { productHref } from "@/domain/catalog/urls";
-import { imagesForDisplay } from "@/domain/images/product-image";
+import { cardImageView, imagesForDisplay } from "@/domain/images/product-image";
 import type { CatalogItem } from "@/domain/catalog/types";
 import { ButtonLink } from "@/components/ui/button";
 import { AddToCartButton } from "./add-to-cart-button";
@@ -22,7 +22,8 @@ import { StockStatus } from "./stock-status";
 export function ProductCard({ item, priority }: { item: CatalogItem; priority?: boolean }) {
   const { product, variant } = item;
   const href = productHref(item);
-  const images = imagesForDisplay(item);
+  // Brauserisse ainult kaardi kasutatud pildi-URL-id (vt cardImageView)
+  const images = imagesForDisplay(item).map(cardImageView);
   const imageSizes = "(min-width: 1280px) 330px, (min-width: 640px) 45vw, 100vw";
   const extras = [variant.keyboardLayout && `${variant.keyboardLayout} klaviatuur`, variant.os?.replace(/ Pro$/, "")].filter(Boolean);
 

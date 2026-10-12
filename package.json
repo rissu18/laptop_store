@@ -21,7 +21,8 @@
     "db:counts": "tsx --conditions=react-server scripts/db-counts.ts",
     "laptopid:sync": "tsx --conditions=react-server scripts/laptopid-sync.ts",
     "tech:sync": "tsx --conditions=react-server scripts/tech-sync.ts",
-    "catalog:archive-mock": "tsx --conditions=react-server scripts/catalog-archive-mock.ts"
+    "catalog:archive-mock": "tsx --conditions=react-server scripts/catalog-archive-mock.ts",
+    "perf:bench": "tsx --conditions=react-server scripts/perf-bench.ts"
   },
   "engines": {
     "node": ">=22"

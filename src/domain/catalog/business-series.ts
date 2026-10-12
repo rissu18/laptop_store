@@ -31,23 +31,33 @@ export function seriesHref(brand: BrandCode, value: string): string {
   return `/sulearvutid/${brand}?series=${encodeURIComponent(value)}`;
 }
 
+export type SeriesStats = Map<string, { count: number; minPriceCents: number }>;
+
+/** Võti `${brand}:${seriesFilterValue}` — sama, mida annab SQL-i agregaat (catalog-queries.ts → series). */
+export function seriesStatsKey(brand: BrandCode | string, seriesValue: string): string {
+  return `${brand}:${seriesValue}`;
+}
+
 /** Tootjate kaupa, nimekirja järjekorras; ainult seeriad, millel on vähemalt `minCount` müügis toodet. */
 export function summarizeBusinessSeries(items: CatalogItem[], minCount = 1): BusinessSeriesGroup[] {
-  const stats = new Map<string, { count: number; minPriceCents: number }>();
+  const stats: SeriesStats = new Map();
   for (const { product, variant } of items) {
     if (!variant.stock.available) continue;
-    const key = `${product.brand}:${seriesFilterValue(product)}`;
+    const key = seriesStatsKey(product.brand, seriesFilterValue(product));
     const current = stats.get(key);
     stats.set(key, {
       count: (current?.count ?? 0) + 1,
       minPriceCents: Math.min(current?.minPriceCents ?? Infinity, variant.price.saleCents),
     });
   }
+  return groupBusinessSeries(stats, minCount);
+}
 
+export function groupBusinessSeries(stats: SeriesStats, minCount = 1): BusinessSeriesGroup[] {
   return BUSINESS_SERIES.map(({ brand, values }) => {
     const brandName = BRAND_NAMES[brand];
     const series = values.flatMap((value) => {
-      const stat = stats.get(`${brand}:${value}`);
+      const stat = stats.get(seriesStatsKey(brand, value));
       if (!stat || stat.count < minCount) return [];
       const label = seriesLabel(value).replace(new RegExp(`^${brandName}\\s+`), "");
       return [{ value, label, count: stat.count, minPriceCents: stat.minPriceCents, href: seriesHref(brand, value) }];

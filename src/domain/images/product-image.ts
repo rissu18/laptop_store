@@ -111,3 +111,15 @@ export function buildImageFileName(modelSlug: string, position: number, variant:
   const unique = uniqueId ? `-${uniqueId.toLowerCase().replace(/[^a-z0-9]/g, "")}` : "";
   return `${modelSlug}-${String(position + 1).padStart(2, "0")}${unique}-${suffix}.webp`;
 }
+
+/**
+ * Tootekaardi pilt brauserile saatmiseks: ainult URL-id, mida kaart päriselt kasutab (vt StoredImage).
+ *   - tarnija kaugpilt (https://…) → ainult `largeUrl` (Next/Image teeb sobiva laiuse ise);
+ *   - meie salvestatud pilt → `thumbnailUrl` + `mediumUrl` (kaardi srcset ilma suure failita).
+ * Kasutamata URL = "" — kaardi pildisirvija props'id (kuni ~12 pilti × 24 kaarti) jäävad ~3× väiksemaks.
+ */
+export function cardImageView(image: ProductImageView): ProductImageView {
+  return /^https:\/\//.test(image.largeUrl)
+    ? { ...image, thumbnailUrl: "", mediumUrl: "" }
+    : { ...image, largeUrl: "" };
+}
