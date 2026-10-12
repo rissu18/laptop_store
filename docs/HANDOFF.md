@@ -55,7 +55,7 @@ Täielik kirjeldus: **docs/TECH_SYNC.md**.
 
 ## 5. Storefront, kassa, sisu
 
-- **Disain:** indigo-sinine `.storefront` värvisüsteem, avalehe hero `public/brand/hero.png`. Prototüübiriba: "toodete, hindade ja saadavuse andmed on live. Tellimused on testtellimused …". **noindex** aktiivne.
+- **Disaini suund (2026-10-12):** *äriklassi sülearvutite spetsialist + päris suur Tallinna salong*. Indigo `#2F4EE0` + väga hele sinakashall canvas `#F6F7FB` (valged kaardid), salongifotod `public/brand/showroom/*.webp` (register `src/components/brand/showroom-photos.ts`; originaalid `pildid/` on gitignore'is). Avaleht: hero salongifotoga → usaldusriba → "Milleks sülearvutit vajad?" (→ olemasolev leidja `?eesmark=`) → parimad pakkumised → äriklassi seeriad → salongiplokk → viimati lisatud → kontakt. **Tooteleht desktopis: info vasakul (45%), galerii paremal (55%, kleepuv)**; mobiilis eraldi järjestus (nimi → seisukord → galerii → hind/ost → konfiguratsioonid → andmed). "Miks valida see mudel?" = deterministlikud reeglid (`domain/catalog/model-fit.ts`). Menüüs "Salong ja kontakt". Usaldusribal ei väideta garantii pikkust ega "20-punkti kontrolli" (pole kinnitatud). Prototüübiriba: "toodete, hindade ja saadavuse andmed on live. Tellimused on testtellimused …". **noindex** aktiivne.
 - **Tootekaardid:** mitme pildiga kaardil mobiilis pühkimine (scroll-snap), desktopil hover-nooled; pühkimine/nool ei ava tootelehte, puudutus/klõps avab; ühe pildiga kaardil navigeerimist pole; laetakse nähtav pilt + naabrid (`product-card-images.tsx`, `card-gallery-logic.ts`).
 - **Võrdlus (mobiil):** leht ei veni enam horisontaalselt (kerimisala `relative` — lahtrite absoluutsed `sr-only` elemendid venitasid lehte), sticky veerg ekraani servas, z-index parandatud. Erinevad väärtused pehmete taustadega rühmiti (sama väärtus = sama toon, `--store-diff-1..4`), võrdne rida neutraalne (`compare-diff.ts`).
 - **Filtrid** (`facets.ts`, `cpu-filter.ts`): Lenovo ThinkPadi alamseeriad tuletatakse mudelinimest (live'is E/L/P/T/X/X1/X13 + ThinkBook, V-seeria, Yoga); vana `?series=thinkpad` töötab edasi. CPU perekond/põlvkond tuleb andmebaasist, puudumisel tuletatakse CPU nimest (Apple M2 / M2 Pro, Core Ultra 9, Ryzen AI 7) — valikud genereeritakse kataloogist, mitte hardcode'itud nimekirjast. Põlvkonnad tootja kaupa, uuem eespool (numbriliselt).
@@ -67,15 +67,17 @@ Täielik kirjeldus: **docs/TECH_SYNC.md**.
 
 ## 6. Testid ja kontrollid
 
-- **480 testi / 46 testifaili — kõik läbivad** (`npm test`, DB testid päris Neonis ajutises skeemis `test_xxxx`, ~45 s).
+- **490 testi / 47 testifaili — kõik läbivad** (`npm test`, DB testid päris Neonis ajutises skeemis `test_xxxx`, ~45 s).
 - `npm run typecheck` ✅ · `npm run lint` ✅ · `npm run build` ✅ (Git Bashis: `set -a; . ./.env.development.local; . ./.env.local; set +a; npm run build`).
-- Viimane production deploy (`be11d1d`): **Ready**.
+- Viimane production deploy: storefronti värskendus (HEAD, vt `git log`) — kontrolli Verceli staatust.
 - Dev-serveri vana CSS (Turbopacki vahemälu) → peata server, kustuta `.next`, käivita uuesti. `next start` ei loe `.env.development.local` faili (kassa/DB ei tööta) — brauseris testimiseks kasuta `dev`. Brauseripaan on sageli peidetud → Suspense jääb `hidden` alla ja `requestAnimationFrame`/kerimissündmused ei käi; tee enne kuvatõmmis.
 
 ## 7. Viimased commitid
 
 ```
-6d67317  feat(tech): teine tarnija — Tech hinnakiri (Google Sheets XLSX → PostgreSQL)   ← viimane funktsionaalne
+(HEAD)   feat(storefront): sülearvutispetsialist + salong — hero foto, leidja, seeriad, info vasakul / galerii paremal   ← viimane funktsionaalne
+1224031  docs: Tech sync'i QStash ajastus (tööpäeviti 10–20 + öösel 03:00) ja deploy kontroll
+6d67317  feat(tech): teine tarnija — Tech hinnakiri (Google Sheets XLSX → PostgreSQL)
 9f8994d  fix(admin): stale-sync hoiatus järgib QStashi päeva/öö ajastust
 727671c  docs: Laptopid.ee sync'i QStash ajastus prototüübi säästurežiimis
 f1e8df2  perf: kitsam poe kataloogipäring ja piiratud pildilaiused
@@ -94,6 +96,7 @@ a77e106  fix(laptopid): "Uus" seisukord, Lenovo V-seeria ja LAPTOPID_API_BASE_UR
 - **Tech — tundmatud märkused (31 seadet müügist väljas):** Apple `n-650`/`sr-420` (aku tsüklid?), aastad, `safety`/`saf`, `new KB`/`new lcd`, `type-c`, `L00164…`, `0`, `M.M.`, `kolonki`, `5min`, `1 aku ok`, `war 35` — tähendus vajab kasutaja kinnitust, siis lisada `src/integrations/tech/tech-notes.ts` reeglitesse. Nimekiri: admin → Tarnijad → Tech.
 - **Tech — rikastus:** 96 mudelil pole pilte ega mudeliandmeid (Tech ei anna GTIN/MPN-i, Icecati auto-vaste pole võimalik, püsiv pildisalvestus R13 puudub) → poes illustratsioon. Lahendus: käsitsi Icecati vasted adminis või tulevikus muu allikas.
 - **Tech — hinnamuutus:** M muutub → uus pakkumine (hind on identiteedi osa), vana jääb laoseisuga 0 ja selle admini parandus ei kandu üle. Kui see segab, arutada (nt paranduse ülekandmine).
+- **Storefront (2026-10-12 redesign'i järel):** "300+ sülearvutit kohapeal" = "Kohe saadaval" pakkumiste arv (Laptopid.ee, teadmata kogus = sama ettevõtte salong; Techi pakkumised on partneri laos) — kui salongi tegelik väljapanek erineb, muuda `src/domain/storefront/showroom.ts`. Leidjas pole "Mängimiseks" eesmärki (lisamine = uus reegel `domain/finder`). Kui garantii (nt "vähemalt 1 aasta") või kvaliteedikontrolli väide kinnitatakse, lisa see admini usaldusribale. Dev-režiimis teatab Next `/info/[slug]` kohta "params accessed outside of Suspense" (build'i ei mõjuta; leht on staatiline).
 - **Tech — LIVE faas:** seadme/seerianumbri reserveerimine ja kulutamine makse kinnitusega samas tehingus; Techi samaaegse müügi käsitlus (vt TECH_SYNC.md §12).
 - **Tech — admini UI brauseris kontrollimata:** admini lehed (Tarnijad → Tech, konfiguratsiooni seadmed, tellimuse seerianumbrid, Sync now) on build'i, tüüpide ja server-testidega kaetud, aga sessioonis ei saanud admini parooliga sisse logida — vaata üle.
 - **Tech — mudelinimede kirjapildid:** nt "Toughbook CF-54MK2" vs "CF-54 MK2", "Surface Laptop 3 15icnh" tekitavad eraldi mudeleid; 13 mudelit tundmatu seeriaga (taksonoomia hoiatus).

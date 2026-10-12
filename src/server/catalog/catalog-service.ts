@@ -2,12 +2,12 @@ import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 import { pricingConfig } from "@/config/pricing";
 import { computeFacets, filterItems, sortItems, type CatalogFacets, type SearchableItem } from "@/domain/catalog/filtering";
-import { seriesSlug } from "@/domain/catalog/facets";
+import { summarizeBusinessSeries, type BusinessSeriesGroup } from "@/domain/catalog/business-series";
+import { isImmediatelyAvailable } from "@/domain/storefront/showroom";
 import { PAGE_SIZE, emptyQuery, type CatalogQuery, type FacetSelection } from "@/domain/catalog/query";
 import { searchScore, tokenize } from "@/domain/catalog/search";
 import { findSimilarItems } from "@/domain/catalog/similar";
-import { BRAND_NAMES, type CatalogItem, type CatalogProduct, type CatalogVariant } from "@/domain/catalog/types";
-import { productTitle } from "@/domain/catalog/title";
+import { type CatalogItem, type CatalogProduct, type CatalogVariant } from "@/domain/catalog/types";
 import { MockSupplierAdapter } from "@/integrations/supplier/mock/mock-supplier-adapter";
 import { MOCK_FEATURED_SKUS } from "@/integrations/supplier/mock/mock-supplier-data";
 import { toImageView, visibleImages, type ProductImageView } from "@/domain/images/product-image";
@@ -146,47 +146,19 @@ export async function getSimilarItems(current: CatalogItem, limit: number): Prom
   return findSimilarItems(current, (await getItems()).map(toPublic), limit);
 }
 
-export interface SeriesSummary {
-  slug: string;
-  brand: CatalogProduct["brand"];
-  count: number;
-  minPriceCents: number;
-}
-
-export async function getSeriesSummaries(): Promise<SeriesSummary[]> {
-  const map = new Map<string, SeriesSummary>();
-  for (const { product, variant } of await getItems()) {
-    const slug = seriesSlug(product.series);
-    const current = map.get(slug);
-    map.set(slug, {
-      slug,
-      brand: product.brand,
-      count: (current?.count ?? 0) + 1,
-      minPriceCents: Math.min(current?.minPriceCents ?? Infinity, variant.price.saleCents),
-    });
-  }
-  return [...map.values()].sort((a, b) => b.count - a.count);
-}
-
-export async function getCatalogStats(): Promise<{ count: number; minPriceCents: number | null }> {
+export async function getCatalogStats(): Promise<{ count: number; minPriceCents: number | null; immediateCount: number }> {
   const items = await getItems();
   return {
     count: items.length,
     minPriceCents: items.length ? Math.min(...items.map((item) => item.variant.price.saleCents)) : null,
+    // "Kohe saadaval" pakkumised (salong), mitte partneri laos — vt domain/storefront/showroom.ts
+    immediateCount: items.filter((item) => isImmediatelyAvailable(item.variant.stock)).length,
   };
 }
 
-/** Kõige suurema valikuga mudelid (hero "populaarsed otsingud"). */
-export async function getPopularModels(limit: number): Promise<{ label: string; query: string }[]> {
-  const counts = new Map<string, { label: string; count: number }>();
-  for (const { product } of await getItems()) {
-    const label = productTitle(BRAND_NAMES[product.brand], product.series, product.model).slice(BRAND_NAMES[product.brand].length + 1);
-    counts.set(label, { label, count: (counts.get(label)?.count ?? 0) + 1 });
-  }
-  return [...counts.values()]
-    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
-    .slice(0, limit)
-    .map(({ label }) => ({ label, query: label }));
+/** Avalehe äriklassi seeriad päris kataloogist (filtrisüsteemi seeria väärtustega). */
+export async function getBusinessSeries(): Promise<BusinessSeriesGroup[]> {
+  return summarizeBusinessSeries((await getItems()).map(toPublic), 3);
 }
 
 export async function searchSuggestions(q: string, limit: number): Promise<CatalogItem[]> {

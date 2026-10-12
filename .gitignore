@@ -75,3 +75,6 @@ next-env.d.ts
 
 .vercel
 .env*
+
+# Salongifotode originaalid (sisendkaust) — Git-is ainult optimeeritud public/brand/showroom/*.webp
+/pildid/

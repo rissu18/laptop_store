@@ -52,7 +52,7 @@ export function ProductGallery({ images, title, screenSizeIn }: { images: Produc
 
   return (
     <div>
-      <div className="group relative overflow-hidden rounded-lg border border-border bg-white">
+      <div className="group relative overflow-hidden rounded-xl border border-border bg-white shadow-sm">
         <div
           ref={trackRef}
           className="flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -118,12 +118,12 @@ export function ProductGallery({ images, title, screenSizeIn }: { images: Produc
       )}
 
       {slides.length > 1 && (
-        <ul className="mt-3 hidden gap-2 sm:flex" aria-label="Pisipildid">
+        <ul className="mt-3 hidden max-w-xl grid-cols-6 gap-2 sm:grid" aria-label="Pisipildid">
           {/* Lehte ei koormata: näidatakse kuni 6 pisipilti, ülejäänud on täisekraani galeriis */}
           {slides.slice(0, MAX_THUMBNAILS).map((slide, i) => {
             const isMore = i === MAX_THUMBNAILS - 1 && slides.length > MAX_THUMBNAILS;
             return (
-              <li key={i} className="shrink-0">
+              <li key={i} className="min-w-0">
                 <button
                   type="button"
                   onClick={() => {
@@ -134,7 +134,7 @@ export function ProductGallery({ images, title, screenSizeIn }: { images: Produc
                   aria-label={isMore ? `Näita kõiki ${slides.length} pilti` : label(slide, i)}
                   aria-current={!isMore && i === index}
                   className={cx(
-                    "relative block aspect-[4/3] w-20 overflow-hidden rounded-md border-2 bg-white lg:w-24",
+                    "relative block aspect-[4/3] w-full overflow-hidden rounded-md border-2 bg-white",
                     i === index ? "border-primary" : "border-border hover:border-border-strong",
                   )}
                 >

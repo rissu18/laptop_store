@@ -5,6 +5,42 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 ---
 
+## 2026-10-12 — Storefronti visuaalne ja UX-värskendus: sülearvutispetsialist + päris salong
+
+**Miks:** pood meenutas visuaalselt ja informatsiooniarhitektuurilt liiga palju üldist "kasutatud elektroonika" turuplatsi. Uus suund: **äriklassi sülearvutite spetsialist + suur professionaalne Tallinna salong**. Head e-poe mustrid (filtrid, võrdlus, kleepuv mobiili ostunupp, breadcrumb'id, kaartide pildisirvija) jäid alles. Äriloogika (sync, hinnad, laoseis, kassa, tellimused, admin) ei muutunud.
+
+- **Värvid (design tokenid, `globals.css`):** lehe taust väga hele külm sinakashall `#F6F7FB` (enne valge), teisene sektsioon `#F2F4FC`, pehme indigo `#EEF1FF` (`bg-surface-soft`), kaardid valged, tekst `#121629` / `#344054` (`text-body`) / `#667085`, piirjooned `#D9DFEA` / `#E8EBF2`. Indigo `#2F4EE0` jäi; roheline ainult laoseis/õnnestumine. Body saab poe tokenid `body:has(> .storefront)` kaudu — admin muutmata.
+- **Salongifotod:** 4 optimeeritud WebP-d `public/brand/showroom/` (originaalid `pildid/` on `.gitignore`-is, kasutaja failid alles):
+
+  | Fail | Allikas | Originaal | Optimeeritud | Mõõdud | Vähendus |
+  | --- | --- | --- | --- | --- | --- |
+  | `showroom-hero.webp` | 5.jpg | 0,82 MB (3500×2333) | 138 KB | 2000×1333 | −83,5% |
+  | `showroom-wide.webp` | 1.jpg | 1,60 MB (3000×2000) | 140 KB | 2000×1333 | −91,4% |
+  | `showroom-contact.webp` | 2.jpg | 1,53 MB (3000×1871) | 133 KB | 2000×1247 | −91,5% |
+  | `showroom-detail.webp` | 7.jpg | 3,37 MB (3000×4000) | 143 KB | 1200×1600 | −95,8% |
+
+  Kasutamata: 3.jpg (õhupallid — ajutise kampaania mulje), 4.jpg (liiga Delli-keskne), 8.jpg, 6.jpg (reserv). Next/Image teeb variandid olemasolevate 9 laiusega (uusi laiusi ei lisandunud); staatiline import → mõõdud (CLS 0) + blur-placeholder.
+- **Avaleht (uus järjestus):** hero salongifotoga → usaldusriba → "Milleks sülearvutit vajad?" (leidja) → parimad pakkumised → populaarsed äriklassi seeriad → salongiplokk "300+ sülearvutit meie Tallinna salongis" → viimati lisatud → kontakt.
+  - **Hero:** pealkiri "Äriklassi sülearvutid suurest Tallinna salongist.", CTA-d "Vaata sülearvuteid" / "Leia mulle sobiv" + link "Vaata salongi" (#salong). Hero otsingukast ja "Populaarsed" kiibid eemaldati (otsing on headeris). Illustratsioon `hero.png` asendati salongifotoga (mobiilis kohe headeri all 16:9 crop'iga, desktopis paremal; `preload`, sest see on igal ekraanil ainus LCP-kandidaat).
+  - **Usaldusriba:** "300+ sülearvutit kohapeal" (kohe saadaval pakkumiste arv kataloogist, ümardatud allapoole täissajani), "507 konfiguratsiooni valikus · alates 140 €", taganemisõigus ja tarne admini usaldusriba seadetest. Garantii pikkust, "20-punkti kontrolli" ega tasuta tarnet **ei väideta** — need pole seadistuses kinnitatud.
+  - **Leidja:** 6 eesmärgi kaarti viivad olemasolevasse 4-sammulisse leidjasse `/leia-sobiv?eesmark=<work|school|…>` — leidja alustab eelvalitud eesmärgiga eelarve sammust ("Tagasi" laseb muuta). Paralleelset soovitussüsteemi pole. "Mängimiseks" valikut ei lisatud (leidjas sellist eesmärki pole).
+  - **Populaarsed äriklassi seeriad:** Lenovo (ThinkPad T, X1, X13, X, L, P, E), Dell (Latitude, Precision), HP (EliteBook, ProBook, ZBook) — ainult kataloogis olevad (≥ 3 müügis), arv ja "alates" hind päris kataloogist, link = olemasolev seeriafilter (`/sulearvutid/lenovo?series=thinkpad-t`). Vana "Brändid ja seeriad" ruudustik ja "Miks kasutatud" plokk eemaldati.
+- **Header:** menüü "Abi ja info" → **"Salong ja kontakt"** (desktopis paremas servas asukohaikooniga); "Abi ja info" jäi mobiilimenüü lisalinkidesse ja jalusesse.
+- **Tooteleht — desktopis INFO VASAKUL (45%), GALERII PAREMAL (55%, kleepuv):** pealkiri + seisukord → kompaktne põhiandmete kaart (CPU, RAM, salvestus, ekraan, graafika, klaviatuur + selgitused) → konfiguratsioonid → hind/saadavus/tarne/ost/kinnitused → "Miks valida see mudel?". Üks DOM (gridi read), galeriid ei dubleerita.
+  - **Mobiil (eraldi järjestus):** breadcrumb → nimi → seisukord → galerii → hind → saadavus + tarne → ostunupp → konfiguratsioonid → põhiandmed → tehnilised andmed. Kleepuv mobiili ostuniba jäi.
+  - **Pikk konfiguratsioonide nimekiri** (> 6) volditakse: 4 nähtaval (valitud alati), ülejäänud "Näita kõiki N konfiguratsiooni" all (natiivne `<details>`).
+  - **"Miks valida see mudel?"** (`domain/catalog/model-fit.ts`): deterministlikud spetsifikatsioonireeglid ("Sobib hästi" / "Vaata võimsamat varianti, kui …"); puuduv väärtus (kaal, CPU klass) → väidet pole; alla 2 põhjuse → plokki ei kuvata.
+  - Tehniliste andmete hulk ei vähenenud.
+- **Tootekaart:** sama struktuur (pilt, sirvija, märgid, võrdle, hind, laoseis, CTA); `rounded-xl` + kerge vari, RAM · SSD rida tugevamalt.
+- **Kontakt ("Salong ja kontakt") ja Meist:** salongifoto + sissejuhatus (aadress, sissepääs, lahtiolekuaeg, "Ava kaardil"); kõik ettevõtte andmed, telefonid, e-post, parkimine jäid. Meist: detailfoto, spetsialiseerumine; meeskond (Ristjan Rikk, Virgo Rikk — Developer) muutmata, elulugusid ei lisatud.
+- **Parandus:** tootelehe galerii pisipildid (6 × 96 px) ajasid 1024 px laiusel lehe horisontaalselt laiemaks (1100 px) → pisipildid on nüüd 6-veeruline ruudustik.
+- **Testid:** 487 → 490 (+ uus `src/domain/storefront/storefront-redesign.test.ts`: salongi arvu ümardamine, kohe saadaval semantika, leidja eesmärgi parameeter, äriklassi seeriad päris kataloogi järgi, "Miks valida" reeglid, hero CTA ja menüü marsruudid, optimeeritud fotod).
+
+**Probleemid ja lahendused**
+
+- Poe `.storefront` element on `display: contents`, seega taust ei saanud sinna minna → tokenid kehtivad ka `body:has(> .storefront)` jaoks.
+- Brauseri peidetud paanis lazy-pildid ei laadi (dokument `hidden`) — serveeritud suurused mõõdeti production'is otse `/_next/image` päringutega.
+
 ## 2026-10-12 — Teine päris tarnija: Tech hinnakiri (Google Sheets → PostgreSQL)
 
 **Mis lisati** (täielik kirjeldus: [docs/TECH_SYNC.md](docs/TECH_SYNC.md))

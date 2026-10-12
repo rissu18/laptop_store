@@ -163,7 +163,7 @@ export function CartView() {
         </ul>
       </div>
 
-      <aside aria-label="Tellimuse kokkuvõte" className="h-fit rounded-lg border border-border bg-surface-alt p-5 lg:sticky lg:top-[124px]">
+      <aside aria-label="Tellimuse kokkuvõte" className="h-fit rounded-xl border border-border bg-surface p-5 shadow-sm lg:sticky lg:top-[124px]">
         <h2 className="text-lg font-semibold">Kokkuvõte</h2>
         <dl className="mt-4 space-y-2 text-sm">
           <div className="flex justify-between">

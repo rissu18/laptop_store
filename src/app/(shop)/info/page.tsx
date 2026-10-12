@@ -16,7 +16,7 @@ export default function InfoIndexPage() {
       <ul className="mt-8 grid gap-3 sm:grid-cols-2">
         {links.map((link) => (
           <li key={link.href}>
-            <Link href={link.href} className="block rounded-lg border border-border p-4 font-semibold hover:border-primary hover:text-primary">
+            <Link href={link.href} className="block rounded-lg border border-border bg-surface p-4 font-semibold hover:border-primary hover:text-primary">
               {link.title}
             </Link>
           </li>

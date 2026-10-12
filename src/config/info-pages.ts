@@ -38,6 +38,8 @@ export interface InfoPage {
   confirmed: boolean;
   /** Prototüübirežiimis kuvatav aus märkus (nt maksed pole veel avatud) */
   prototypeNote?: string;
+  /** Salongi foto + sissejuhatus lehe alguses (foto: src/components/brand/showroom-photos.ts) */
+  showroom?: { photo: "contact" | "detail"; heading: string; lead: string };
 }
 
 const TERMS_HREF = "/info/muugitingimused";
@@ -49,8 +51,13 @@ const PROTOTYPE_ORDERS_NOTE =
 export const INFO_PAGES: InfoPage[] = [
   {
     slug: "kontakt",
-    title: "Kontakt",
+    title: "Salong ja kontakt",
     confirmed: true,
+    showroom: {
+      photo: "contact",
+      heading: "Tule salongi vaatama",
+      lead: `Meie salong asub Tallinnas aadressil ${COMPANY_ADDRESS_LINE}. Sülearvuteid saab kohapeal vaadata, proovida ja omavahel kõrvuti võrrelda — enne ostu näed klaviatuuri, ekraani ja suurust oma silmaga.`,
+    },
     sections: [
       {
         paragraphs: [`${COMPANY.legalName}`, `Registrikood ${COMPANY.registryCode}`],
@@ -423,6 +430,11 @@ export const INFO_PAGES: InfoPage[] = [
     slug: "meist",
     title: "Meist",
     confirmed: true,
+    showroom: {
+      photo: "detail",
+      heading: "Sülearvutitele spetsialiseerunud",
+      lead: `Sülearvutid.ee on spetsialiseerunud sülearvutitele — peamiselt Lenovo, Delli ja HP äriklassi mudelitega. Valikut saab sirvida veebis või tulla vaatama meie Tallinna salongi (${COMPANY.address.street}), kus suur valik sülearvuteid on väljas kõrvuti.`,
+    },
     sections: [
       {
         paragraphs: [`Sülearvutid.ee on kasutatud äriklassi sülearvutite e-pood. Müüja on ${COMPANY.legalName} (registrikood ${COMPANY.registryCode}), kontaktid leiad [Kontakt lehelt](/info/kontakt).`],

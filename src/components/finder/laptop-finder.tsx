@@ -99,9 +99,13 @@ function ResultCard({ label, result }: { label: string; result: ScoredItem }) {
   );
 }
 
-export function LaptopFinder() {
-  const [step, setStep] = useState(0);
-  const [draft, setDraft] = useState<Draft>(EMPTY);
+/**
+ * `initialPurpose` (avalehe "Milleks sülearvutit vajad?" plokist): eesmärk on eelvalitud ja leidja algab
+ * eelarve sammust; "Tagasi" viib eesmärgi juurde, kus valikut saab muuta.
+ */
+export function LaptopFinder({ initialPurpose = null }: { initialPurpose?: Purpose | null }) {
+  const [step, setStep] = useState(initialPurpose ? 1 : 0);
+  const [draft, setDraft] = useState<Draft>({ ...EMPTY, purpose: initialPurpose });
   const [result, setResult] = useState<FinderResult | null>(null);
   const [isPending, startTransition] = useTransition();
 

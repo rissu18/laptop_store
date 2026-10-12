@@ -20,6 +20,17 @@ export const PURPOSES = [
 ] as const;
 export type Purpose = (typeof PURPOSES)[number]["key"];
 
+/** Avalehe "Milleks sülearvutit vajad?" → /leia-sobiv?eesmark=work (leidja alustab eelvalitud eesmärgiga) */
+export const PURPOSE_PARAM = "eesmark";
+
+export function parsePurpose(value: unknown): Purpose | null {
+  return PURPOSES.find((p) => p.key === value)?.key ?? null;
+}
+
+export function finderHrefForPurpose(purpose: Purpose): string {
+  return `/leia-sobiv?${PURPOSE_PARAM}=${purpose}`;
+}
+
 export const BUDGETS = [
   { key: "0-300", label: "kuni 300 €", min: null, max: 300 },
   { key: "300-500", label: "300–500 €", min: 300, max: 500 },

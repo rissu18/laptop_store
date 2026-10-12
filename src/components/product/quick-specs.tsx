@@ -11,7 +11,7 @@ import {
 import type { CatalogItem } from "@/domain/catalog/types";
 
 /**
- * 6 olulisemat väärtust visuaalselt + lühike selgitus (deterministlikud reeglid).
+ * 6 olulisemat väärtust (CPU, RAM, salvestus, ekraan, graafika, klaviatuur) + lühike selgitus (deterministlikud reeglid).
  * Puuduva väärtusega kasti ei kuvata.
  */
 export function QuickSpecs({ item }: { item: CatalogItem }) {
@@ -35,18 +35,25 @@ export function QuickSpecs({ item }: { item: CatalogItem }) {
     { icon: Keyboard, label: "Klaviatuur", value: variant.keyboardLayout, note: explainKeyboard(item) },
   ].filter((spec) => Boolean(spec.value));
 
+  if (specs.length === 0) return null;
   return (
-    <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-      {specs.map(({ icon: Icon, label, value, note }) => (
-        <div key={label} className="flex gap-2.5 rounded-md bg-surface-alt p-3">
-          <Icon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
-          <div className="min-w-0">
-            <dt className="text-xs text-muted">{label}</dt>
-            <dd className="text-sm font-semibold leading-snug">{value}</dd>
-            {note && <dd className="mt-0.5 text-xs leading-snug text-muted">{note}</dd>}
+    <section aria-labelledby="pohiandmed" className="overflow-hidden rounded-xl border border-border bg-surface">
+      <h2 id="pohiandmed" className="sr-only">
+        Põhiandmed
+      </h2>
+      {/* Kompaktne tehniline hierarhia: ikoon, nimetus, väärtus, lühike selgitus; -mb-px peidab viimase rea alumise joone */}
+      <dl className="-mb-px grid sm:grid-cols-2">
+        {specs.map(({ icon: Icon, label, value, note }) => (
+          <div key={label} className="flex gap-3 border-b border-border px-4 py-3 sm:odd:border-r">
+            <Icon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+            <div className="min-w-0">
+              <dt className="text-xs text-muted">{label}</dt>
+              <dd className="text-sm font-semibold leading-snug">{value}</dd>
+              {note && <dd className="mt-0.5 text-xs leading-snug text-muted">{note}</dd>}
+            </div>
           </div>
-        </div>
-      ))}
-    </dl>
+        ))}
+      </dl>
+    </section>
   );
 }

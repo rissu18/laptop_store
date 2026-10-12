@@ -11,6 +11,7 @@ const SECONDARY = [
   { href: "/vordlus", label: "Toodete võrdlus" },
   { href: "/tellimus", label: "Tellimuse otsing" },
   { href: "/seisukorrad", label: "Seisukorra klassid" },
+  { href: "/info", label: "Abi ja info" },
 ];
 
 export function MobileMenu() {

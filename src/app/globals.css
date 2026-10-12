@@ -15,11 +15,13 @@
   --c-surface: #ffffff;
   --c-surface-alt: #f7f8fa;
   --c-surface-sunken: #f1f3f6;
+  --c-surface-soft: #ecfdf8;
   --c-border: #e5e7eb;
   --c-border-strong: #d1d5db;
 
   /* Tekst */
   --c-text: #111827;
+  --c-text-body: #374151;
   --c-text-muted: #6b7280;
   --c-text-subtle: #9ca3af;
 
@@ -71,8 +73,13 @@
  *   sinine  = tegevus, navigeerimine, valitud olek, bränd
  *   roheline = AINULT semantiline (laos, kohe saadaval, õnnestumine, kehtiv sooduskood)
  * Komponendid kasutavad endiselt samu semantilisi klasse (bg-primary, text-muted …) — siin vahetatakse väärtused.
+ *
+ * Lehe taust (canvas) on väga hele külm sinakashall, kaardid ja pinnad valged — "valge valgel" turuplatsi
+ * tunde asemel eristuvad kaardid taustast. Sama plokk kehtib ka <body>-le, kui selle otsene laps on
+ * .storefront (body taust + body-sse renderdatud dialoogid saavad poe tokenid); admin seda ei näe.
  */
-.storefront {
+.storefront,
+body:has(> .storefront) {
   --store-primary: #2f4ee0; /* valgel 6,4:1 — WCAG AA ka väikese tekstina */
   --store-primary-hover: #263fc5;
   --store-primary-pressed: #2036a6;
@@ -85,20 +92,22 @@
   --store-navy-secondary: #1e2540;
   --store-topbar: #10162b;
 
-  --store-bg: #ffffff;
-  --store-bg-alt: #f6f7fb;
+  /* lehe canvas → teisene sektsioon → pehme indigo (hero, esiletõstetud plokid) → valged pinnad */
+  --store-bg: #f6f7fb;
+  --store-bg-alt: #f2f4fc;
   --store-bg-section: #f2f4fc;
-  --store-bg-sunken: #eef1f7;
+  --store-bg-soft: #eef1ff;
+  --store-bg-sunken: #e9edf6;
   --store-surface: #ffffff;
-  --store-hero-gradient: linear-gradient(135deg, #f7f8fd 0%, #f0f3fc 100%);
+  --store-hero-gradient: linear-gradient(135deg, #f2f4ff 0%, #eef1ff 60%, #e9edfd 100%);
 
   --store-text: var(--store-navy);
   --store-text-body: #344054;
   --store-text-muted: #667085; /* valgel 4,8:1 */
   --store-text-subtle: #98a2b3;
 
-  --store-border: #e2e6ef;
-  --store-border-strong: #d5dbe8;
+  --store-border: #e3e7f0;
+  --store-border-strong: #d9dfea;
   --store-border-light: #e8ebf2;
 
   /* #059669 on valgel 3,8:1 (väikese teksti jaoks liiga hele) → mõõdukalt tumedam #047857 (5,5:1) */
@@ -119,7 +128,9 @@
   --c-bg: var(--store-bg);
   --c-surface: var(--store-surface);
   --c-surface-alt: var(--store-bg-alt);
+  --c-surface-soft: var(--store-bg-soft);
   --c-surface-sunken: var(--store-bg-sunken);
+  --c-text-body: var(--store-text-body);
   --c-border: var(--store-border);
   --c-border-strong: var(--store-border-strong);
   --c-text: var(--store-text);
@@ -153,9 +164,11 @@
   --color-surface: var(--c-surface);
   --color-surface-alt: var(--c-surface-alt);
   --color-surface-sunken: var(--c-surface-sunken);
+  --color-surface-soft: var(--c-surface-soft);
   --color-border: var(--c-border);
   --color-border-strong: var(--c-border-strong);
   --color-text: var(--c-text);
+  --color-body: var(--c-text-body);
   --color-muted: var(--c-text-muted);
   --color-subtle: var(--c-text-subtle);
   --color-primary: var(--c-primary);

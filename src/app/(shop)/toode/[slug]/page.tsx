@@ -8,9 +8,11 @@ import { CONFIGURATION_PARAM, productHref, productPath } from "@/domain/catalog/
 import { BRAND_NAMES, type CatalogItem } from "@/domain/catalog/types";
 import { imagesForDisplay } from "@/domain/images/product-image";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
-import { BuyBox, StickyBuyBar } from "@/components/product/buy-box";
+import { ModelFitPanel, ProductHeading, PurchasePanel, StickyBuyBar } from "@/components/product/buy-box";
 import { ProductGallery } from "@/components/product/product-gallery";
 import { ProductGrid } from "@/components/product/product-card";
+import { QuickSpecs } from "@/components/product/quick-specs";
+import { VariantPicker } from "@/components/product/variant-picker";
 import { SpecSections } from "@/components/product/spec-sections";
 import { JsonLd } from "@/components/seo/json-ld";
 import { Container } from "@/components/ui/container";
@@ -82,8 +84,16 @@ async function ProductDetail({ params, searchParams }: PageProps<"/toode/[slug]"
         ]}
       />
 
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,55fr)_minmax(0,45fr)] lg:gap-12">
-        <div className="min-w-0 lg:sticky lg:top-[124px] lg:self-start">
+      {/*
+        Desktop: INFO VASAKUL (45%), GALERII PAREMAL (55%, kleepuv). Mobiil (DOM-i järjekord):
+        pealkiri + seisukord → galerii → hind/saadavus/tarne/ost → konfiguratsioonid → põhiandmed → miks see mudel.
+        Desktopis paigutatakse samad plokid gridi ridadesse (lg:row-start-*), galerii katab kõik read.
+      */}
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,45fr)_minmax(0,55fr)] lg:grid-rows-[auto_auto_auto_auto_1fr] lg:gap-x-12">
+        <div className="lg:col-start-1 lg:row-start-1">
+          <ProductHeading item={item} />
+        </div>
+        <div className="min-w-0 lg:sticky lg:top-[124px] lg:col-start-2 lg:row-span-5 lg:row-start-1 lg:self-start">
           <ProductGallery
             key={variant.images.length > 0 ? variant.id : data.product.slug}
             images={imagesForDisplay(item)}
@@ -91,7 +101,20 @@ async function ProductDetail({ params, searchParams }: PageProps<"/toode/[slug]"
             screenSizeIn={data.product.screenSizeIn}
           />
         </div>
-        <BuyBox item={item} variants={data.variants} showSecurePayment={showSecurePayment} />
+        <div className="lg:col-start-1 lg:row-start-4">
+          <PurchasePanel item={item} showSecurePayment={showSecurePayment} />
+        </div>
+        {data.variants.length > 1 && (
+          <div className="lg:col-start-1 lg:row-start-3">
+            <VariantPicker product={data.product} variants={data.variants} selectedId={variant.id} />
+          </div>
+        )}
+        <div className="lg:col-start-1 lg:row-start-2">
+          <QuickSpecs item={item} />
+        </div>
+        <div className="empty:hidden lg:col-start-1 lg:row-start-5">
+          <ModelFitPanel item={item} />
+        </div>
       </div>
 
       <section aria-labelledby="tehnilised-andmed" className="mt-16">
@@ -119,8 +142,8 @@ async function ProductDetail({ params, searchParams }: PageProps<"/toode/[slug]"
 
 function ProductSkeleton() {
   return (
-    <div className="grid gap-8 pt-14 lg:grid-cols-[55fr_45fr] lg:gap-12" aria-hidden>
-      <div className="aspect-[4/3] animate-pulse rounded-lg bg-surface-sunken" />
+    <div className="grid gap-8 pt-14 lg:grid-cols-[45fr_55fr] lg:gap-12" aria-hidden>
+      <div className="aspect-[4/3] animate-pulse rounded-lg bg-surface-sunken lg:order-2" />
       <div className="space-y-4">
         <div className="h-8 w-3/4 animate-pulse rounded bg-surface-sunken" />
         <div className="h-40 animate-pulse rounded bg-surface-sunken" />

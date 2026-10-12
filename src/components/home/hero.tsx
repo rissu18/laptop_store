@@ -1,82 +1,68 @@
+import { ArrowRight, MapPin } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { formatEur } from "@/domain/money/money";
-import { SearchBox } from "@/components/search/search-box";
+import { HERO_CTAS, SHOWROOM } from "@/domain/storefront/showroom";
+import { SHOWROOM_PHOTOS } from "@/components/brand/showroom-photos";
 import { ButtonLink } from "@/components/ui/button";
 import { Container } from "@/components/ui/container";
-import heroImage from "../../../public/brand/hero.png";
 
 /**
- * Hero: kompaktne (ei võta tervet ekraani). Kõik numbrid tulevad kataloogist.
- * "Uueneb automaatselt" väidet näidatakse alles siis, kui sync päriselt töötab.
+ * Hero: päris salong + spetsialiseerumine. Foto on brändi põhivisuaal (mitte illustratsioon).
+ * Teist otsingukasti siin pole — otsing on headeris (mobiilis alati nähtaval real).
+ * Foto on nähtav igal ekraanil (mobiilis kohe headeri all, 16:9 crop; desktopis paremal) → üks LCP-kandidaat, seega `preload`.
  */
-export function Hero({
-  stats,
-  popular,
-  autoSyncActive,
-}: {
-  stats: { count: number; minPriceCents: number | null };
-  popular: { label: string; query: string }[];
-  autoSyncActive: boolean;
-}) {
+export function Hero() {
+  const photo = SHOWROOM_PHOTOS.hero;
   return (
-    <section className="border-b border-border bg-surface-alt bg-[image:var(--store-hero-gradient)]">
-      <Container className="grid items-center gap-8 py-10 md:py-14 lg:grid-cols-[1.25fr_1fr] lg:gap-12">
-        <div>
+    <section aria-labelledby="hero-pealkiri" className="bg-surface-soft bg-[image:var(--store-hero-gradient)]">
+      <Container className="grid items-center gap-6 pb-8 pt-0 sm:gap-8 sm:pt-8 md:py-12 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:gap-12 lg:py-14">
+        <div className="max-w-xl">
           <p className="text-sm font-semibold text-primary">Lenovo · Dell · HP äriklass</p>
-          <h1 className="mt-3 text-balance text-4xl font-bold tracking-tight sm:text-5xl">
-            Hea sülearvuti ei pea olema uus.
+          <h1 id="hero-pealkiri" className="mt-2 text-balance text-3xl font-bold tracking-tight sm:mt-3 sm:text-5xl">
+            Äriklassi sülearvutid suurest Tallinna salongist.
           </h1>
-          <p className="mt-4 max-w-xl text-pretty text-lg text-muted">
-            Leia kvaliteetne kasutatud äriklassi sülearvuti selge seisukorra ja ausa hinnaga.
-            {autoSyncActive && " Valik, hinnad ja laoseis uuenevad automaatselt."}
+          <p className="mt-3 text-pretty text-body sm:mt-4 sm:text-lg">
+            Kontrollitud kasutatud äriklassi sülearvutid ja suur valik konfiguratsioone. Vali veebis või tule salongi ja
+            võrdle mudeleid kõrvuti.
           </p>
 
-          <SearchBox size="lg" className="mt-6 max-w-xl" />
-
-          {popular.length > 0 && (
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-              <span className="text-muted">Populaarsed:</span>
-              {popular.map((item) => (
-                <Link
-                  key={item.label}
-                  href={`/sulearvutid?q=${encodeURIComponent(item.query)}`}
-                  className="rounded-full border border-border bg-surface px-3 py-1 hover:border-primary hover:text-primary"
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </div>
-          )}
-
-          <div className="mt-6 flex flex-wrap gap-3">
-            <ButtonLink href="/sulearvutid" size="lg">
-              Vaata sülearvuteid
+          <div className="mt-6 flex flex-col gap-3 sm:mt-7 sm:flex-row sm:flex-wrap">
+            <ButtonLink href={HERO_CTAS.primary.href} size="lg">
+              {HERO_CTAS.primary.label}
             </ButtonLink>
-            <ButtonLink href="/leia-sobiv" size="lg" variant="outline">
-              Leia mulle sobiv
+            <ButtonLink href={HERO_CTAS.finder.href} size="lg" variant="outline">
+              {HERO_CTAS.finder.label}
             </ButtonLink>
           </div>
+          <Link
+            href={HERO_CTAS.showroom.href}
+            className="mt-3 inline-flex min-h-11 sm:mt-5 items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+          >
+            {HERO_CTAS.showroom.label}
+            <ArrowRight className="size-4" aria-hidden />
+          </Link>
         </div>
 
-        <div className="relative hidden lg:block">
-          {/* Dekoratiivne pilt (sisu on tekstis) — Next.js teeb PNG-st WebP/AVIF variandid; mobiilis peidetud */}
-          <Image src={heroImage} alt="" loading="eager" sizes="(min-width: 1280px) 560px, 45vw" className="h-auto w-full rounded-xl" />
-          {stats.count > 0 && (
-            <dl className="absolute -bottom-2 left-6 flex gap-6 rounded-lg border border-border bg-surface px-5 py-3 shadow-md">
-              <div>
-                <dt className="text-xs text-muted">Valikus</dt>
-                <dd className="tabular text-lg font-bold">{stats.count} sülearvutit</dd>
-              </div>
-              {stats.minPriceCents !== null && (
-                <div>
-                  <dt className="text-xs text-muted">Hinnad alates</dt>
-                  <dd className="tabular text-lg font-bold">{formatEur(stats.minPriceCents)}</dd>
-                </div>
-              )}
-            </dl>
-          )}
-        </div>
+        <figure className="relative -mx-4 sm:mx-0 max-lg:order-first">
+          <div className="relative aspect-[16/9] overflow-hidden shadow-lg ring-1 ring-black/5 sm:aspect-[16/10] sm:rounded-2xl lg:aspect-[3/2]">
+            <Image
+              src={photo.src}
+              alt={photo.alt}
+              fill
+              preload
+              placeholder="blur"
+              sizes="(min-width: 1360px) 700px, (min-width: 1024px) 52vw, 100vw"
+              className="object-cover object-[50%_60%]"
+            />
+          </div>
+          <figcaption className="absolute bottom-3 left-4 flex items-center gap-2 rounded-lg bg-surface/95 px-3 py-2 text-sm shadow-md sm:bottom-4 sm:left-4">
+            <MapPin className="size-4 shrink-0 text-primary" aria-hidden />
+            <span>
+              <span className="font-semibold">Salong {SHOWROOM.addressShort}</span>
+              <span className="block text-xs text-muted">{SHOWROOM.hours}</span>
+            </span>
+          </figcaption>
+        </figure>
       </Container>
     </section>
   );

@@ -27,7 +27,7 @@ export function ProductCard({ item, priority }: { item: CatalogItem; priority?: 
   const extras = [variant.keyboardLayout && `${variant.keyboardLayout} klaviatuur`, variant.os?.replace(/ Pro$/, "")].filter(Boolean);
 
   return (
-    <article className="group relative flex w-full flex-col overflow-hidden rounded-lg border border-border bg-surface transition-[box-shadow,border-color] hover:border-primary-border hover:shadow-md">
+    <article className="group relative flex w-full flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-sm transition-[box-shadow,border-color] hover:border-primary-border hover:shadow-md">
       <div className="relative">
         {hasImageNavigation(images.length) ? (
           <ProductCardImages images={images} href={href} title={product.title} screenSizeIn={product.screenSizeIn} sizes={imageSizes} priority={priority} />
@@ -52,7 +52,7 @@ export function ProductCard({ item, priority }: { item: CatalogItem; priority?: 
 
         <ul className="space-y-0.5 text-sm">
           <li className="font-medium">{variant.cpu.model}</li>
-          <li className="text-muted">
+          <li className="font-medium text-body">
             {variant.ramGb} GB RAM · {formatStorage(variant.storageGb)} SSD
           </li>
           <li className="text-muted">{formatDisplaySummary(item)}</li>
