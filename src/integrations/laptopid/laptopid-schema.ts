@@ -50,6 +50,9 @@ export const laptopidProductSchema = z.looseObject({
   mobile_4g: scalar,
   privacy_screen: scalar,
   refresh_rate: scalar,
+  // Benchmarkid (API teeb numberOrNull; vanem/vigane kuju võib olla tekst) — valideerib benchmarks.ts → parseBenchmark
+  cpu_3dmark06: z.union([z.number(), z.string()]).nullish(),
+  gpu_3dmark11: z.union([z.number(), z.string()]).nullish(),
   yoga: scalar,
   new_price: scalar,
   sale_price: z.union([z.number(), z.string()]),

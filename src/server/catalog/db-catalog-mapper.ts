@@ -1,6 +1,7 @@
 import { displayModelName, displayProductTitle } from "@/domain/catalog/display-name";
 import { BRAND_CODES, FEATURE_KEYS, type BrandCode, type CatalogItem, type CpuFamily, type FeatureFlags, type VatScheme } from "@/domain/catalog/types";
 import { resolveStock } from "@/domain/catalog/availability";
+import { effectivePerformance } from "@/domain/catalog/benchmarks";
 import { applyListingEnrichment, displayGpu } from "@/domain/catalog/enrichment";
 import { buildSearchText } from "@/domain/catalog/search";
 import type { SearchableItem } from "@/domain/catalog/filtering";
@@ -183,6 +184,8 @@ export function mapCatalogRows(
       products.set(model.id, product);
     }
 
+    // Kiirusindeks ja maks. sagedus: tarnija oma (details) → täpse vastega rikastus; admini CPU/GPU parandus tühistab need
+    const performance = effectivePerformance({ details: listing.details, enrichment: raw.enrichment, manualOverrides: raw.manualOverrides });
     // Tarnija ei anna kõiki omadusi (Tech, Foxway) → puuduv võti = null (teadmata), mitte "Ei" — väärtusi ei leiutata
     const supplierFeatures = (listing.features ?? {}) as Partial<FeatureFlags>;
     const features = { ...Object.fromEntries(FEATURE_KEYS.map((key) => [key, supplierFeatures[key] ?? null])), touch: listing.touchscreen } as FeatureFlags;
@@ -192,11 +195,11 @@ export function mapCatalogRows(
         id: publicListingId(listing.supplier, listing.supplierProductId),
         sku: listing.sku,
         grade: listing.grade as GradeCode,
-        cpu: { model: listing.cpu!, family: (listing.cpuFamily as CpuFamily | null) ?? null, generationKey: listing.cpuGeneration },
+        cpu: { model: listing.cpu!, family: (listing.cpuFamily as CpuFamily | null) ?? null, generationKey: listing.cpuGeneration, maxGhz: performance.cpuMaxGhz, benchmark: performance.cpuBenchmark },
         ramGb: listing.ramGb!,
         ramType: listing.ramType,
         storageGb: listing.storageGb!,
-        gpu: { model: displayGpu(listing.gpu, listing.gpuDedicated), dedicated: listing.gpuDedicated ?? false },
+        gpu: { model: displayGpu(listing.gpu, listing.gpuDedicated), dedicated: listing.gpuDedicated ?? false, benchmark: performance.gpuBenchmark },
         display: { resolution: listing.resolution, resolutionLabel: listing.resolutionLabel, panel: listing.panel, touch: listing.touchscreen },
         keyboardLayout: listing.keyboard?.trim() ? listing.keyboard.trim() : null,
         features,

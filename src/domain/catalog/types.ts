@@ -133,11 +133,15 @@ export interface CatalogVariant {
     family: CpuFamily | null;
     /** filtri võti, nt "intel-12", "amd-5000", "ultra-1" */
     generationKey: string | null;
+    /** Maksimaalne (turbo/boost) sagedus GHz; teadmata → null (rida ei kuvata) */
+    maxGhz?: number | null;
+    /** Kiirusindeks: 3DMark06 CPU (komponendi benchmark); teadmata → null */
+    benchmark?: number | null;
   };
   ramGb: number;
   ramType: string | null;
   storageGb: number;
-  gpu: { model: string; dedicated: boolean };
+  gpu: { model: string; dedicated: boolean; /** Kiirusindeks: 3DMark11 GPU; teadmata → null */ benchmark?: number | null };
   display: {
     resolution: string | null;
     resolutionLabel: string | null;

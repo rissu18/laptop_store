@@ -4,6 +4,7 @@ import type { CpuFamily, FeatureFlags, KeyboardLayout } from "@/domain/catalog/t
 import { parseSupplierGrade, type GradeCode } from "@/domain/grade/grades";
 import { ModelResolutionError, resolveModelRef, type ModelRef } from "@/integrations/supplier/model-resolver";
 import { parseCpu, parseDisplay, parseKeyboardLayout, parseRam, parseStorageGb } from "@/integrations/supplier/spec-parsers";
+import { parseBenchmark, validCpuMaxMhz } from "@/domain/catalog/benchmarks";
 import { htmlToText } from "./html-text";
 import type { LaptopidImage, LaptopidProduct } from "./laptopid-schema";
 
@@ -22,7 +23,7 @@ import type { LaptopidImage, LaptopidProduct } from "./laptopid-schema";
 export const LAPTOPID_SUPPLIER_CODE = "laptopid";
 export const LAPTOPID_SOURCE = "LAPTOPID";
 /** Muuda, kui normaliseerimise loogika muutub — siis uuendab järgmine sync kõik read (ka sama toorandmetega). */
-export const LAPTOPID_NORMALIZER_VERSION = 3;
+export const LAPTOPID_NORMALIZER_VERSION = 4;
 
 const IMAGE_HOST = "laptopid.ee";
 const IMAGE_PATH = /^\/images\/product\/+(\d+)\/(\d+)\/original\.(png|jpe?g|webp)$/i;
@@ -263,7 +264,10 @@ export function normalizeLaptopidProduct(product: LaptopidProduct, images: Lapto
     dockingSupport: flag(product.docking_support),
     privacyScreen: flag(product.privacy_screen),
     refreshRateHz: refreshRate,
-    cpuMaxMhz: cpu.maxMhz,
+    // Laptopid.ee CPU tekst "i5-8350U 3600Mhz": sagedus = maksimaalne turbo/boost (kontrollitud tootjate andmetega)
+    cpuMaxMhz: validCpuMaxMhz(cpu.maxMhz),
+    cpuBenchmark3dmark06: parseBenchmark(product.cpu_3dmark06),
+    gpuBenchmark3dmark11: parseBenchmark(product.gpu_3dmark11),
     keyboardRaw: keyboard ? null : keyboardRaw,
     batteryHours: positiveNumber(product.battery_hours, 48),
     videoOutputs: clean(product.video_outputs),

@@ -32,6 +32,12 @@ export interface ListingEnrichment {
   gpu?: EnrichedValue<string>;
   /** Täpne resolutsioon, kui tarnija andis ainult nime (nt Apple "Retina") */
   resolution?: EnrichedValue<{ resolution: string; label: string | null }>;
+  /** 3DMark06 CPU — teise tarnija (Laptopid.ee) väärtus TÄPSELT sama CPU mudeli järgi (benchmarks.ts) */
+  cpuBenchmark?: EnrichedValue<number>;
+  /** 3DMark11 GPU — täpselt sama GPU nime järgi (üldnimed nagu "Integrated" ei sobi) */
+  gpuBenchmark?: EnrichedValue<number>;
+  /** Protsessori maks. (turbo) sagedus MHz — täpselt sama CPU mudeli järgi */
+  cpuMaxMhz?: EnrichedValue<number>;
 }
 
 export const IMAGE_ENRICHMENT_STATUSES = ["LOCAL", "LAPTOPID", "ICECAT", "REVIEW", "UNRESOLVED"] as const;

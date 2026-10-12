@@ -192,7 +192,7 @@ describe.skipIf(!hasTestDatabase)("Laptopid.ee sync (andmebaas)", () => {
     expect(filterItems(items, { ...emptyQuery(), q: "x1 carbon g10" }).map((i) => i.variant.id)).toContain("laptopid-6678");
     const xps = items.find((i) => i.variant.id === "laptopid-6493")!;
     expect(xps.variant.conditionNotes).toBe("Üks USB-C ei tööta");
-    expect(xps.variant.gpu).toEqual({ model: "NVIDIA GeForce RTX 4070", dedicated: true });
+    expect(xps.variant.gpu).toEqual({ benchmark: null, model: "NVIDIA GeForce RTX 4070", dedicated: true });
   });
 
   it("ostukorv: täpne pakkumine; teadmata kogusest lubatakse 1 tk, rohkem → piiratakse ja selgitatakse", async () => {

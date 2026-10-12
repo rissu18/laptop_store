@@ -59,6 +59,12 @@ async function main() {
         console.log(`Tehnilised andmed: pakkumisi ${sp.listings}; GPU rikastatud Laptopid.ee ${sp.gpuEnriched.laptopid} / meie andmed ${sp.gpuEnriched.local}; "Integreeritud" jääb ${sp.gpuStillGeneric}; resolutsioon ${sp.resolutionEnriched}; muutunud ridu ${sp.changedListings}`);
         console.log(`  CPU põlvkond puudub ${sp.cpuGenerationMissing} (neist parser tuletab ${sp.cpuGenerationParsable} — täidab järgmine tarnija sync)`);
         for (const e of sp.examples) console.log(`    ${e.sku}: ${e.cpu} → ${e.gpu} (${e.source})`);
+        const pf = sp.performance;
+        console.log(`Kiirusindeks / maks. sagedus: Laptopid.ee täpseid võtmeid CPU ${pf.sourceKeys.cpuBenchmark}, GPU ${pf.sourceKeys.gpuBenchmark}, GHz ${pf.sourceKeys.cpuMaxMhz}; konflikte ${pf.conflicts.length}`);
+        for (const [field, c] of Object.entries(pf.onSale)) console.log(`  müügis ${field}: otse ${c.direct}, täpne vaste ${c.matched}, puudub ${c.missing}`);
+        const u = pf.uniqueOnSale;
+        console.log(`  unikaalsed müügis: CPU ${u.cpus} (benchmark ${u.cpusWithBenchmark}, GHz ${u.cpusWithMaxMhz}); GPU ${u.gpus} (benchmark ${u.gpusWithBenchmark})`);
+        for (const c of pf.conflicts) console.log(`  KONFLIKT ${c.kind} ${c.key}: ${c.values.join(" / ")} (${c.labels.join("; ")})`);
       }
     }
     if (!dryRun) {

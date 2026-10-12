@@ -23,8 +23,12 @@ export interface ListingDetails {
   dockingSupport?: boolean | null;
   privacyScreen?: boolean | null;
   refreshRateHz?: number | null;
-  /** Protsessori maksimaalne sagedus tarnija tekstist ("4400MHz") */
+  /** Protsessori maksimaalne (turbo/boost) sagedus tarnija tekstist ("4400MHz") */
   cpuMaxMhz?: number | null;
+  /** Protsessori benchmark 3DMark06 CPU (Laptopid.ee `cpu_3dmark06`) — komponendi omadus, mitte seadme hinnang */
+  cpuBenchmark3dmark06?: number | null;
+  /** Graafika benchmark 3DMark11 GPU (Laptopid.ee `gpu_3dmark11`) */
+  gpuBenchmark3dmark11?: number | null;
   /** Tarnija klaviatuuri tähis algkujul, kui see ei vasta meie paigutuste nimekirjale (nt "ENG") */
   keyboardRaw?: string | null;
   /** Tarnija aku tööaja väli (tundides). Tähendus (tootja väide vs mõõdetud) pole kinnitatud — poes ei kuvata. */

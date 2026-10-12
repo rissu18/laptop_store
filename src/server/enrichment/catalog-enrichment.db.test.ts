@@ -65,7 +65,7 @@ describe.skipIf(!hasTestDatabase)("kataloogi rikastus (andmebaas)", () => {
     t = await createTestDatabase();
     // Laptopid.ee mudel fotodega (müüdud pakkumine — fotod jäävad andmebaasi)
     const rugged = await model("dell-latitude-14-rugged-5430", "dell", "Latitude", "14 Rugged 5430", 14);
-    await photos(await listing(rugged, "laptopid", { available: false, gpu: "Intel Iris Xe Graphics", gpuDedicated: false }), 4, "rugged");
+    await photos(await listing(rugged, "laptopid", { available: false, gpu: "Intel Iris Xe Graphics", gpuDedicated: false, details: { cpuBenchmark3dmark06: 8780, gpuBenchmark3dmark11: 5400, cpuMaxMhz: 4200 } }), 4, "rugged");
     // Techi mudel teise nimega → kindel vaste
     const techRugged = await model("dell-latitude-5430-rugged", "dell", "Latitude", "5430 Rugged", 14);
     await listing(techRugged, "tech");
@@ -141,8 +141,22 @@ describe.skipIf(!hasTestDatabase)("kataloogi rikastus (andmebaas)", () => {
     const byId = new Map(listings.map((l) => [l.id, l]));
     expect(byId.get(ids.fxGpu)!.enrichment?.gpu).toMatchObject({ value: "Intel Iris Xe Graphics", source: "LAPTOPID" });
     expect(byId.get(ids.fxGpu)!.gpu).toBeNull(); // tarnija veerg jääb samaks
-    expect(byId.get(ids.fxGpuManual)!.enrichment).toBeNull();
-    expect(byId.get(ids.fxDedicated)!.enrichment).toBeNull();
+    // Kiirusindeks + maks. sagedus täpselt sama CPU (i5-1135G7) ja GPU nime järgi Laptopid.ee-st
+    expect(byId.get(ids.fxGpu)!.enrichment).toMatchObject({
+      cpuBenchmark: { value: 8780, source: "LAPTOPID" },
+      gpuBenchmark: { value: 5400, source: "LAPTOPID" },
+      cpuMaxMhz: { value: 4200, source: "LAPTOPID" },
+    });
+    // admini GPU parandus: GPU nime ega GPU kiirusindeksit ei lisata (CPU oma võib)
+    expect(byId.get(ids.fxGpuManual)!.enrichment?.gpu).toBeUndefined();
+    expect(byId.get(ids.fxGpuManual)!.enrichment?.gpuBenchmark).toBeUndefined();
+    expect(byId.get(ids.fxGpuManual)!.enrichment?.cpuBenchmark?.value).toBe(8780);
+    // tarnija oma eraldi GPU (MX450) — Laptopid.ee-s pole täpset vastet → GPU kiirusindeksit pole
+    expect(byId.get(ids.fxDedicated)!.enrichment?.gpu).toBeUndefined();
+    expect(byId.get(ids.fxDedicated)!.enrichment?.gpuBenchmark).toBeUndefined();
+    // teise CPU-ga (i5-10310U) pakkumine ei saa i5-1135G7 väärtust
+    const other = listings.find((l) => l.cpu === "Intel Core i5-10310U" && l.supplier === "tech")!;
+    expect(other.enrichment?.cpuBenchmark).toBeUndefined();
   });
 
   it("idempotentne: teine käivitus ei muuda midagi; admini peidetud Laptopid.ee pilti tagasi ei lisata", async () => {
@@ -176,5 +190,8 @@ describe.skipIf(!hasTestDatabase)("kataloogi rikastus (andmebaas)", () => {
     expect(gpuOf(ids.fxGpu)).toBe("Intel Iris Xe Graphics");
     expect(gpuOf(ids.fxGpuManual)).toBe("Admini GPU");
     expect(gpuOf(ids.fxDedicated)).toBe("NVIDIA GeForce MX450");
+    const cpuOf = (id: string) => items.find((i) => i.variant.sku === complete.find((l) => l.id === id)!.sku)!.variant.cpu;
+    expect(cpuOf(ids.fxGpu)).toMatchObject({ benchmark: 8780, maxGhz: 4.2 });
+    expect(items.find((i) => i.variant.sku === complete.find((l) => l.id === ids.fxGpu)!.sku)!.variant.gpu.benchmark).toBe(5400);
   });
 });

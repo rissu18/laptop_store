@@ -1,5 +1,7 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
+import { buildBenchmarkIndex, cpuBenchmarkKey, effectivePerformance, gpuBenchmarkKey, parseBenchmark, validCpuMaxMhz, type BenchmarkIndexEntry } from "@/domain/catalog/benchmarks";
 import { parseCpuInfo } from "@/domain/catalog/cpu-filter";
+import type { ListingDetails } from "@/domain/catalog/listing-details";
 import {
   buildIntegratedGpuIndex,
   cpuGpuKey,
@@ -85,7 +87,22 @@ export interface EnrichmentReport {
     cpuGenerationMissing: number;
     cpuGenerationParsable: number;
     examples: { sku: string; cpu: string; gpu: string; source: string }[];
+    performance: PerformanceReport;
   } | null;
+}
+
+export interface PerformanceReport {
+  /** Laptopid.ee andmetest (unikaalsed täpsed võtmed): CPU / GPU / maks. sagedus */
+  sourceKeys: { cpuBenchmark: number; gpuBenchmark: number; cpuMaxMhz: number };
+  /** Konfliktid: sama võti, eri väärtused → ei kasutata */
+  conflicts: { kind: string; key: string; values: number[]; labels: string[] }[];
+  /** Poes müügis pakkumised: väärtus tarnijalt endalt / täpse vastega Laptopid.ee-st / puudub */
+  onSale: Record<"cpuBenchmark" | "gpuBenchmark" | "cpuMaxMhz", { direct: number; matched: number; missing: number }>;
+  /** Poes müügis unikaalsed CPU/GPU nimed: väärtusega / ilma */
+  uniqueOnSale: { cpus: number; cpusWithBenchmark: number; cpusWithMaxMhz: number; gpus: number; gpusWithBenchmark: number };
+  unresolvedCpus: string[];
+  unresolvedGpus: string[];
+  examples: { cpu: { name: string; value: number; source: string }[]; gpu: { name: string; value: number; source: string }[]; mhz: { name: string; value: number; source: string }[] };
 }
 
 type ModelRow = Pick<typeof productModels.$inferSelect, "id" | "slug" | "manufacturer" | "family" | "model" | "screenSizeIn" | "manualOverrides" | "enrichment">;
@@ -108,6 +125,7 @@ type ListingRow = {
   resolutionLabel: string | null;
   screenSizeIn: number | null;
   enrichment: ListingEnrichment | null;
+  details: ListingDetails | null;
   productName: string | null;
   mpn: string | null;
   ean: string | null;
@@ -134,6 +152,7 @@ async function loadListings(db: Database): Promise<ListingRow[]> {
       resolutionLabel: supplierListings.resolutionLabel,
       screenSizeIn: supplierListings.screenSizeIn,
       enrichment: supplierListings.enrichment,
+      details: supplierListings.details,
       productName: sql<string | null>`${supplierListings.rawData}->'foxway'->>'productName'`,
       mpn: sql<string | null>`${supplierListings.rawData}->'foxway'->>'mpn'`,
       ean: sql<string | null>`${supplierListings.rawData}->'foxway'->>'ean'`,
@@ -386,7 +405,50 @@ async function enrichSpecs(db: Database, models: ModelRow[], listings: ListingRo
     eff.filter(({ e }) => e.gpu?.trim() && e.gpuDedicated === false && e.cpu?.trim()).map(({ row, e }) => ({ cpu: e.cpu!, gpu: e.gpu!, supplier: row.supplier })),
   );
 
+  // Kiirusindeks ja maks. sagedus: allikas Laptopid.ee pakkumiste oma väärtused (details), võti = TÄPNE CPU / GPU nimi
+  const laptopidSources = eff.filter(({ row }) => row.supplier === "laptopid");
+  const cpuBench = buildBenchmarkIndex(
+    laptopidSources.flatMap(({ row, e }) => {
+      const key = !("cpu" in row.manualOverrides) ? cpuBenchmarkKey(e.cpu) : null;
+      const value = parseBenchmark(row.details?.cpuBenchmark3dmark06);
+      return key && value !== null ? [{ key, value, label: e.cpu! }] : [];
+    }),
+  );
+  const gpuBench = buildBenchmarkIndex(
+    laptopidSources.flatMap(({ row, e }) => {
+      const key = !("gpu" in row.manualOverrides) ? gpuBenchmarkKey(e.gpu) : null;
+      const value = parseBenchmark(row.details?.gpuBenchmark3dmark11);
+      return key && value !== null ? [{ key, value, label: e.gpu! }] : [];
+    }),
+  );
+  const cpuMhz = buildBenchmarkIndex(
+    laptopidSources.flatMap(({ row, e }) => {
+      const key = !("cpu" in row.manualOverrides) ? cpuBenchmarkKey(e.cpu) : null;
+      const value = validCpuMaxMhz(row.details?.cpuMaxMhz);
+      return key && value !== null ? [{ key, value, label: e.cpu! }] : [];
+    }),
+  );
+  const perf: PerformanceReport = {
+    sourceKeys: { cpuBenchmark: cpuBench.index.size, gpuBenchmark: gpuBench.index.size, cpuMaxMhz: cpuMhz.index.size },
+    conflicts: [
+      ...cpuBench.conflicts.map((c) => ({ kind: "cpuBenchmark", ...c })),
+      ...gpuBench.conflicts.map((c) => ({ kind: "gpuBenchmark", ...c })),
+      ...cpuMhz.conflicts.map((c) => ({ kind: "cpuMaxMhz", ...c })),
+    ],
+    onSale: { cpuBenchmark: { direct: 0, matched: 0, missing: 0 }, gpuBenchmark: { direct: 0, matched: 0, missing: 0 }, cpuMaxMhz: { direct: 0, matched: 0, missing: 0 } },
+    uniqueOnSale: { cpus: 0, cpusWithBenchmark: 0, cpusWithMaxMhz: 0, gpus: 0, gpusWithBenchmark: 0 },
+    unresolvedCpus: [],
+    unresolvedGpus: [],
+    examples: { cpu: [], gpu: [], mhz: [] },
+  };
+  const uniqueCpu = new Map<string, { bench: boolean; mhz: boolean }>();
+  const uniqueGpu = new Map<string, boolean>();
+  const pushExample = (list: { name: string; value: number; source: string }[], name: string, value: number, source: string) => {
+    if (list.length < 40 && !list.some((x) => x.name === name)) list.push({ name, value, source });
+  };
+
   const report: NonNullable<EnrichmentReport["specs"]> = {
+    performance: perf,
     listings: listings.length,
     gpuEnriched: { laptopid: 0, local: 0 },
     gpuStillGeneric: 0,
@@ -446,12 +508,58 @@ async function enrichSpecs(db: Database, models: ModelRow[], listings: ListingRo
       }
     }
 
+    // Kiirusindeks / maks. sagedus teistele tarnijatele: ainult kui pakkumisel endal pole ja admin pole CPU/GPU-d muutnud
+    const at = now.toISOString();
+    const cpuKey = !("cpu" in row.manualOverrides) ? cpuBenchmarkKey(e.cpu) : null;
+    const effectiveGpu = e.gpu?.trim() ? e.gpu : (next.gpu?.value ?? null);
+    const gpuKey = !("gpu" in row.manualOverrides) ? gpuBenchmarkKey(effectiveGpu) : null;
+    const own = { cpu: parseBenchmark(row.details?.cpuBenchmark3dmark06), gpu: parseBenchmark(row.details?.gpuBenchmark3dmark11), mhz: validCpuMaxMhz(row.details?.cpuMaxMhz) };
+    const assign = (field: "cpuBenchmark" | "gpuBenchmark" | "cpuMaxMhz", ownValue: number | null, key: string | null, index: Map<string, BenchmarkIndexEntry>, kind: string) => {
+      if (ownValue !== null || !key) return;
+      const hit = index.get(key);
+      if (!hit) return;
+      const prev = previous[field];
+      next[field] = { value: hit.value, source: "LAPTOPID", matchedBy: `${kind}:${key} (${hit.samples} Laptopid.ee pakkumist)`, confidence: 1, at: prev?.value === hit.value ? prev.at : at };
+    };
+    assign("cpuBenchmark", own.cpu, cpuKey, cpuBench.index, "cpu");
+    assign("gpuBenchmark", own.gpu, gpuKey, gpuBench.index, "gpu");
+    assign("cpuMaxMhz", own.mhz, cpuKey, cpuMhz.index, "cpu");
+
+    if (onSale(row)) {
+      const p = effectivePerformance({ details: row.details, enrichment: next, manualOverrides: row.manualOverrides });
+      const count = (field: keyof PerformanceReport["onSale"], ownValue: number | null, value: number | null) =>
+        perf.onSale[field][ownValue !== null && value !== null ? "direct" : value !== null ? "matched" : "missing"]++;
+      count("cpuBenchmark", own.cpu, p.cpuBenchmark);
+      count("gpuBenchmark", own.gpu, p.gpuBenchmark);
+      count("cpuMaxMhz", own.mhz, p.cpuMaxGhz);
+      const sourceOf = (ownValue: number | null) => (ownValue !== null ? row.supplier.toUpperCase() : "LAPTOPID (täpne vaste)");
+      if (e.cpu) {
+        const u = uniqueCpu.get(e.cpu) ?? { bench: false, mhz: false };
+        uniqueCpu.set(e.cpu, { bench: u.bench || p.cpuBenchmark !== null, mhz: u.mhz || p.cpuMaxGhz !== null });
+        if (p.cpuBenchmark !== null) pushExample(perf.examples.cpu, e.cpu, p.cpuBenchmark, sourceOf(own.cpu));
+        if (p.cpuMaxGhz !== null) pushExample(perf.examples.mhz, e.cpu, p.cpuMaxGhz * 1000, sourceOf(own.mhz));
+      }
+      if (effectiveGpu) {
+        uniqueGpu.set(effectiveGpu, (uniqueGpu.get(effectiveGpu) ?? false) || p.gpuBenchmark !== null);
+        if (p.gpuBenchmark !== null) pushExample(perf.examples.gpu, effectiveGpu, p.gpuBenchmark, sourceOf(own.gpu));
+      }
+    }
+
     const hasNext = Object.keys(next).length > 0;
     if (stableStringify(row.enrichment ?? null) !== stableStringify(hasNext ? next : null)) {
       report.changedListings++;
       if (!options.dryRun) await db.update(supplierListings).set({ enrichment: hasNext ? next : null }).where(eq(supplierListings.id, row.id));
     }
   }
+  perf.uniqueOnSale = {
+    cpus: uniqueCpu.size,
+    cpusWithBenchmark: [...uniqueCpu.values()].filter((v) => v.bench).length,
+    cpusWithMaxMhz: [...uniqueCpu.values()].filter((v) => v.mhz).length,
+    gpus: uniqueGpu.size,
+    gpusWithBenchmark: [...uniqueGpu.values()].filter(Boolean).length,
+  };
+  perf.unresolvedCpus = [...uniqueCpu].filter(([, v]) => !v.bench).map(([k]) => k).sort();
+  perf.unresolvedGpus = [...uniqueGpu].filter(([, v]) => !v).map(([k]) => k).sort();
   return report;
 }
 
