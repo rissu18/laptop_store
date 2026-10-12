@@ -50,7 +50,7 @@ Täielik kirjeldus: **docs/TECH_SYNC.md**.
 - Seis 2026-10-12: 730 sülearvuti rida → müüdud 248, ei ole sülearvuti 106, defekt 9, tundmatu märkus 31, vigased 12 → **324 müügis seadet, 203 pakkumist poes** (206 andmebaasis, 3 laoseisuga 0); 712 seadet tabelis; 140 mudelit (45 olemasolevat, 95 uut; rikastus puudub 96-l). Poes kokku 508 sülearvutit (305 Laptopid + 203 Tech).
 - Kasutaja otsused (2026-10-12): `e/g/f/w/p` ignoreeritakse; tahvlid **ja** detachable'id (Surface Go/Pro/Book, Elite x2, CF-33 …) välja; KM režiim MARGIN; `5g` = 5G tunnus.
 - Käivitamine: admin → Tarnijad → Tech → **Sync now**; `GET /api/cron/tech-sync` (CRON_SECRET); `npm run tech:sync`; **`npm run tech:sync -- --dry-run`** (ainult lugemine, raport seerianumbriteta). Eraldi DB-lukk (allikas TECH).
-- **QStash:** tööpäeviti 10:00–20:00 iga täistund + iga öö 03:00 (Europe/Tallinn) — seadistatakse pärast production endpointi kontrolli.
+- **QStash (Europe/Tallinn, loodud 2026-10-12):** `tech-daytime-sync` `scd_7hqHyNqCKnHByUNQWUeNp1xW6RAk` (`0 10-20 * * 1-5`, E–R 10–20 iga täistund) ja `tech-nightly-sync` `scd_65FBLYuSP43Y4143US4v6XSMt8eP` (`0 3 * * *`). GET `/api/cron/tech-sync`, edastatud `Authorization: Bearer <CRON_SECRET>` (sama mis Laptopid schedule'itel, kopeeritud kuvamata), korduskatseid 0, timeout 300 s. Kontrollitud: ühekordne QStashi sõnum → DELIVERED HTTP 200, `catalog_sync_runs` TECH CRON SUCCESS. Laptopid.ee schedule'id muutmata.
 - Seerianumbrid: admin konfiguratsiooni leht (seadmete nimekiri) ja tellimuse leht (`order_item_units`, admin määrab). Testtellimus ei kuluta laoseisu. Kliendile ei kuvata (testitud + live-HTML 0 tabamust).
 
 ## 5. Storefront, kassa, sisu
@@ -75,7 +75,7 @@ Täielik kirjeldus: **docs/TECH_SYNC.md**.
 ## 7. Viimased commitid
 
 ```
-(Tech)   feat(tech): teine tarnija — Tech hinnakiri (Google Sheets XLSX → PostgreSQL)   ← viimane funktsionaalne
+6d67317  feat(tech): teine tarnija — Tech hinnakiri (Google Sheets XLSX → PostgreSQL)   ← viimane funktsionaalne
 9f8994d  fix(admin): stale-sync hoiatus järgib QStashi päeva/öö ajastust
 727671c  docs: Laptopid.ee sync'i QStash ajastus prototüübi säästurežiimis
 f1e8df2  perf: kitsam poe kataloogipäring ja piiratud pildilaiused

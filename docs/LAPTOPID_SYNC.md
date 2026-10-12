@@ -287,6 +287,7 @@ Admin → Tarnijad → **"Sync'i seis"**: viimane edukas sync (aeg + vanus), vii
   - kokku 36 käivitust ööpäevas (enne 288). Mõlemal sama: `GET https://laptop-store-rouge.vercel.app/api/cron/laptopid-sync`, edastatud päis `Authorization: Bearer <CRON_SECRET>` (`Upstash-Forward-Authorization`), korduskatseid 0, timeout 300 s. Eesti aja vahetus (suve-/talveaeg) on QStashi poolt arvestatud.
   - Varasem `*/5 * * * *` (UTC) asendati sama ID all päevase ajastusega — paralleelset 5-min schedule'it pole.
   - Admini stale-sync hoiatuse piir järgib seda ajastust (päeval 45 min, öösel 150 min).
+  - 2026-10-12 lisandusid samasse QStashi kontosse Techi schedule'id (`tech-daytime-sync`, `tech-nightly-sync`, vt TECH_SYNC.md §14) — sama edastatud `CRON_SECRET`; roteerimisel uuenda kõiki nelja.
 - `CRON_SECRET` roteeriti seadistamisel (uus juhuslik väärtus otse Vercelisse Production/Preview/Development ja QStashi päisesse, ei kuvatud ega salvestatud mujale) + production redeploy. Edastatud päis on nähtav Upstashi konsoolis konto kasutajatele.
 - QStashi token (`QSTASH_TOKEN`, `QSTASH_URL`) on ainult kohalikus `.env.local` failis (gitignored) schedule'i haldamiseks; rakendus seda ei kasuta ja Vercelis seda pole.
 - Kontrollitud: käivitused 17:30 ja 17:35 UTC → QStash `DELIVERED` HTTP 200 (~4 s), `catalog_sync_runs` CRON SUCCESS, 305 saadud. Verceli igapäevane cron (`vercel.json`) jääb varuvõrguks.

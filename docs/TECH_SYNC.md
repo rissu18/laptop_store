@@ -251,7 +251,12 @@ Lukk: `catalog_sync_runs` allikas `TECH` — eraldi Laptopid.ee lukust (osaline 
 | `tech-daytime-sync` | `CRON_TZ=Europe/Tallinn 0 10-20 * * 1-5` | E–R 10:00–20:00 iga täistund (11 korda) |
 | `tech-nightly-sync` | `CRON_TZ=Europe/Tallinn 0 3 * * *` | iga päev 03:00 |
 
-Sihtkoht `GET https://laptop-store-rouge.vercel.app/api/cron/tech-sync`, edastatud päis `Authorization: Bearer <CRON_SECRET>` (`Upstash-Forward-Authorization`), korduskatseid 0. Laptopid.ee schedule'e ei muudetud. Schedule ID-d: vt HANDOFF.md / CHANGELOG.md.
+Sihtkoht `GET https://laptop-store-rouge.vercel.app/api/cron/tech-sync`, edastatud päis `Authorization: Bearer <CRON_SECRET>` (`Upstash-Forward-Authorization`), korduskatseid 0. Laptopid.ee schedule'e ei muudetud.
+
+- `tech-daytime-sync`: `scd_7hqHyNqCKnHByUNQWUeNp1xW6RAk`
+- `tech-nightly-sync`: `scd_65FBLYuSP43Y4143US4v6XSMt8eP`
+- Loodud 2026-10-12 pärast production deploy'd (`6d67317`, Ready) ja endpointi kontrolli: ilma/vale saladusega 401; ühekordne QStashi sõnum → DELIVERED HTTP 200, `catalog_sync_runs` TECH CRON SUCCESS (324 seadet, 203 pakkumist, muutusi 0).
+- Haldus nagu Laptopid.ee (LAPTOPID_SYNC.md §13): QStashi konsool või API `GET/DELETE $QSTASH_URL/v2/schedules/<id>`. `CRON_SECRET`-i roteerimisel tuleb uuendada kõik neli schedule'it.
 
 Admini stale-hoiatus Techi kohta: viimane edukas sync üle 26 h vana (öine sync käib iga päev).
 

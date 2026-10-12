@@ -32,6 +32,8 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 **Testid:** 393 → 480 (46 testifaili; `tech.test.ts`, `tech-workbook.test.ts` päris XLSX-iga, `tech-sync.db.test.ts` päris PostgreSQL-is, `tech-sync/route.test.ts`, `format.test.ts`).
 
+**Deploy ja ajastus:** commit `6d67317` → Vercel production Ready; `TECH_SHEET_URL` Config (Production/Preview/Development). `/api/cron/tech-sync`: ilma/vale saladusega 401; QStashi ühekordne sõnum → HTTP 200, TECH CRON SUCCESS. QStash: `tech-daytime-sync` `scd_7hqHyNqCKnHByUNQWUeNp1xW6RAk` (`CRON_TZ=Europe/Tallinn 0 10-20 * * 1-5`) ja `tech-nightly-sync` `scd_65FBLYuSP43Y4143US4v6XSMt8eP` (`CRON_TZ=Europe/Tallinn 0 3 * * *`), korduskatseid 0; Laptopid.ee schedule'id muutmata.
+
 **Probleemid ja lahendused**
 
 - Hinnakirjas oli ka tahvelarvuteid ja detachable'eid "Laptops" sektsioonides ning ühetähelisi koode (`e`, `g` …) ja `5g` — spec neid ei katnud; otsustas kasutaja (tahvlid ja detachable'id välja, koodid ignoreeritakse, 5g = tunnus, KM erikord).
