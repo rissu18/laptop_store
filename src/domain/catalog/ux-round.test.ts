@@ -91,13 +91,14 @@ describe("2. kiirinfo selgitused", () => {
 });
 
 describe("3. tehnilised andmed", () => {
-  it("ei korda protsessorit, RAM-i ega SSD-d ja lisab protsessori põlvkonna", async () => {
+  it("Jõudlus näitab protsessori täisnime, mälu ja salvestuse päris ridadena (2026-10-12) ja protsessori põlvkonna", async () => {
     const t14 = find(await catalog(), "SP-10231");
     const rows = buildSpecSections(t14).flatMap((s) => s.rows);
     const labels = rows.map((r) => r.label);
-    expect(labels).not.toContain("Protsessor");
-    expect(labels).not.toContain("Mälu (RAM)");
-    expect(labels).not.toContain("Salvestus");
+    expect(labels.slice(0, 1)).toEqual(["Protsessor"]);
+    expect(rows[0].value).toBe(t14.variant.cpu.model);
+    expect(labels).toContain("Mälu");
+    expect(labels).toContain("Salvestus");
     expect(rows.find((r) => r.label === "Protsessori põlvkond")?.value).toBe("Intel 12. põlvkond");
   });
 

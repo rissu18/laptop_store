@@ -58,6 +58,9 @@ describe("rikastus ei jookse lehe renderdamisel (LOCAL-FIRST)", () => {
     "src/components/product/spec-sections.tsx",
     "src/domain/catalog/enrichment.ts",
     "src/domain/catalog/quick-specs.ts",
+    "src/domain/catalog/benchmarks.ts",
+    "src/domain/catalog/spec-sections.ts",
+    "src/components/ui/info-tip.tsx",
   ];
 
   it.each(STOREFRONT_PATH)("%s ei impordi välisallikaid ega rikastusteenust", (file) => {

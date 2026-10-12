@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { storeConfig } from "@/config/store";
 import { arePaymentsLive, getSettings, visibleTrustItems } from "@/server/settings/settings-service";
-import { formatSpecLine } from "@/domain/catalog/format";
 import { CONFIGURATION_PARAM, productHref, productPath } from "@/domain/catalog/urls";
 import { BRAND_NAMES, type CatalogItem } from "@/domain/catalog/types";
 import { imagesForDisplay } from "@/domain/images/product-image";
@@ -117,10 +116,10 @@ async function ProductDetail({ params, searchParams }: PageProps<"/toode/[slug]"
       </div>
 
       <section aria-labelledby="tehnilised-andmed" className="mt-16">
-        <h2 id="tehnilised-andmed" className="text-2xl font-bold tracking-tight">
+        {/* Varasem väike kokkuvõte (CPU · RAM · SSD) eemaldati: sama info on kiirinfo kastides ja "Jõudluse" ridadena */}
+        <h2 id="tehnilised-andmed" className="mb-6 text-2xl font-bold tracking-tight">
           Tehnilised andmed
         </h2>
-        <p className="mb-6 mt-1 text-sm text-muted">{formatSpecLine(item)}</p>
         <SpecSections item={item} />
       </section>
 

@@ -3,7 +3,8 @@ import { BRAND_NAMES, type CatalogItem } from "./types";
 import { cpuGenerationLabel } from "./facets";
 import { FEATURE_LABELS } from "./features";
 import { keyboardLabel } from "./keyboard";
-import { formatScreenSize, formatWeight } from "./format";
+import { formatBenchmark, formatGhz } from "./benchmarks";
+import { formatScreenSize, formatStorage, formatWeight } from "./format";
 
 /**
  * Tehnilised andmed rühmadena. Puuduva väärtusega rida jäetakse välja —
@@ -13,6 +14,10 @@ import { formatScreenSize, formatWeight } from "./format";
 export interface SpecRow {
   label: string;
   value: string;
+  /** Kõige olulisemad read (protsessor, mälu, salvestus, graafika, ekraan) — tugevam väärtus, kiiresti skannitav */
+  emphasis?: boolean;
+  /** Info-ikoon selgitusega (kiirusindeks: CPU = 3DMark06 CPU, GPU = 3DMark11 GPU) */
+  info?: "cpu-benchmark" | "gpu-benchmark";
 }
 
 export interface SpecSection {
@@ -30,12 +35,15 @@ function yesNo(value: boolean | null): string | null {
 /** Väärtused, mida ei kuvata kunagi (tarnija "tühjad" väärtused). */
 const EMPTY_VALUES = new Set(["", "-", "–", "n/a", "na", "unknown", "null", "undefined", "none"]);
 
-function row(label: string, value: Maybe): SpecRow | null {
+function row(label: string, value: Maybe, extra: Pick<SpecRow, "emphasis" | "info"> = {}): SpecRow | null {
   if (value === null || value === undefined || value === false) return null;
   const text = String(value).trim();
   if (EMPTY_VALUES.has(text.toLowerCase())) return null;
-  return { label, value: text };
+  return { label, value: text, ...extra };
 }
+
+/** Kiirusindeks ainult positiivse arvuna; puudub / 0 → rida puudub */
+const benchmarkValue = (value: number | null | undefined) => (value && value > 0 ? formatBenchmark(value) : null);
 
 function section(title: string, rows: (SpecRow | null)[]): SpecSection | null {
   const present = rows.filter((r): r is SpecRow => r !== null);
@@ -53,21 +61,28 @@ export function buildSpecSections({ product, variant }: CatalogItem): SpecSectio
   const thunderbolt = d.thunderbolt ? `Jah (Thunderbolt ${d.thunderbolt.replace("+", " ja ")})` : yesNo(f.thunderbolt);
 
   return [
-    // Protsessor, RAM ja SSD on juba tootelehe kiirinfo kastides — siin neid ei korrata
+    // Jõudlus: kõigepealt komponent (protsessori täisnimi), siis selle andmed; mälu ja salvestus päris ridadena
     section("Jõudlus", [
+      row("Protsessor", variant.cpu.model, { emphasis: true }),
+      row("Maks. sagedus", variant.cpu.maxGhz ? formatGhz(variant.cpu.maxGhz) : null),
+      row("Kiirusindeks", benchmarkValue(variant.cpu.benchmark), { info: "cpu-benchmark" }),
       row("Protsessori põlvkond", variant.cpu.generationKey ? cpuGenerationLabel(variant.cpu.generationKey) : null),
+      row("Mälu", variant.ramGb ? `${variant.ramGb} GB` : null, { emphasis: true }),
       row("Mälu tüüp", variant.ramType),
-      row("Graafika", variant.gpu.model),
+      row("Salvestus", variant.storageGb ? `${formatStorage(variant.storageGb)} SSD` : null, { emphasis: true }),
       row("Lisaketas", d.secondaryStorage),
+      row("Graafika", variant.gpu.model, { emphasis: true }),
+      row("Kiirusindeks", benchmarkValue(variant.gpu.benchmark), { info: "gpu-benchmark" }),
     ]),
     section("Ekraan", [
-      row("Suurus", formatScreenSize(product.screenSizeIn)),
+      row("Suurus", formatScreenSize(product.screenSizeIn), { emphasis: true }),
       row(
         "Resolutsioon",
         variant.display.resolution
           ? `${variant.display.resolution.replace("x", " × ")}${variant.display.resolutionLabel ? ` (${variant.display.resolutionLabel})` : ""}`
           : // Tarnija annab vahel ainult nime (Apple "Retina") — täpset resolutsiooni ei leiutata
             variant.display.resolutionLabel,
+        { emphasis: true },
       ),
       row("Paneel", variant.display.panel),
       row("Puuteekraan", yesNo(variant.display.touch)),

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Card, PageHeader } from "@/components/admin/ui";
 import { EnrichCatalogButton } from "@/components/admin/enrich-catalog-button";
 import { cx } from "@/components/ui/class-names";
-import { getDataQualityCounts, type IssueCount } from "@/server/admin/data-quality/queries";
+import { getDataQualityCounts, getPerformanceCoverage, type IssueCount } from "@/server/admin/data-quality/queries";
 
 /** Admin on alati päringupõhine (sessioon, värsked andmed) — eelrenderdust ega "instant" navigeerimist ei kasutata. */
 export const instant = false;
@@ -32,7 +32,7 @@ function IssueList<K extends string>({ items, total, basePath, unit }: { items: 
 }
 
 export default async function DataQualityPage() {
-  const data = await getDataQualityCounts();
+  const [data, performance] = await Promise.all([getDataQualityCounts(), getPerformanceCoverage()]);
   const totalIssues = [...data.models, ...data.listings].reduce((sum, item) => sum + item.count, 0);
 
   return (
@@ -58,6 +58,28 @@ export default async function DataQualityPage() {
                   <td className="py-1.5">{row.label}</td>
                   <td className="py-1.5 text-right tabular-nums">{row.all}</td>
                   <td className="py-1.5 text-right tabular-nums">{row.onSale}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+        <Card title="Kiirusindeks ja maks. sagedus" description={`Müügis konfiguratsioonid (${performance.total}). Allikas: tarnija ise (Laptopid.ee API) või täpselt sama CPU/GPU Laptopid.ee väärtus (rikastus). Üldnimi ("Integrated") ei sobi.`}>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-muted">
+                <th className="py-1 font-normal">Väärtus</th>
+                <th className="py-1 text-right font-normal">Tarnijalt</th>
+                <th className="py-1 text-right font-normal">LAPTOPID vaste</th>
+                <th className="py-1 text-right font-normal">Puudub</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {performance.rows.map((row) => (
+                <tr key={row.key}>
+                  <td className="py-1.5">{row.label}</td>
+                  <td className="py-1.5 text-right tabular-nums">{row.direct}</td>
+                  <td className="py-1.5 text-right tabular-nums">{row.matched}</td>
+                  <td className="py-1.5 text-right tabular-nums">{row.missing}</td>
                 </tr>
               ))}
             </tbody>

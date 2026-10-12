@@ -154,16 +154,26 @@ export default async function ListingDetailPage({ params }: PageProps<"/admin/pr
               lastSyncedAt={listing.lastSyncedAt}
             />
           )}
-          {(supplier.enrichment?.gpu || supplier.enrichment?.resolution) && (
-            <Card title="Rikastatud andmed" description="Täidavad ainult tarnija tühja välja; admini parandus võidab alati (npm run enrich:catalog / Andmekvaliteet → Rikasta).">
+          {(supplier.enrichment?.gpu || supplier.enrichment?.resolution || supplier.enrichment?.cpuBenchmark || supplier.enrichment?.gpuBenchmark || supplier.enrichment?.cpuMaxMhz || supplier.details?.cpuBenchmark3dmark06 || supplier.details?.gpuBenchmark3dmark11) && (
+            <Card title="Jõudlus ja rikastatud andmed" description="Päritoluga: tarnija enda väärtus või rikastus (täidab ainult tühja välja, täpse vastega). Admini parandus võidab alati (npm run enrich:catalog / Andmekvaliteet → Rikasta).">
               <DefinitionList
                 items={[
-                  ...(supplier.enrichment.gpu
+                  ...(supplier.enrichment?.gpu
                     ? [{ label: "Graafika", value: `${supplier.enrichment.gpu.value} — ${supplier.enrichment.gpu.source}, ${supplier.enrichment.gpu.matchedBy}` }]
                     : []),
-                  ...(supplier.enrichment.resolution
+                  ...(supplier.enrichment?.resolution
                     ? [{ label: "Resolutsioon", value: `${supplier.enrichment.resolution.value.resolution} — ${supplier.enrichment.resolution.source}, ${supplier.enrichment.resolution.matchedBy}` }]
                     : []),
+                  // Kiirusindeks / sagedus: tarnija enda väärtus (details) või täpse vastega Laptopid.ee väärtus (enrichment)
+                  ...[
+                    ["CPU kiirusindeks (3DMark06)", supplier.details?.cpuBenchmark3dmark06, supplier.enrichment?.cpuBenchmark],
+                    ["GPU kiirusindeks (3DMark11)", supplier.details?.gpuBenchmark3dmark11, supplier.enrichment?.gpuBenchmark],
+                    ["CPU maks. sagedus (MHz)", supplier.details?.cpuMaxMhz, supplier.enrichment?.cpuMaxMhz],
+                  ].flatMap(([label, own, enriched]) => {
+                    const e = enriched as { value: number; source: string; matchedBy: string } | undefined;
+                    if (typeof own === "number") return [{ label: label as string, value: `${own} — ${listing.supplier.toUpperCase()} (tarnija)` }];
+                    return e ? [{ label: label as string, value: `${e.value} — ${e.source}, ${e.matchedBy}` }] : [];
+                  }),
                 ]}
               />
             </Card>
