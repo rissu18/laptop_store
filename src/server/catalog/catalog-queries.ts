@@ -250,12 +250,18 @@ const withLocked = (query: CatalogQuery, locked: Partial<FacetSelection>): Catal
 export async function queryCatalogPage(db: Db, query: CatalogQuery, locked: Partial<FacetSelection> = {}): Promise<CatalogPageResult> {
   const effective = withLocked(query, locked);
   const where = whereClause(effective);
-  const pageRows = (offset: number) =>
-    db.execute<{ id: string; model_id: string; total: number }>(
-      withStorefront(sql`SELECT id, model_id, count(*) OVER()::int AS total FROM storefront WHERE ${where} ORDER BY ${orderBy(effective.sort)} LIMIT ${PAGE_SIZE} OFFSET ${offset}`),
-    );
+  const pageSql = (offset: number) =>
+    withStorefront(sql`SELECT id, model_id, count(*) OVER()::int AS total FROM storefront WHERE ${where} ORDER BY ${orderBy(effective.sort)} LIMIT ${PAGE_SIZE} OFFSET ${offset}`);
+  const pageRows = (offset: number) => db.execute<{ id: string; model_id: string; total: number }>(pageSql(offset));
 
-  const [first, facets] = await Promise.all([pageRows((effective.page - 1) * PAGE_SIZE), queryFacets(db, effective)]);
+  // Üks paralleelne ring andmebaasi: lehekülje ID-d, tahud ja nende mudelite kaardi andmed (sama lehekülje
+  // alampäring) korraga — iga ring maksab Verceli ja Neoni vahel võrguaja (vt docs/ARCHITECTURE.md).
+  const offset = (effective.page - 1) * PAGE_SIZE;
+  const [first, facets, prefetched] = await Promise.all([
+    pageRows(offset),
+    queryFacets(db, effective),
+    hydrateModels(db, sql`${productModels.id} IN (SELECT model_id FROM (${pageSql(offset)}) AS page_rows)`),
+  ]);
   let rows = first.rows;
   let total = rows[0]?.total ?? 0;
   let page = effective.page;
@@ -267,8 +273,10 @@ export async function queryCatalogPage(db: Db, query: CatalogQuery, locked: Part
     rows = total > 0 ? (await pageRows((page - 1) * PAGE_SIZE)).rows : [];
   }
 
+  const byListingId = new Map(prefetched.map(({ listingId, item }) => [listingId, item]));
+  const items = rows.every((row) => byListingId.has(row.id)) ? rows.map((row) => byListingId.get(row.id)!) : await hydrateListings(db, rows);
   return {
-    items: await hydrateListings(db, rows),
+    items,
     total,
     page,
     pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)),

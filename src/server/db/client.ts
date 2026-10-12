@@ -6,7 +6,7 @@ import * as schema from "./schema";
 /**
  * Andmebaasi ühendus (Drizzle + node-postgres).
  * Üks Pool protsessi kohta; arendusrežiimis hoitakse see globalThis'il, et kuumlaadimine ei tekitaks
- * iga muudatusega uut ühenduste kogumit. Serverless'is on väike max, sest Neon'i pooler jagab ühendusi.
+ * iga muudatusega uut ühenduste kogumit. Serverless'is on väike max (8: kataloogi lehekülg teeb ühe ringiga 6 paralleelset päringut), sest Neon'i pooler jagab ühendusi.
  */
 export type Database = NodePgDatabase<typeof schema>;
 
@@ -27,7 +27,7 @@ export function getDb(): Database {
   if (globalForDb.__db) return globalForDb.__db.db;
   const url = resolveDatabaseUrl("pooled");
   if (!url) throw new DatabaseNotConfiguredError();
-  const pool = new Pool({ connectionString: withSecureSsl(url), max: 5, idleTimeoutMillis: 10_000, connectionTimeoutMillis: 10_000 });
+  const pool = new Pool({ connectionString: withSecureSsl(url), max: 8, idleTimeoutMillis: 10_000, connectionTimeoutMillis: 10_000 });
   const db = drizzle(pool, { schema });
   globalForDb.__db = { db, pool };
   return db;
