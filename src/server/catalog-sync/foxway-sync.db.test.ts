@@ -130,6 +130,14 @@ describe.skipIf(!hasTestDatabase)("Foxway sync (andmebaas)", () => {
     expect((await item(sku(3)))?.variant.details.conditionNotices?.[0]).toMatchObject({ severity: "INFO", text: "Korpusel võib olla kleepsu eemaldamisest jäänud kerge jälg." });
   });
 
+  it("tehnilised andmed: omadusi, mida Foxway ei anna (HDMI, sõrmejälg …), ei näidata 'Ei'-na (ei leiutata)", async () => {
+    const { buildSpecSections } = await import("@/domain/catalog/spec-sections");
+    const t14 = await item(sku(1));
+    const labels = buildSpecSections(t14!).flatMap((s) => s.rows.map((r) => r.label));
+    for (const missing of ["HDMI", "Thunderbolt", "Sõrmejäljelugeja", "Numbriklahvistik", "Klaviatuuri taustavalgus"]) expect(labels).not.toContain(missing);
+    expect(t14!.variant.features).toMatchObject({ hdmi: null, fingerprint: null, "dedicated-gpu": false });
+  });
+
   it("13. sama SKU working + new → üks pakkumine, kogust ei liideta; Brand New → Uus", async () => {
     const rows = await t.db.select().from(supplierListings).where(eq(supplierListings.supplierProductId, sku(8)));
     expect(rows).toHaveLength(1);
