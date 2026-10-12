@@ -167,6 +167,8 @@ export async function placeOrder(db: Database, input: PlaceOrderInput, deps: { n
         screen: [`${String(item.product.screenSizeIn).replace(".", ",")}"`, display.resolution, display.panel].filter(Boolean).join(" "),
         keyboard: item.variant.keyboardLayout,
         grade: item.variant.grade,
+        // KM režiim ostu hetkel (MARGIN = kasutatud kauba erikord) — hilisem arveldus peab teadma
+        vatScheme: item.variant.price.vatScheme,
         quantity,
         unitPriceCents: unit,
         lineSubtotalCents: unit * quantity,

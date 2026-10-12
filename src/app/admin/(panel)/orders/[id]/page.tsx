@@ -77,6 +77,7 @@ export default async function OrderDetailPage({ params }: PageProps<"/admin/orde
                 { key: "cpu", header: "CPU", cell: (row) => row.cpu ?? <Missing /> },
                 { key: "ram", header: "RAM / SSD", cell: (row) => `${row.ramGb ?? "?"} GB / ${row.storageGb ?? "?"} GB` },
                 { key: "grade", header: "Seisukord", cell: (row) => row.grade ?? <Missing /> },
+                { key: "vat", header: "KM režiim", mobile: "hidden", cell: (row) => (row.vatScheme === "MARGIN" ? <Badge tone="warning">Erikord (KMS §41)</Badge> : row.vatScheme === "STANDARD" ? "Tavaline" : (row.vatScheme ?? "—")) },
                 { key: "qty", header: "Kogus", align: "right", cell: (row) => row.quantity },
                 { key: "unit", header: "Ühikuhind", align: "right", cell: (row) => fmtCents(row.unitPriceCents) },
                 { key: "discount", header: "Soodustus", align: "right", cell: (row) => (row.discountAmountCents ? `−${fmtCents(row.discountAmountCents)}` : "—") },

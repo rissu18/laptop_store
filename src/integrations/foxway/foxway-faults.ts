@@ -66,6 +66,8 @@ const FAULT_RULES: Record<string, FaultRule> = {
   "minor cosmetic fault (loose parts)": { severity: "REVIEW", reason: "Lahtised osad — vajab ülevaatust" },
   "minor lcd fault (discoloration)": { severity: "REVIEW", reason: "Ekraani värvitooni viga — ulatus teadmata, vajab ülevaatust" },
   "sim tray missing": { severity: "REVIEW", reason: "SIM-salv puudub — vajab ülevaatust" },
+  // ThinkPadi TrackPointi nupp/kate on väike, lihtsalt asendatav detail — puudumine ei tähenda katkist sülearvutit
+  "missing/broken pointer nub": { severity: "REVIEW", reason: "TrackPointi nupp puudub/katki — lihtsalt asendatav detail, vajab ülevaatust" },
   // BLOCK — ekraan ja korpus
   "severe lcd damage": { severity: "BLOCK", reason: "Ekraan tõsiselt kahjustatud" },
   "cracked display glass": { severity: "BLOCK", reason: "Ekraani klaas mõranenud" },
@@ -82,8 +84,10 @@ const FAULT_RULES: Record<string, FaultRule> = {
   "faulty port": { severity: "BLOCK", reason: "Port rikkis" },
   "broken charging socket": { severity: "BLOCK", reason: "Laadimispesa katki" },
   "faulty touchscreen": { severity: "BLOCK", reason: "Puuteekraan rikkis" },
-  "missing/broken pointer nub": { severity: "BLOCK", reason: "TrackPointi nupp puudub/katki" },
 };
+
+/** TrackPointi nupu/katte variandid ("Missing pointer nub", "Broken TrackPoint cap") → REVIEW, mitte üldine BLOCK */
+const POINTER_NUB = /\b(pointer\s*(nub|stick|cap)|track\s*point(\s*(cap|nub))?)\b/i;
 
 /** Tundmatu teksti tuntud rikke-sõnad → vähemalt BLOCK (nt tulevane "Faulty keyboard"); muu tundmatu → REVIEW */
 const BLOCK_WORDS = /\b(faulty|broken|cracked|damaged?|severe|not working|dead|missing|defect(ive)?|no power|black screen)\b/i;
@@ -105,7 +109,8 @@ export function normalizeFaultText(raw: string): string {
 export function classifyFault(raw: string): FaultAssessment {
   const rule = FAULT_RULES[normalizeFaultText(raw)];
   if (rule) return { raw, known: true, severity: rule.severity, reason: rule.reason, note: rule.note ?? null };
-  // Tundmatu rike ei ole kunagi "ohutu": selge rikke-sõna → BLOCK, muu → REVIEW
+  // Tundmatu rike ei ole kunagi "ohutu": TrackPointi nupp → REVIEW, selge rikke-sõna → BLOCK, muu → REVIEW
+  if (POINTER_NUB.test(raw)) return { raw, known: false, severity: "REVIEW", reason: "TrackPointi nupu/katte rike (tundmatu kirjapilt) — vajab ülevaatust", note: null };
   return BLOCK_WORDS.test(raw)
     ? { raw, known: false, severity: "BLOCK", reason: "Tundmatu rikketekst rikke-sõnaga", note: null }
     : { raw, known: false, severity: "REVIEW", reason: "Tundmatu rikketekst — vajab ülevaatust", note: null };

@@ -746,6 +746,11 @@ export const orderItems = pgTable(
     screen: text("screen"),
     keyboard: text("keyboard"),
     grade: text("grade"),
+    /**
+     * Käibemaksu režiim ostu hetkel (snapshot): STANDARD (hinnas täis-KM) | MARGIN (kasutatud kauba erikord, KMS §41 —
+     * KM marginaalilt, mitte kogu hinnalt) | UNKNOWN. NULL = enne 2026-10-12 loodud rida. Arveldus/raamatupidamine loeb seda.
+     */
+    vatScheme: text("vat_scheme"),
     quantity: integer("quantity").notNull(),
     unitPriceCents: integer("unit_price_cents").notNull(),
     lineSubtotalCents: integer("line_subtotal_cents").notNull(),
@@ -811,6 +816,8 @@ export const orderItemProcurements = pgTable(
     /** Tarnija hinnakirja hind tellimuse hetkel (ilma KM-ita), sentides */
     supplierListedPriceCents: integer("supplier_listed_price_cents"),
     supplierCurrency: text("supplier_currency"),
+    /** Tarnija KM tüüp tellimuse hetkel (Foxway IsVatMargin): true = erikorra kaup, hinnakirja hind ilma KM lisandita */
+    supplierVatMargin: boolean("supplier_vat_margin"),
     status: text("status", { enum: PROCUREMENT_STATUSES }).notNull().default("TO_ORDER"),
     /** Tarnija tellimuse number / viide */
     supplierOrderReference: text("supplier_order_reference"),

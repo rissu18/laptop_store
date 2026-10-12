@@ -11,7 +11,7 @@ import {
   FOXWAY_NORMALIZER_VERSION,
   FOXWAY_SOURCE,
   FOXWAY_SUPPLIER_CODE,
-  FOXWAY_VAT_SCHEME,
+  foxwayVatScheme,
 } from "@/integrations/foxway/foxway-normalizer";
 import type { FoxwayFeedKey } from "@/integrations/foxway/foxway-schema";
 import { FoxwaySnapshotError, buildFoxwaySnapshot, decideFoxwayTrust, type FoxwayFeedInput, type FoxwaySnapshot, type FoxwaySnapshotOffer } from "@/integrations/foxway/foxway-snapshot";
@@ -165,7 +165,8 @@ export function foxwayListingColumns(offer: FoxwaySnapshotOffer, context: Foxway
     deliveryMinDays: FOXWAY_DELIVERY_DAYS.min,
     deliveryMaxDays: FOXWAY_DELIVERY_DAYS.max,
     supplierPriceCents: offer.price?.costCents ?? null,
-    vatScheme: FOXWAY_VAT_SCHEME,
+    // IsVatMargin → kasutatud kauba erikord (poes "käibemaksu arvel eraldi ei näidata", marginaalikaitse arvestab KM-i marginaalilt)
+    vatScheme: foxwayVatScheme(offer.isVatMargin),
     salePriceCents: offer.price?.salePriceCents ?? null,
     priceSource: "SUPPLIER" as const,
     weightKg: null,

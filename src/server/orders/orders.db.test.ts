@@ -330,7 +330,7 @@ describe.skipIf(!hasTestDatabase)("kassa ja tellimused (andmebaas)", () => {
       expect(found.ok).toBe(true);
       if (found.ok) {
         expect(Object.keys(found.order).sort()).toEqual(["createdAt", "discountCents", "discountCode", "isTest", "items", "orderNumber", "paymentStatus", "shippingCents", "shippingMethodName", "status", "subtotalCents", "totalCents"]);
-        expect(Object.keys(found.order.items[0]).sort()).toEqual(["cpu", "discountCents", "grade", "imagePath", "keyboard", "lineTotalCents", "quantity", "ramGb", "screen", "sku", "storageGb", "title", "unitPriceCents"]);
+        expect(Object.keys(found.order.items[0]).sort()).toEqual(["cpu", "discountCents", "grade", "imagePath", "keyboard", "lineTotalCents", "quantity", "ramGb", "screen", "sku", "storageGb", "title", "unitPriceCents", "vatScheme"]);
         expect(JSON.stringify(found.order)).not.toMatch(/supplierPrice|cost|note|Hash|"id"/i);
       }
       expect(await lookupOrder(t.db, { orderNumber: result.orderNumber, email: "keegi@example.com", ip })).toEqual({ ok: false, message: LOOKUP_NOT_FOUND });

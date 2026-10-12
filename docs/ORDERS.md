@@ -261,3 +261,4 @@ Foxway kaupa ei tellita automaatselt (ei Foxway order API-t, dropshippingut ega 
 - `updateProcurementAction`: sessioon + päritolu/CSRF (`runAdminAction`), tehingus `FOR UPDATE`, audit `order.procurement`.
 - Testtellimusel tekib kirje samuti (adminis märge "Testtellimus — tarnijalt ei tellita"); Tarnijad → Foxway loendur arvestab ainult päris tühistamata tellimusi.
 - Kliendile hankeinfot ei näidata (avalik tellimuse vaade seda tabelit ei loe).
+- **KM režiim snapshot'is** (migratsioon 0006): `order_items.vat_scheme` (STANDARD / MARGIN / UNKNOWN; NULL = varasem rida) ja hankekirjel `supplier_vat_margin` (Foxway IsVatMargin). Erikorra (MARGIN) real näidatakse kassas, kinnituslehel ja adminis "Kasutatud kauba erikord"; eraldi KM summat ei kuvata ega väideta sisendkäibemaksuna mahaarvatavaks. KMS §41 arvestus tuleb enne arvemootorit raamatupidajaga kinnitada (vt FOXWAY_SYNC.md §7).

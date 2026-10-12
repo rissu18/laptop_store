@@ -89,8 +89,8 @@ C+ lisati domeeni (`GRADE_CODES` järjekorras B ja C vahele, URL `c-plus`); andm
 | --- | --- | --- |
 | **INFO** | müüki; rahulik märkus tootelehel | Minor cosmetic fault · Scratched on Purpose (= eemaldatud kleepsu jälg, MITTE "tahtlikult kriimustatud") · Discoloration by Sticker |
 | **NOTICE** | müüki; märkus tootelehel + kaardil | Minor LCD fault · Minor LCD Fault (Spots) · Minor LCD Fault (Wearmarks) |
-| **REVIEW** | poes ei kuvata, admin otsustab | Minor functional issues (liiga ebamäärane) · Minor cosmetic fault (loose parts) · Minor LCD Fault (Discoloration) · SIM Tray Missing · **tundmatu tekst** |
-| **BLOCK** | ei müüda | Severe LCD Damage · Cracked Display Glass · Black Screen/Dull Screen · Damaged Housing · Loose Hinge · Faulty speaker · Speaker Issue · Faulty camera / Faulty Camera · Cam Issue · Faulty port (USB) · Port Not Working (USB) · Faulty port · Broken Charging Socket · Faulty Touchscreen · Missing/broken pointer nub |
+| **REVIEW** | poes ei kuvata, admin otsustab | Minor functional issues (liiga ebamäärane) · Minor cosmetic fault (loose parts) · Minor LCD Fault (Discoloration) · SIM Tray Missing · **Missing/broken pointer nub** (ThinkPadi TrackPointi nupp — väike, lihtsalt asendatav detail; muudetud BLOCK → REVIEW 2026-10-12, ka tundmatud kirjapildid nagu "Missing pointer nub", "TrackPoint cap") · **tundmatu tekst** |
+| **BLOCK** | ei müüda | Severe LCD Damage · Cracked Display Glass · Black Screen/Dull Screen · Damaged Housing · Loose Hinge · Faulty speaker · Speaker Issue · Faulty camera / Faulty Camera · Cam Issue · Faulty port (USB) · Port Not Working (USB) · Faulty port · Broken Charging Socket · Faulty Touchscreen |
 
 Lisareeglid: `Working*` ilma rikketa → REVIEW; Functionality "Not working"/"Faulty" … → BLOCK, tundmatu → REVIEW; tundmatu rikketekst rikke-sõnaga (faulty, broken, cracked, damaged, missing …) → BLOCK, muu tundmatu → REVIEW. Ka: `Keyboard = Missing Keyboard` → BLOCK; tahvel/detachable (Surface Pro/Book, IdeaPad Duet — sama reegel mis Techil, `form-factor.ts`) → BLOCK; mitte-EUR, mitte-SSD põhiketas, tundmatu Boxed, GPU "Not tested", puuduvad CPU/RAM/Drive → REVIEW.
 
@@ -107,13 +107,18 @@ Kui Foxway lisab homme uue rikketeksti: SKU läheb REVIEW/BLOCK alla, admin näe
 ## 7. Hind
 
 ```
-müügihind = Foxway efektiivne hind (neto) + Eesti KM (config/pricing.ts → vatRateBps, praegu 24%) + 60 € + laadija lisatasu
+IsVatMargin = false:  müügihind = Foxway hind (neto) + Eesti KM Foxway hinnalt (config/pricing.ts → vatRateBps, 24%) + 60 € + laadija
+IsVatMargin = true:   müügihind = Foxway hind (ostuhind)                                                        + 60 € + laadija
 ```
 
+Näide (laadija 0 €): Price 500 → tavaline 500 + 120 + 60 = **680 €**; erikord 500 + 60 = **560 €** (mitte 500 × 1,24 + 60).
+
 - Foxway `Price` on **neto** tarnijahind. Täisarvulised sendid, arvutab ainult server; ümardamist ei tehta (see oleks eraldi äriotsus).
-- `price_source = SUPPLIER` (admini hind = parandus), `vat_scheme = STANDARD` (hinnas täis-KM), `supplier_price_cents` = Foxway hind + laadija (meie kulu, sooduskoodi marginaalikaitse).
+- `price_source = SUPPLIER` (admini hind = parandus), `vat_scheme` = **STANDARD** (IsVatMargin = false, hinnas täis-KM) või **MARGIN** (IsVatMargin = true, kasutatud kauba erikord), `supplier_price_cents` = Foxway hind + laadija (meie kulu; sooduskoodi marginaalikaitse arvestab MARGIN puhul KM-i marginaalilt).
 - **Kampaania-/erihind:** Swagger eraldi välja ei anna ja tänases feedis seda pole → API `Price` on autoriteetne, Excelit ei kraabita. `foxwayEffectiveSupplierPriceCents(list, campaign)` on valmis: kui API hakkab selgesõnalist kampaaniahinda andma, kehtib see (madalamana).
-- **IsVatMargin** salvestatakse SKU tasemel (`supplier_vat_margin`, sama mudeli SKU-del võib erineda), näidatakse adminis; praegune hinnastus järgib ülaltoodud kinnitatud reeglit.
+- **IsVatMargin** on SKU tasemel (`supplier_vat_margin`, sama mudeli SKU-del võib erineda; mitte ProductModeli väli). IsVatMargin = true **ei blokeeri** pakkumist — ainult teine hinnastus ja KM-arvestus.
+- **Erikorra kuvamine ja tellimuse andmed:** poes olemasolev märge "Kasutatud kauba erikord – käibemaksu arvel eraldi ei näidata" (`VatNote`); kassas rea juures "Kasutatud kauba erikord" ja selgitus, et KM-i eraldi ei näidata ega saa sisendkäibemaksuna maha arvata; eraldi 24% KM summat kogu müügihinnast ei kuvata kuskil. Tellimuse snapshot: `order_items.vat_scheme` (STANDARD / MARGIN) ja hankekirjel `order_item_procurements.supplier_vat_margin` — hilisem arveldus teab maksurežiimi (migratsioon 0006). Arvegeneraatorit/raamatupidamist selles etapis ei ehitatud.
+- ⚠️ **Enne lõpliku arve-/raamatupidamismootori käivitamist peab KMS §41 (kasutatud kauba erikord) arvestuse raamatupidajaga kinnitama** — eriti juhul, kui kasutatud erikorra kaubale lisame meie poolt **uue laadija** (Unboxed): uus laadija ei ole kasutatud kaup ja selle osa maksustamine (tavakord vs komplekti osa) tuleb eraldi otsustada. Praegu on laadija lisatasu erikorra pakkumise müügihinnas ilma eraldi KM-ita.
 - **Mitte-EUR** → automaatset hinda ei arvutata (`sale_price_cents` NULL) + REVIEW + logi.
 
 Näited (päris feed 2026-10-12, KM 24%):
@@ -131,9 +136,11 @@ Näited (päris feed 2026-10-12, KM 24%):
 | --- | --- | --- | --- |
 | Original Box | originaalkarp + laadija | 0 € | "Originaalkarp ja laadija kaasas" |
 | Charger included | laadija | 0 € | "Laadija kaasas" |
-| Unboxed | laadijat Foxway hinnas pole → lisame | **35 €** tavaline (USB-C 65 W) / **90 €** suure võimsusega | "Laadija kaasas" |
+| Unboxed | laadijat Foxway hinnas pole → lisame | **35 €** tavaline (USB-C 65 W) / **60 €** keskmine (MacBook Pro 14") / **90 €** suure võimsusega | "Laadija kaasas" |
 
-Suur võimsus (`power-class.ts`, sama funktsioon mida kasutab ka "Sarnased tooted"): tööjaama seeria (Dell Precision, HP ZBook, Lenovo ThinkPad P, Fujitsu Celsius) või jõudlusgraafika (GeForce RTX/GTX, Quadro / RTX A / Ada, Radeon Pro/RX). **Ainult CPU nime järgi ei klassifitseerita.** Teadmata → tavaline 35 €. Profiilid on ühes kohas (`CHARGER_PROFILES`) — hiljem saab lisada nt Apple'i (140 W USB-C) profiili. Admin näeb Boxed toorväärtust, lisatasu ja põhjust. `charger_included = true` kõigil Foxway pakkumistel (laadija tuleb alati kaasa).
+**Apple (Unboxed, `appleChargerProfile`):** MacBook / MacBook Air → 35 € · MacBook Pro 13" → 35 € · MacBook Pro 14" → 60 € · MacBook Pro 15" / 16" → 90 € · MacBook Pro tundmatu suurus → 90 € (ei alahinnata). Suurus tuleb ProductName'ist / mudelinimest (`16"`) või ekraani väljast — mitte CPU-st. Apple'i profiil ja üldine võimsusklass arvutatakse mõlemad, **kehtib suurem** (nt MacBook Pro 15" 2019 Radeon Pro → 90 € mõlemast).
+
+Suur võimsus (`power-class.ts`, sama funktsioon mida kasutab ka "Sarnased tooted"): tööjaama seeria (Dell Precision, HP ZBook, Lenovo ThinkPad P, Fujitsu Celsius) või jõudlusgraafika (GeForce RTX/GTX, Quadro / RTX A / Ada, Radeon Pro/RX). **Ainult CPU nime järgi ei klassifitseerita.** Teadmata → tavaline 35 €. Profiilid on ühes kohas (`CHARGER_PROFILES`) (lisatud: Apple'i profiilid, keskmine 60 € profiil). Admin näeb Boxed toorväärtust, lisatasu ja põhjust. `charger_included = true` kõigil Foxway pakkumistel (laadija tuleb alati kaasa).
 
 ## 9. Laoseis ja tarne
 

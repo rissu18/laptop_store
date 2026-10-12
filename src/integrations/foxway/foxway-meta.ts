@@ -32,7 +32,7 @@ const metaSchema = z.object({
   drive: z.string().nullable().optional(),
   charger: z.object({ profile: z.string(), surchargeCents: z.number(), reason: z.string() }).nullable().optional(),
   pricing: z
-    .object({ supplierPriceCents: z.number(), vatCents: z.number(), vatRateBps: z.number(), markupCents: z.number(), chargerCents: z.number(), salePriceCents: z.number(), costCents: z.number() })
+    .object({ vatMargin: z.boolean().optional(), supplierPriceCents: z.number(), vatCents: z.number(), vatRateBps: z.number(), markupCents: z.number(), chargerCents: z.number(), salePriceCents: z.number(), costCents: z.number() })
     .nullable()
     .optional(),
   hold: z.string().nullable().optional(),

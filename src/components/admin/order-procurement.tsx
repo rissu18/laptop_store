@@ -20,6 +20,7 @@ export interface ProcurementView {
     supplierProductName: string | null;
     supplierListedPriceCents: number | null;
     supplierCurrency: string | null;
+    supplierVatMargin: boolean | null;
     status: ProcurementStatusValue;
     supplierOrderReference: string | null;
     note: string | null;
@@ -59,7 +60,13 @@ export function OrderProcurementRow({ orderId, row, isTest }: { orderId: string;
         <div className="flex gap-2 sm:col-span-2"><dt className="text-muted">Toode:</dt><dd>{item.title} <span className="text-xs text-muted">({p.supplierProductName ?? item.model}; meie SKU {item.sku})</span></dd></div>
         <div className="flex gap-2">
           <dt className="text-muted">Tarnija hinnakirja hind (tellimuse hetkel):</dt>
-          <dd>{p.supplierListedPriceCents !== null ? `${formatEur(p.supplierListedPriceCents)}${p.supplierCurrency && p.supplierCurrency !== "EUR" ? ` ${p.supplierCurrency}` : ""} + KM` : "—"}</dd>
+          <dd>
+            {p.supplierListedPriceCents !== null ? `${formatEur(p.supplierListedPriceCents)}${p.supplierCurrency && p.supplierCurrency !== "EUR" ? ` ${p.supplierCurrency}` : ""}${p.supplierVatMargin ? "" : " + KM"}` : "—"}
+          </dd>
+        </div>
+        <div className="flex gap-2">
+          <dt className="text-muted">Tarnija KM tüüp:</dt>
+          <dd>{p.supplierVatMargin === null ? "—" : p.supplierVatMargin ? "IsVatMargin — kasutatud kauba erikord" : "Tavaline KM"}</dd>
         </div>
         <div className="flex gap-2"><dt className="text-muted">Kliendi müügihind:</dt><dd>{formatEur(item.unitPriceCents)} / tk</dd></div>
       </dl>

@@ -51,9 +51,13 @@ export function FoxwayListingCard({
           { label: "Foxway hind (neto)", value: meta.sourcePriceCents != null ? `${fmtCents(meta.sourcePriceCents)} ${meta.currency && meta.currency !== "EUR" ? meta.currency : ""}` : null },
           {
             label: "Müügihinna arvutus",
-            value: p ? `${fmtCents(p.supplierPriceCents)} + KM ${p.vatRateBps / 100}% ${fmtCents(p.vatCents)} + ${fmtCents(p.markupCents)} + laadija ${fmtCents(p.chargerCents)} = ${fmtCents(p.salePriceCents)}` : "Puudub (mitte-EUR — vajab äriotsust)",
+            value: p
+              ? p.vatMargin
+                ? `${fmtCents(p.supplierPriceCents)} + ${fmtCents(p.markupCents)} + laadija ${fmtCents(p.chargerCents)} = ${fmtCents(p.salePriceCents)} (kasutatud kauba erikord: KM-i ostuhinnale ei lisata, KM marginaalilt)`
+                : `${fmtCents(p.supplierPriceCents)} + KM ${p.vatRateBps / 100}% ${fmtCents(p.vatCents)} + ${fmtCents(p.markupCents)} + laadija ${fmtCents(p.chargerCents)} = ${fmtCents(p.salePriceCents)}`
+              : "Puudub (mitte-EUR — vajab äriotsust)",
           },
-          { label: "IsVatMargin", value: supplierVatMargin === null ? null : supplierVatMargin ? "Jah (marginaalskeem)" : "Ei" },
+          { label: "IsVatMargin", value: supplierVatMargin === null ? null : supplierVatMargin ? "Jah — kasutatud kauba erikord (KMS §41), hind ilma KM lisandita" : "Ei — tavaline KM" },
           { label: "Appearance", value: meta.appearance },
           { label: "Functionality", value: meta.functionality },
           { label: "Rike (primaarne)", value: meta.faultPrimary },

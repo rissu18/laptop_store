@@ -57,6 +57,8 @@ export interface QuoteLine {
   lineSubtotalCents: number;
   discountCents: number;
   lineTotalCents: number;
+  /** KM režiim (MARGIN = kasutatud kauba erikord → KM-i eraldi ei näidata) */
+  vatScheme: string;
 }
 
 /** Kliendile saadetav kokkuvõte (ainult kuvamiseks — tellimuse loomisel arvutatakse kõik uuesti). */
@@ -187,6 +189,7 @@ export async function computeCheckout(db: Pick<Database, "select">, input: { ite
         lineSubtotalCents,
         discountCents: lineDiscount,
         lineTotalCents: lineSubtotalCents - lineDiscount,
+        vatScheme: item.variant.price.vatScheme,
       };
     }),
     issues,

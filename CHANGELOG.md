@@ -5,6 +5,15 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 ---
 
+## 2026-10-12 — Foxway järelparandused: erikorra hinnastus, Apple'i laadijad, TrackPoint
+
+- **IsVatMargin = true (kasutatud kauba erikord, KMS §41):** müügihind = Foxway hind + 60 € + laadija (varem lisati ekslikult 24% KM kogu ostuhinnale, nt 500 € → 680 € asemel nüüd 560 €); `vat_scheme = MARGIN` (poes olemasolev erikorra märge, sooduskoodi marginaalikaitse arvestab KM-i marginaalilt). Tavaline KM-kaup ei muutunud. Erikord ei blokeeri pakkumist.
+- **Tellimuse andmed:** `order_items.vat_scheme` ja hankekirjel `supplier_vat_margin` (migratsioon 0006, lisav) — arveldus teab hiljem maksurežiimi. Kassas erikorra real märge, eraldi KM summat ei näidata ega väideta mahaarvatavaks. KMS §41 arvestus (eriti lisatud uus laadija) tuleb enne arvemootorit raamatupidajaga kinnitada.
+- **Apple'i laadija profiil** (`charger.ts`): Unboxed MacBook/Air/Pro 13" 35 €, Pro 14" 60 € (uus keskmine profiil), Pro 15"/16" ja tundmatu suurusega Pro 90 €; kehtib suurem summa Apple'i ja üldise võimsusklassi vahel.
+- **TrackPointi nupp (Missing/broken pointer nub):** BLOCK → REVIEW (väike, lihtsalt asendatav detail); ka tundmatud kirjapildid lähevad REVIEW alla, mitte üldise rikke-sõna BLOCK reegli alla.
+
+---
+
 ## 2026-10-12 — Foxway: kolmas päris tarnija (API → PostgreSQL → pood)
 
 **Miks:** Foxway (Tartu ladu) on suur kasutatud ja uute sülearvutite hulgimüüja. Eesmärk: importida ainult sülearvutid (PC + Mac, working + new), müüa ainult töökorras seadmeid, hoida pood kiire ka 1000+ pakkumisega ja tellida Foxwayst käsitsi.

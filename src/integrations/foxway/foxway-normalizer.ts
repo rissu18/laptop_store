@@ -29,8 +29,10 @@ export const FOXWAY_DELIVERY_DAYS = { min: 2, max: 4 } as const;
 /** Meie garantii kliendile (Foxway tarnijagarantii EI OLE kliendi garantii); pikem mudeli garantii jääb kehtima */
 export const FOXWAY_MIN_WARRANTY_MONTHS = 12;
 export const FOXWAY_BATTERY_WARRANTY_MONTHS = 6;
-/** Hind sisaldab täit Eesti käibemaksu (tarnija neto + KM) */
-export const FOXWAY_VAT_SCHEME = "STANDARD" as const;
+/** KM režiim SKU kaupa: IsVatMargin → kasutatud kauba erikord (MARGIN), muidu hinnas täis-KM (STANDARD) */
+export function foxwayVatScheme(isVatMargin: boolean | null): "STANDARD" | "MARGIN" {
+  return isVatMargin === true ? "MARGIN" : "STANDARD";
+}
 
 export interface FoxwaySourceLine {
   feed: FoxwayFeedKey;
@@ -237,10 +239,11 @@ export function normalizeFoxwayLine(source: FoxwaySourceLine): FoxwayRowResult {
   const gpu = normalizeFoxwayGpu(dims.gpu);
   if (gpu.untested) holds.push({ hold: "REVIEW", reason: `Graafika "${dims.gpu}" — testimata` });
 
-  const charger = chargerDecision(dims.boxed, { brand: model.brand, series: model.series, model: model.model, gpu: gpu.gpu, gpuDedicated: gpu.dedicated });
+  const charger = chargerDecision(dims.boxed, { brand: model.brand, series: model.series, model: model.model, gpu: gpu.gpu, gpuDedicated: gpu.dedicated, screenSizeIn: name.screenSizeIn });
   if (charger.boxed === "UNKNOWN") holds.push({ hold: "REVIEW", reason: `Tundmatu Boxed väärtus "${dims.boxed ?? "–"}" — laadija lisatasu kontrollida` });
 
-  const price = currency === FOXWAY_CURRENCY ? foxwaySalePrice(foxwayEffectiveSupplierPriceCents(sourcePriceCents!), charger.surchargeCents) : null;
+  const isVatMargin = typeof line.IsVatMargin === "boolean" ? line.IsVatMargin : null;
+  const price = currency === FOXWAY_CURRENCY ? foxwaySalePrice(foxwayEffectiveSupplierPriceCents(sourcePriceCents!), charger.surchargeCents, { vatMargin: isVatMargin === true }) : null;
 
   const display = parseFoxwayResolution(dims.lcd);
   const operatingSystem = normalizeFoxwayOs(dims.coa);
@@ -264,7 +267,7 @@ export function normalizeFoxwayLine(source: FoxwaySourceLine): FoxwayRowResult {
       quantity: quantity as number,
       sourcePriceCents: sourcePriceCents!,
       currency: currency ?? "",
-      isVatMargin: typeof line.IsVatMargin === "boolean" ? line.IsVatMargin : null,
+      isVatMargin,
       ean: line.Ean ?? null,
       mpn: line.Mpn ?? null,
       itemGroupId: line.ItemGroupId ?? null,

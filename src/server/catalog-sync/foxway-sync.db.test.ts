@@ -112,9 +112,11 @@ describe.skipIf(!hasTestDatabase)("Foxway sync (andmebaas)", () => {
     expect(t14.details).toMatchObject({ source: "FOXWAY", batteryWarrantyMonths: 6, chargerLabel: "Laadija kaasas" });
     expect((t14.rawData as { foxway: { itemVariantId: string; batteryStatus: string } }).foxway).toMatchObject({ itemVariantId: "50001", batteryStatus: "Holds Charge" });
 
-    // Unboxed tavaline +35 €; Unboxed tööjaam +90 €; IsVatMargin salvestub SKU tasemel
-    expect(await listing(sku(3))).toMatchObject({ salePriceCents: 38_000 + 9_120 + 6_000 + 3_500, warrantyMonths: 12, keyboard: "DE" });
-    expect(await listing(sku(6))).toMatchObject({ salePriceCents: 90_000 + 21_600 + 6_000 + 9_000, supplierVatMargin: true, keyboard: "US" });
+    // Unboxed tavaline +35 €; Unboxed tööjaam +90 €
+    expect(await listing(sku(3))).toMatchObject({ salePriceCents: 38_000 + 9_120 + 6_000 + 3_500, warrantyMonths: 12, keyboard: "DE", vatScheme: "STANDARD" });
+    // IsVatMargin=true (SKU tasemel): kasutatud kauba erikord — hind + 60 + laadija, KM-i ostuhinnale ei lisata; jääb aktiivseks
+    expect(await listing(sku(6))).toMatchObject({ salePriceCents: 90_000 + 6_000 + 9_000, supplierPriceCents: 99_000, supplierVatMargin: true, vatScheme: "MARGIN", qualityHold: null, keyboard: "US" });
+    expect((await item(sku(6)))?.variant.price).toMatchObject({ saleCents: 105_000, vatScheme: "MARGIN" });
     // C+ säilib
     expect(await listing(sku(2))).toMatchObject({ grade: "C+", qualityHold: null });
   });
@@ -299,6 +301,8 @@ describe.skipIf(!hasTestDatabase)("Foxway sync (andmebaas)", () => {
     const [order] = await t.db.select().from(orders).where(eq(orders.orderNumber, created.orderNumber));
     const [item] = await t.db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
     const [procurement] = await t.db.select().from(orderItemProcurements).where(eq(orderItemProcurements.orderItemId, item.id));
+    expect(item.vatScheme).toBe("STANDARD");
+    expect(procurement).toMatchObject({ supplierVatMargin: false });
     expect(procurement).toMatchObject({ supplier: "foxway", supplierSku: sku(1), supplierVariantId: "50001", supplierListedPriceCents: 40_000, supplierCurrency: "EUR", status: "TO_ORDER", actualPurchasePriceCents: null });
     // Kliendi müügihind on rea snapshot (admini parandus 399 €), tarnija hind eraldi
     expect(item.unitPriceCents).toBe(39_900);
@@ -307,6 +311,23 @@ describe.skipIf(!hasTestDatabase)("Foxway sync (andmebaas)", () => {
     lines.t14 = { ...lines.t14, price: 999 };
     await ok(feeds(lines, { workingPc: Array.from({ length: 30 }, (_, i) => foxwayLine({ sku: sku(500 + i), name: 'HP EliteBook 840 G9 14"', quantity: 1 })) }));
     expect((await t.db.select().from(orderItemProcurements).where(eq(orderItemProcurements.id, procurement.id)))[0].supplierListedPriceCents).toBe(40_000);
+    // Erikorra (IsVatMargin) SKU tellimus: KM režiim ja tarnija KM tüüp säilivad snapshot'is
+    const marginItems = [{ variantId: `foxway-${sku(6).toLowerCase()}`, quantity: 1 }];
+    const marginQuote = (await computeCheckout(t.db, { items: marginItems, couponCode: null })).quote;
+    expect(marginQuote.lines[0]).toMatchObject({ vatScheme: "MARGIN", unitPriceCents: 105_000 });
+    const marginOrder = await placeOrder(t.db, {
+      idempotencyKey: crypto.randomUUID(),
+      items: marginItems,
+      couponCode: null,
+      form: { firstName: "Mari", lastName: "Maasikas", email: "mari@example.com", phone: "+372 5123 4567", addressLine1: "Pärnu mnt 1", addressLine2: null, city: "Tallinn", postalCode: "10115", country: "EE", isCompany: true, companyName: "Firma OÜ", companyRegistryCode: "12345678", companyVatNumber: null, customerNote: null },
+      acknowledged: { lines: marginQuote.lines.map((l) => ({ variantId: l.variantId, unitPriceCents: l.unitPriceCents })), totalCents: marginQuote.totalCents, discountCents: 0 },
+    });
+    if (marginOrder.status !== "CREATED") throw new Error(marginOrder.status);
+    const [mOrder] = await t.db.select().from(orders).where(eq(orders.orderNumber, marginOrder.orderNumber));
+    const [mItem] = await t.db.select().from(orderItems).where(eq(orderItems.orderId, mOrder.id));
+    expect(mItem).toMatchObject({ vatScheme: "MARGIN", unitPriceCents: 105_000 });
+    expect((await t.db.select().from(orderItemProcurements).where(eq(orderItemProcurements.orderItemId, mItem.id)))[0]).toMatchObject({ supplierVatMargin: true, supplierListedPriceCents: 90_000 });
+
     const { procurementDates } = await import("@/domain/orders/procurement");
     const now = new Date("2026-10-12T10:00:00Z");
     expect(procurementDates("SUPPLIER_SHIPPED", { orderedAt: null, supplierShippedAt: null, receivedAt: null }, now)).toEqual({ orderedAt: now, supplierShippedAt: now, receivedAt: null });

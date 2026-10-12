@@ -23,6 +23,7 @@ export interface PublicOrderView {
     screen: string | null;
     keyboard: string | null;
     grade: string | null;
+    vatScheme: string | null;
     quantity: number;
     unitPriceCents: number;
     discountCents: number;
@@ -59,6 +60,7 @@ async function toView(db: Pick<Database, "select">, order: OrderRow, withPersona
       screen: i.screen,
       keyboard: i.keyboard,
       grade: i.grade,
+      vatScheme: i.vatScheme,
       quantity: i.quantity,
       unitPriceCents: i.unitPriceCents,
       discountCents: i.discountAmountCents,

@@ -2,12 +2,16 @@ import { pricingConfig } from "@/config/pricing";
 import { percentOf } from "@/domain/money/money";
 
 /**
- * Foxway hinnastus (kinnitatud ärireegel 2026-10-12, vt docs/FOXWAY_SYNC.md → Hind):
+ * Foxway hinnastus (kinnitatud ärireeglid 2026-10-12, vt docs/FOXWAY_SYNC.md → Hind):
  *
- *   müügihind = tarnija efektiivne hind (neto, ilma KM-ita)
- *             + Eesti käibemaks (keskne määr: config/pricing.ts → vatRateBps)
- *             + 60 € (meie juurdehindlus)
- *             + laadija lisatasu (0 / 35 / 90 €, vt domain/catalog/charger.ts)
+ *   IsVatMargin = false (tavaline KM-kaup, Foxway hind on neto):
+ *     müügihind = tarnija hind + Eesti käibemaks tarnija hinnalt (keskne määr: config/pricing.ts → vatRateBps)
+ *               + 60 € + laadija lisatasu (0 / 35 / 60 / 90 €, vt domain/catalog/charger.ts)
+ *
+ *   IsVatMargin = true (kasutatud kauba erikord, KMS §41): Foxway hind on ostuhind, millele KOGU summa ulatuses
+ *   käibemaksu EI lisata:
+ *     müügihind = tarnija hind + 60 € + laadija lisatasu
+ *   Käibemaks arvestatakse hiljem müügi- ja ostuhinna vahelt (marginaal) — mitte kogu müügihinnalt.
  *
  * Kõik summad täisarvulistes sentides; arvutab AINULT server (sync). Ümardamist (nt täiseurodeks) ei tehta —
  * see oleks eraldi äriotsus.
@@ -25,6 +29,8 @@ export function foxwayEffectiveSupplierPriceCents(listPriceCents: number, campai
 }
 
 export interface FoxwayPrice {
+  /** Kasutatud kauba erikord (IsVatMargin) — käibemaksu ostuhinnale ei lisatud */
+  vatMargin: boolean;
   supplierPriceCents: number;
   vatCents: number;
   vatRateBps: number;
@@ -35,9 +41,13 @@ export interface FoxwayPrice {
   costCents: number;
 }
 
-export function foxwaySalePrice(supplierPriceCents: number, chargerCents: number, vatRateBps = pricingConfig.vatRateBps): FoxwayPrice {
-  const vatCents = percentOf(supplierPriceCents, vatRateBps);
+export function foxwaySalePrice(supplierPriceCents: number, chargerCents: number, options: { vatMargin?: boolean; vatRateBps?: number } = {}): FoxwayPrice {
+  const vatMargin = options.vatMargin === true;
+  const vatRateBps = options.vatRateBps ?? pricingConfig.vatRateBps;
+  // Erikorra kaubal ostuhinnale KM-i ei lisata (KM tuleb marginaalist, arvestus hiljem)
+  const vatCents = vatMargin ? 0 : percentOf(supplierPriceCents, vatRateBps);
   return {
+    vatMargin,
     supplierPriceCents,
     vatCents,
     vatRateBps,

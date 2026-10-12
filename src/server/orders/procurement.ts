@@ -33,6 +33,7 @@ export async function createProcurementRecords(tx: Tx, orderId: string): Promise
           supplierProductName: meta?.productName ?? null,
           supplierListedPriceCents: meta?.sourcePriceCents ?? null,
           supplierCurrency: meta?.currency ?? null,
+          supplierVatMargin: meta?.isVatMargin ?? null,
           status: "TO_ORDER" as const,
         };
       }),

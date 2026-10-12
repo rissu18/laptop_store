@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { chargerDecision, parseBoxed } from "@/domain/catalog/charger";
+import { appleChargerProfile, chargerDecision, parseBoxed } from "@/domain/catalog/charger";
+import { pricingConfig } from "@/config/pricing";
+import { percentOf } from "@/domain/money/money";
 import { cpuFilterFamily, cpuFilterGeneration } from "@/domain/catalog/cpu-filter";
 import { keyboardFilterLabel, keyboardFilterValue, keyboardLabel, normalizeKeyboard } from "@/domain/catalog/keyboard";
 import { isMobileWorkstation, powerClass } from "@/domain/catalog/power-class";
@@ -9,7 +11,7 @@ import { readFoxwayConfig, isFoxwayConfigured } from "./foxway-config";
 import { assessCondition, classifyFault } from "./foxway-faults";
 import { MAC_DIMS, foxwayFeeds, foxwayLine } from "./foxway-fixtures";
 import { matchAppleModel, parseAppleName, parseFoxwayProductName } from "./foxway-names";
-import { mapFoxwayAppearance, normalizeFoxwayCpu, normalizeFoxwayGpu, normalizeFoxwayLine, parseFoxwayDrive, parseFoxwayResolution, type FoxwayOffer } from "./foxway-normalizer";
+import { foxwayVatScheme, mapFoxwayAppearance, normalizeFoxwayCpu, normalizeFoxwayGpu, normalizeFoxwayLine, parseFoxwayDrive, parseFoxwayResolution, type FoxwayOffer } from "./foxway-normalizer";
 import { foxwayEffectiveSupplierPriceCents, foxwaySalePrice } from "./foxway-pricing";
 import { dimensionMap, parseFoxwayPricelist } from "./foxway-schema";
 import { FoxwaySnapshotError, buildFoxwaySnapshot, decideFoxwayTrust } from "./foxway-snapshot";
@@ -92,10 +94,26 @@ describe("Rikete klassifikaator (mõlemad väljad, default closed)", () => {
     ["–", "Faulty Touchscreen"],
     ["–", "Broken Charging Socket"],
     ["–", "Loose Hinge"],
+    ["–", "Speaker Issue"],
+    ["–", "Cam Issue"],
+    ["–", "Faulty port"],
   ])("%s. %s → BLOCKED (ei müüda)", (_, fault) => {
     const o = offer({ dims: { Functionality: "Working*", "PC Fault Descriptions": fault } });
     expect(o.hold).toBe("BLOCKED");
     expect(o.holdReasons.join(" ")).toContain(fault);
+  });
+
+  it("TrackPointi nupp (Missing/broken pointer nub) → REVIEW, mitte BLOCK; tundmatud kirjapildid samuti REVIEW", () => {
+    const nub = offer({ dims: { Functionality: "Working*", "PC Fault Descriptions": "Missing/broken pointer nub" } });
+    expect(nub.hold).toBe("REVIEW");
+    expect(nub.condition.faults[0]).toMatchObject({ known: true, severity: "REVIEW" });
+    expect(classifyFault("Missing pointer nub")).toMatchObject({ known: false, severity: "REVIEW" });
+    expect(classifyFault("Broken TrackPoint cap")).toMatchObject({ known: false, severity: "REVIEW" });
+    // REVIEW + lubatud → REVIEW; REVIEW + BLOCK → BLOCK (lisarikke väljal)
+    expect(offer({ dims: { "PC Fault Descriptions": "Minor cosmetic fault", "PC Additional Fault": "Missing/broken pointer nub" } }).hold).toBe("REVIEW");
+    expect(offer({ dims: { "PC Fault Descriptions": "Missing/broken pointer nub", "PC Additional Fault": "Loose Hinge" } }).hold).toBe("BLOCKED");
+    expect(offer({ dims: { "PC Fault Descriptions": "Minor LCD Fault (Wearmarks)" } })).toMatchObject({ hold: null, condition: expect.objectContaining({ severity: "NOTICE" }) });
+    for (const fault of ["Minor cosmetic fault (loose parts)", "Minor LCD Fault (Discoloration)", "SIM Tray Missing", "Minor functional issues"]) expect(classifyFault(fault).severity).toBe("REVIEW");
   });
 
   it("Minor functional issues → REVIEW (liiga ebamäärane auto-publish'iks)", () => {
@@ -155,12 +173,28 @@ describe("Laoseis, hind, laadija", () => {
   });
 
   it("26. hind = tarnija hind + KM (keskne määr) + 60 € + laadija", () => {
-    const p = foxwaySalePrice(30_000, 3_500, 2_400);
+    const p = foxwaySalePrice(30_000, 3_500, { vatRateBps: 2_400 });
     expect(p).toMatchObject({ vatCents: 7_200, markupCents: 6_000, chargerCents: 3_500, salePriceCents: 46_700, costCents: 33_500 });
     expect(offer({ price: 300 }).price?.salePriceCents).toBe(30_000 + 7_200 + 6_000);
     // Kampaaniahind (kui API kunagi annab) kehtib ainult madalamana; praegu Price on autoriteetne
     expect(foxwayEffectiveSupplierPriceCents(30_000)).toBe(30_000);
     expect(foxwayEffectiveSupplierPriceCents(30_000, 27_000)).toBe(27_000);
+  });
+
+  it("IsVatMargin=false: 500 + KM 24% 120 + 60 + 0 = 680 €; IsVatMargin=true: 500 + 60 + 0 = 560 € (KM-i ostuhinnale ei lisata)", () => {
+    expect(foxwaySalePrice(50_000, 0, { vatRateBps: 2_400 })).toMatchObject({ vatMargin: false, vatCents: 12_000, salePriceCents: 68_000 });
+    expect(foxwaySalePrice(50_000, 0, { vatMargin: true, vatRateBps: 2_400 })).toMatchObject({ vatMargin: true, vatCents: 0, salePriceCents: 56_000, costCents: 50_000 });
+    // Vaikimisi keskne KM määr (config/pricing.ts), mitte koodi sisse kirjutatud
+    expect(foxwaySalePrice(50_000, 0).vatRateBps).toBe(pricingConfig.vatRateBps);
+    const standard = offer({ price: 500, vatMargin: false, dims: { Boxed: "Charger included" } });
+    const margin = offer({ price: 500, vatMargin: true, dims: { Boxed: "Unboxed" } });
+    expect(standard.price?.salePriceCents).toBe(50_000 + percentOf(50_000, pricingConfig.vatRateBps) + 6_000);
+    expect(margin.price).toMatchObject({ vatMargin: true, vatCents: 0, salePriceCents: 50_000 + 6_000 + 3_500 });
+    // Margin EI blokeeri pakkumist — ainult teine hinnastus ja KM režiim
+    expect(margin.hold).toBeNull();
+    expect(foxwayVatScheme(true)).toBe("MARGIN");
+    expect(foxwayVatScheme(false)).toBe("STANDARD");
+    expect(foxwayVatScheme(null)).toBe("STANDARD");
   });
 
   it("19. Unboxed tavaline → +35 €; 20. Unboxed tööjaam → +90 €", () => {
@@ -173,6 +207,30 @@ describe("Laoseis, hind, laadija", () => {
     expect(offer({ name: 'MSI Katana GF66 15.6"', dims: { Boxed: "Unboxed", "GPU laptops": "GeForce RTX 3050 Ti 4GB" } }).charger.surchargeCents).toBe(9_000);
     expect(offer({ name: 'Lenovo IdeaPad 5 15ITL05 15.6"', dims: { Boxed: "Unboxed", "GPU laptops": "GeForce MX350 2GB" } }).charger.surchargeCents).toBe(3_500);
     expect(offer({ dims: { Boxed: "Unboxed" } }).price?.salePriceCents).toBe(30_000 + 7_200 + 6_000 + 3_500);
+  });
+
+  it.each([
+    ['Apple Macbook Air (13" 2020, M1)', 3_500, "STANDARD"],
+    ['Apple MacBook Air (15" 2023, M2)', 3_500, "STANDARD"],
+    ['Apple MacBook (Retina, 12" 2017)', 3_500, "STANDARD"],
+    ['Apple Macbook Pro (13" 2020, M1)', 3_500, "STANDARD"],
+    ['Apple MacBook Pro (14" 2023, M3)', 6_000, "MID_POWER"],
+    ['Apple MacBook Pro (Retina, 15" Mid 2015)', 9_000, "HIGH_POWER"],
+    ['Apple MacBook Pro (16" 2023, M2)', 9_000, "HIGH_POWER"],
+  ])("Apple Unboxed: %s → %i senti (%s)", (name, cents, profile) => {
+    const o = offer({ name, itemGroupId: 54, dims: { ...MAC_DIMS, Boxed: "Unboxed" } });
+    expect(o.charger).toMatchObject({ surchargeCents: cents, profile, customerLabel: "Laadija kaasas" });
+    expect(o.charger.reason).toMatch(/Unboxed/);
+  });
+
+  it("Apple: Pro tundmatu suurus → 90 € (ei alahinnata); Original Box / Charger included → 0 €; suurem summa võidab", () => {
+    expect(chargerDecision("Unboxed", { brand: "apple", series: "MacBook Pro", model: "2021" })).toMatchObject({ surchargeCents: 9_000, reason: expect.stringContaining("suurus teadmata") });
+    expect(chargerDecision("Unboxed", { brand: "apple", series: "MacBook Pro", model: "2022", screenSizeIn: 14.2 })).toMatchObject({ surchargeCents: 6_000 });
+    expect(chargerDecision("Original Box", { brand: "apple", series: "MacBook Pro", model: '16" 2023 M2' })).toMatchObject({ surchargeCents: 0, originalBox: true });
+    expect(chargerDecision("Charger included", { brand: "apple", series: "MacBook Pro", model: '16" 2023 M2' })).toMatchObject({ surchargeCents: 0 });
+    // Pro 13" jõudlusgraafikaga (hüpoteetiline) → üldine klassifikaator annab rohkem → 90 €
+    expect(chargerDecision("Unboxed", { brand: "apple", series: "MacBook Pro", model: '13" 2020', gpu: "AMD Radeon Pro 5300M 4GB", gpuDedicated: true }).surchargeCents).toBe(9_000);
+    expect(appleChargerProfile({ brand: "dell", series: "Latitude", model: "5420" })).toBeNull();
   });
 
   it("21. Charger included → +0 €; 22. Original Box → +0 € ja originaalkarp", () => {
