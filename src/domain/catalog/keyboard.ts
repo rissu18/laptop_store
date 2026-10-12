@@ -10,6 +10,7 @@
  * - Filtri valikud tulevad andmebaasist (ainult tegelikult olemasolevad väärtused) — siin on ainult sildid ja järjekord.
  *
  * Olemasolevad koodid (SWE, NOR, EST, US, UK, DE) jäävad samaks, et varasemad andmed ja admini parandused töötaksid.
+ * Füüsiliselt erinevaid klaviatuure ei liideta (SCA ≠ SWE ≠ NOR; ENG ei ole "US" ega "UK", sest tarnija seda ei ütle).
  */
 
 export interface KeyboardLayoutInfo {
@@ -27,15 +28,19 @@ export interface KeyboardLayoutInfo {
 export const KEYBOARD_REGISTRY: readonly KeyboardLayoutInfo[] = [
   { code: "EST", label: "Eesti (EST)", explanation: "Eesti paigutus", aliases: ["EE", "EST", "ESTONIAN"] },
   // Soome ja Rootsi paigutus on identsed (Foxway "SWE/FIN")
-  { code: "SWE", label: "Rootsi/Soome (SWE)", explanation: "Rootsi/Soome paigutus", aliases: ["SE", "SWE", "FI", "FIN", "SWE/FIN", "SWEDISH", "FINNISH", "NORDIC"] },
-  { code: "SCA", label: "Skandinaavia (SCA)", explanation: "Skandinaavia (Põhjamaade) paigutus", aliases: ["SCA", "SCANDINAVIAN", "SCAN"] },
+  { code: "SWE", label: "Rootsi (SWE)", explanation: "Rootsi/Soome paigutus", aliases: ["SE", "SWE", "FI", "FIN", "SWE/FIN", "SWEDISH", "FINNISH"] },
+  // Rootsi paigutus, klahvidel ka kirillitsa (Laptopid.ee "SWE/RUS") — füüsiliselt erinev klaviatuur, eraldi kood
+  { code: "SWE/RUS", label: "Rootsi + vene (SWE/RUS)", explanation: "Rootsi paigutus, klahvidel ka vene tähed", aliases: ["SWE/RUS", "SWE-RUS", "SE/RU"] },
+  { code: "SCA", label: "Skandinaavia (SCA)", explanation: "Põhjamaade kombineeritud paigutus (Rootsi/Soome/Norra/Taani tähed)", aliases: ["SCA", "SCANDINAVIAN", "SCAN", "NORDIC"] },
   { code: "NOR", label: "Norra (NOR)", explanation: "Norra paigutus", aliases: ["NO", "NOR", "NORWEGIAN"] },
   { code: "DNK", label: "Taani (DNK)", explanation: "Taani paigutus", aliases: ["DK", "DNK", "DAN", "DANISH"] },
   { code: "ISL", label: "Islandi (ISL)", explanation: "Islandi paigutus", aliases: ["IS", "ISL", "ICELANDIC"] },
   { code: "US", label: "USA", explanation: "USA paigutus", aliases: ["US", "USA", "ENG-US", "US-INT"] },
   { code: "UK", label: "Inglise (UK)", explanation: "Inglise (UK) paigutus", aliases: ["UK", "GB", "GBR", "ENG-UK"] },
   { code: "INT", label: "Rahvusvaheline (INT)", explanation: "Rahvusvaheline (inglise) paigutus", aliases: ["INT", "INTL", "INTERNATIONAL"] },
-  { code: "DE", label: "Saksa (DEU)", explanation: "Saksa paigutus (QWERTZ)", aliases: ["DE", "DEU", "GER", "GERMAN"] },
+  // Laptopid.ee "ENG": ingliskeelne, aga tarnija ei täpsusta US/UK — ei arvata, kumb
+  { code: "ENG", label: "Inglise (ENG)", explanation: "Ingliskeelne paigutus (tarnija ei täpsusta, kas US või UK)", aliases: ["ENG", "EN", "ENGLISH"] },
+  { code: "DE", label: "Saksa (DE)", explanation: "Saksa paigutus (QWERTZ)", aliases: ["DE", "DEU", "GER", "GERMAN"] },
   { code: "CHE", label: "Šveitsi (CHE)", explanation: "Šveitsi paigutus (QWERTZ)", aliases: ["CH", "CHE", "SWISS"] },
   { code: "AUT", label: "Austria (AUT)", explanation: "Austria paigutus (QWERTZ)", aliases: ["AT", "AUT"] },
   { code: "FRA", label: "Prantsuse (FRA)", explanation: "Prantsuse paigutus (AZERTY)", aliases: ["FR", "FRA", "FRENCH"] },
@@ -56,7 +61,7 @@ export const KEYBOARD_REGISTRY: readonly KeyboardLayoutInfo[] = [
   { code: "UKR", label: "Ukraina (UKR)", explanation: "Ukraina paigutus (kirillitsa)", aliases: ["UA", "UKR", "UKRAINIAN"] },
   { code: "GRC", label: "Kreeka (GRC)", explanation: "Kreeka paigutus", aliases: ["GR", "GRC", "GREEK"] },
   { code: "TUR", label: "Türgi (TUR)", explanation: "Türgi paigutus", aliases: ["TR", "TUR", "TURKISH"] },
-  { code: "ARA", label: "Araabia (ARABIC)", explanation: "Araabia paigutus", aliases: ["AR", "ARA", "ARABIC"] },
+  { code: "ARA", label: "Araabia (ARA)", explanation: "Araabia paigutus", aliases: ["AR", "ARA", "ARABIC"] },
   { code: "HEB", label: "Heebrea (HEB)", explanation: "Heebrea paigutus", aliases: ["HE", "HEB", "ISR", "HEBREW"] },
   { code: "JPN", label: "Jaapani (JPN)", explanation: "Jaapani paigutus", aliases: ["JP", "JPN", "JAPANESE"] },
   { code: "KOR", label: "Korea (KOR)", explanation: "Korea paigutus", aliases: ["KR", "KOR", "KOREAN"] },

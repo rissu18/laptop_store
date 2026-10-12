@@ -18,8 +18,9 @@ describe("parseCpu", () => {
     expect(parseCpu(raw)).toEqual({ family, generationKey });
   });
 
-  it("tundmatu protsessor ei viska viga", () => {
-    expect(parseCpu("Apple M1")).toEqual({ family: null, generationKey: null });
+  it("tundmatu protsessor ei viska viga; Apple M1 on nüüd tuntud", () => {
+    expect(parseCpu("Intel Pentium N5000")).toEqual({ family: null, generationKey: null });
+    expect(parseCpu("Apple M1")).toEqual({ family: "apple-m1", generationKey: "apple-1" });
   });
 });
 

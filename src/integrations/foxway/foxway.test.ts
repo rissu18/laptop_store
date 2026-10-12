@@ -260,7 +260,7 @@ describe("Klaviatuur (kogu poe register)", () => {
     expect(normalizeKeyboard("SCA")).toMatchObject({ code: "SCA", known: true });
     expect(keyboardLabel("SCA")).toBe("Skandinaavia (SCA)");
     expect(normalizeKeyboard("DEU").code).toBe("DE");
-    expect(keyboardLabel("DE")).toBe("Saksa (DEU)");
+    expect(keyboardLabel("DE")).toBe("Saksa (DE)");
     expect(keyboardLabel("FRA")).toBe("Prantsuse (FRA)");
     expect(keyboardLabel("INT")).toBe("Rahvusvaheline (INT)");
     expect(keyboardLabel("US")).toBe("USA");
@@ -316,7 +316,9 @@ describe("Nimed, mudelid, Apple", () => {
     const mac = offer({ name: 'Apple Macbook Air (13" 2020, M1)', itemGroupId: 54, dims: MAC_DIMS });
     expect(mac.model).toMatchObject({ brand: "apple", series: "MacBook Air", slug: "apple-macbook-air-13-2020-m1" });
     expect(mac.cpu).toBe("Apple M1");
-    expect(mac.cpuFamily).toBeNull(); // Inteli/AMD parser ei leiuta Apple'ile perekonda
+    // Keskne parser: Apple'i kiip → perekond + kiibi põlvkond (andmebaasis, mitte ainult filtris)
+    expect(mac.cpuFamily).toBe("apple-m1");
+    expect(mac.cpuGeneration).toBe("apple-1");
     expect(cpuFilterFamily({ model: "Apple M2 Pro 12-Core", family: null, generationKey: null })).toBe("apple-m2-pro");
     expect(cpuFilterGeneration({ model: "Apple M2 Pro 12-Core", family: null, generationKey: null })).toBe("apple-2");
     expect(mac.resolution).toBeNull();

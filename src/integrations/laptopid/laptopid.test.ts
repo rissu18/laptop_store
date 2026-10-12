@@ -121,9 +121,13 @@ describe("Laptopid normaliseerimine (toode 6678)", () => {
     expect(parsePriceCents("abc")).toBeNull();
     expect(normalizeCpu("Intel Ultra 7 155U 4800MHz")).toEqual({ name: "Intel Core Ultra 7 155U", maxMhz: 4800 });
     expect(normalizeCpu("AMD Ryzen 5 5600U 4.2GHz")).toEqual({ name: "AMD Ryzen 5 5600U", maxMhz: 4200 });
+    // "ENG" on registris (Inglise, US/UK täpsustamata); registrist puuduv kood jääb algkujule
     const eng = normalize({ keyboard_layout: "ENG" }).listing;
-    expect(eng.keyboard).toBeNull();
-    expect(eng.details.keyboardRaw).toBe("ENG");
+    expect(eng.keyboard).toBe("ENG");
+    expect(eng.details.keyboardRaw).toBeNull();
+    const unknown = normalize({ keyboard_layout: "SWE/DEU" }).listing;
+    expect(unknown.keyboard).toBeNull();
+    expect(unknown.details.keyboardRaw).toBe("SWE/DEU");
   });
 });
 

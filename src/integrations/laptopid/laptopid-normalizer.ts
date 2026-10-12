@@ -22,7 +22,7 @@ import type { LaptopidImage, LaptopidProduct } from "./laptopid-schema";
 export const LAPTOPID_SUPPLIER_CODE = "laptopid";
 export const LAPTOPID_SOURCE = "LAPTOPID";
 /** Muuda, kui normaliseerimise loogika muutub — siis uuendab järgmine sync kõik read (ka sama toorandmetega). */
-export const LAPTOPID_NORMALIZER_VERSION = 2;
+export const LAPTOPID_NORMALIZER_VERSION = 3;
 
 const IMAGE_HOST = "laptopid.ee";
 const IMAGE_PATH = /^\/images\/product\/+(\d+)\/(\d+)\/original\.(png|jpe?g|webp)$/i;

@@ -41,19 +41,32 @@ export const BRAND_NAMES: Record<BrandCode, string> = {
   pcspecialist: "PC Specialist",
 };
 
+/**
+ * Admini CPU pere valikud (parandus). Parser (cpu-filter.ts → parseCpuInfo) võib anda ka muid sama kujuga väärtusi
+ * (nt tulevane apple-m6), seega tüüp on string; filtri kehtivust kontrollib isCpuFamilyValue.
+ */
 export const CPU_FAMILIES = [
   "intel-core-i3",
   "intel-core-i5",
   "intel-core-i7",
   "intel-core-i9",
+  "intel-core-3",
+  "intel-core-5",
+  "intel-core-7",
   "intel-core-ultra-5",
   "intel-core-ultra-7",
+  "intel-core-ultra-9",
   "amd-ryzen-3",
   "amd-ryzen-5",
   "amd-ryzen-7",
   "amd-ryzen-9",
+  "amd-ryzen-ai-5",
+  "amd-ryzen-ai-7",
+  "amd-ryzen-ai-9",
+  ...[1, 2, 3, 4, 5].flatMap((n) => [`apple-m${n}`, `apple-m${n}-pro`, `apple-m${n}-max`]),
+  "qualcomm-snapdragon-x",
 ] as const;
-export type CpuFamily = (typeof CPU_FAMILIES)[number];
+export type CpuFamily = string;
 
 /**
  * Klaviatuuri paigutuse kood (kanooniline, vt domain/catalog/keyboard.ts — register kõigi tarnijate jaoks).

@@ -1,5 +1,6 @@
+import { parseCpuInfo, type ParsedCpuInfo } from "@/domain/catalog/cpu-filter";
 import { normalizeKeyboard } from "@/domain/catalog/keyboard";
-import type { CpuFamily, KeyboardLayout } from "@/domain/catalog/types";
+import type { KeyboardLayout } from "@/domain/catalog/types";
 
 /**
  * Tarnijate tekstiliste spetsifikatsioonide parsimine.
@@ -7,37 +8,15 @@ import type { CpuFamily, KeyboardLayout } from "@/domain/catalog/types";
  * Need funktsioonid on adapterite vahel jagatud ja unit-testitud.
  */
 
-export interface ParsedCpu {
-  family: CpuFamily | null;
-  generationKey: string | null;
-}
+export type ParsedCpu = ParsedCpuInfo;
 
+/**
+ * Tarnija CPU nimi → perekond + põlvkond. Üks keskne parser (domain/catalog/cpu-filter.ts → parseCpuInfo), sama mida
+ * kasutab poe filter: Intel Core i (i5-8350U → 8.), Core seeria 1 (Core 7 150U), Core Ultra, Ryzen (turunduse
+ * seeria), Ryzen AI, Apple M (kiibi põlvkond), Snapdragon X. Kindlalt tuletamatu → null.
+ */
 export function parseCpu(raw: string): ParsedCpu {
-  const text = raw.replace(/\s+/g, " ").trim();
-
-  // Intel Core Ultra 7 155U → ultra-7, seeria 1
-  const ultra = text.match(/core\s*ultra\s*([579])\s*(\d)\d{2}[a-z]*/i);
-  if (ultra) {
-    const tier = ultra[1];
-    const family = tier === "5" || tier === "7" ? (`intel-core-ultra-${tier}` as CpuFamily) : null;
-    return { family, generationKey: `ultra-${ultra[2]}` };
-  }
-
-  // Intel Core i5-1235U → i5, 12. põlvkond; i5-8350U → 8; i7-10610U → 10; i7-11850H → 11
-  const core = text.match(/\bi([3579])[-\s]?(\d{4,5})[a-z0-9]*/i);
-  if (core) {
-    const digits = core[2];
-    const generation = digits.startsWith("1") ? Number(digits.slice(0, 2)) : Number(digits[0]);
-    return { family: `intel-core-i${core[1]}` as CpuFamily, generationKey: `intel-${generation}` };
-  }
-
-  // AMD Ryzen 5 PRO 5650U → ryzen-5, 5000-seeria
-  const ryzen = text.match(/ryzen\s*([3579])\s*(?:pro\s*)?(\d)\d{3}[a-z]*/i);
-  if (ryzen) {
-    return { family: `amd-ryzen-${ryzen[1]}` as CpuFamily, generationKey: `amd-${ryzen[2]}000` };
-  }
-
-  return { family: null, generationKey: null };
+  return parseCpuInfo(raw);
 }
 
 export function parseRam(raw: string): { gb: number; type: string | null } | null {
