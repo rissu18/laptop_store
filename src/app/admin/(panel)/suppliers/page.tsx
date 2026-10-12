@@ -5,7 +5,8 @@ import { fmtDateTime } from "@/components/admin/format";
 import { SyncNowButton } from "@/components/admin/sync-now-button";
 import { SYNC_STALE_MESSAGE } from "@/domain/catalog/sync-health";
 import { Badge, Card, DefinitionList, PageHeader } from "@/components/admin/ui";
-import { getSupplierOverview, getTechSupplierOverview } from "@/server/admin/suppliers/queries";
+import { getFoxwaySupplierOverview, getSupplierOverview, getTechSupplierOverview } from "@/server/admin/suppliers/queries";
+import { FoxwaySupplierSection } from "@/components/admin/foxway-supplier-section";
 import { TechSupplierSection } from "@/components/admin/tech-supplier-section";
 import type { SyncRunRow } from "@/server/catalog-sync/sync-runs";
 
@@ -44,7 +45,7 @@ const COLUMNS: Column<SyncRunRow>[] = [
 ];
 
 export default async function SuppliersPage() {
-  const [data, tech] = await Promise.all([getSupplierOverview(), getTechSupplierOverview()]);
+  const [data, tech, foxway] = await Promise.all([getSupplierOverview(), getTechSupplierOverview(), getFoxwaySupplierOverview()]);
   const { health, lastFinished } = data;
   const last = data.lastSuccess;
   const rejectedSample = Array.isArray(last?.stats.rejectedSample) ? (last.stats.rejectedSample as { externalId: string | null; message: string }[]) : [];
@@ -55,7 +56,7 @@ export default async function SuppliersPage() {
       <PageHeader
         title="Tarnijad"
         breadcrumbs={[{ label: "Kataloog" }, { label: "Tarnijad" }]}
-        description="Laptopid.ee API ja Tech hinnakiri (Google Sheets XLSX) → valideerimine → PostgreSQL → pood. Pood ja kassa loevad ainult andmebaasi, mitte otse tarnijat."
+        description="Laptopid.ee API, Tech hinnakiri (Google Sheets XLSX) ja Foxway API → valideerimine → PostgreSQL → pood. Pood ja kassa loevad ainult andmebaasi, mitte otse tarnijat."
       />
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="flex min-w-0 flex-col gap-6">
@@ -151,6 +152,7 @@ export default async function SuppliersPage() {
         </aside>
       </div>
       <TechSupplierSection data={tech} />
+      <FoxwaySupplierSection data={foxway} />
     </>
   );
 }

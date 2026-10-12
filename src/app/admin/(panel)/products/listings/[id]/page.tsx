@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EntityEditForm, type FormSection } from "@/components/admin/entity-form";
+import { FoxwayListingCard } from "@/components/admin/foxway-listing-card";
 import { fmtCents, fmtDateTime, toDisplay, toInput } from "@/components/admin/format";
 import { Card, DefinitionList, PageHeader, StatusBadge } from "@/components/admin/ui";
 import { LISTING_ISSUES, listingIssuesOf } from "@/domain/admin/data-quality-rules";
@@ -49,6 +50,17 @@ const SECTIONS: FormSection[] = [
       { name: "chargerIncluded", label: "Laadija kaasas", type: "tri", overridable: true },
       { name: "warrantyMonths", label: "Garantii (kuud)", type: "number", overridable: true },
       { name: "stock", label: "Laoseis", type: "number", overridable: true },
+      {
+        name: "qualityHold",
+        label: "Kvaliteedi kinnipidamine",
+        type: "select",
+        overridable: true,
+        options: [
+          { value: "REVIEW", label: "Ülevaatus — poes ei kuvata" },
+          { value: "BLOCKED", label: "Blokeeritud — ei müüda" },
+        ],
+        hint: "— Puudub — = poes nähtav. Tarnija (nt Foxway rikke) otsuse muutmine salvestub parandusena; sync seda üle ei kirjuta.",
+      },
     ],
   },
   {
@@ -131,6 +143,17 @@ export default async function ListingDetailPage({ params }: PageProps<"/admin/pr
           action={updateListingAction.bind(null, listing.id)}
         />
         <aside className="flex min-w-0 flex-col gap-6">
+          {listing.supplier === "foxway" && (
+            <FoxwayListingCard
+              rawData={supplier.rawData}
+              qualityHold={supplier.qualityHold}
+              qualityHoldReason={supplier.qualityHoldReason}
+              effectiveHold={listing.qualityHold}
+              supplierVatMargin={supplier.supplierVatMargin}
+              stock={listing.stock}
+              lastSyncedAt={listing.lastSyncedAt}
+            />
+          )}
           <Card title="Andmekvaliteet">
             {issues.length === 0 ? (
               <p className="text-sm text-success">Probleeme ei leitud.</p>

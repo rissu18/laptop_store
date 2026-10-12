@@ -149,6 +149,9 @@ export interface ListingListFilters {
   grade?: string;
   model?: string;
   issue?: ListingIssue;
+  supplier?: string;
+  /** Tarnija kvaliteedi kinnipidamine (efektiivne): "REVIEW" | "BLOCKED" | "none" */
+  hold?: "REVIEW" | "BLOCKED" | "none";
   sort?: "sku" | "price-asc" | "price-desc" | "stock" | "updated";
   page: number;
 }
@@ -173,6 +176,9 @@ export async function listListings(filters: ListingListFilters) {
   if (filters.grade) conditions.push(sql`${listingEff("grade")} = ${filters.grade}`);
   if (filters.model) conditions.push(eq(supplierListings.productModelId, filters.model));
   if (filters.issue) conditions.push(listingIssueCondition(filters.issue));
+  if (filters.supplier) conditions.push(eq(supplierListings.supplier, filters.supplier));
+  if (filters.hold === "none") conditions.push(sql`${listingEff("qualityHold")} IS NULL`);
+  else if (filters.hold) conditions.push(sql`${listingEff("qualityHold")} = ${filters.hold}`);
   const where = conditions.length ? and(...conditions) : undefined;
 
   const order = {

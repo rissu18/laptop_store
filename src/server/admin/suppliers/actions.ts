@@ -6,6 +6,8 @@ import { CATALOG_CACHE_TAG } from "@/server/cache-tags";
 import { runLaptopidSyncNow } from "@/server/catalog-sync/laptopid-runner";
 import { runTechSyncNow } from "@/server/catalog-sync/tech-runner";
 import { isTechConfigured } from "@/integrations/tech/tech-client";
+import { isFoxwayConfigured } from "@/integrations/foxway/foxway-config";
+import { runFoxwaySyncNow } from "@/server/catalog-sync/foxway-runner";
 import { getDb } from "@/server/db/client";
 import { fail, ok, type ActionResult } from "../action-result";
 import { writeAudit } from "../audit";
@@ -66,5 +68,33 @@ export async function syncTechNowAction(allowLargeDrop: boolean): Promise<Action
     const s = result.stats;
     const summary = `müügis seadmeid ${s.validUnits}, pakkumisi ${s.groups} (uusi ${s.created}, muutunud ${s.updated}, maha võetud ${s.madeUnavailable})`;
     return ok(result.snapshotTrusted ? `Tech sync tehtud: ${summary}.` : `Tech sync tehtud, aga puuduvaid seadmeid maha ei võetud: ${result.trustReason}. (${summary})`);
+  });
+}
+
+/**
+ * Admin → Tarnijad → Foxway → "Sync now". Sama kaitse (runAdminAction: päritolu/CSRF + sessioon) ja sama sync-teenus
+ * mis ajastatud otspunktil. `allowLargeDrop` = admin kinnitab, et palju SKU-sid kadus Foxway hinnakirjast päriselt.
+ */
+export async function syncFoxwayNowAction(allowLargeDrop: boolean): Promise<ActionResult> {
+  return runAdminAction("foxway.sync", async (admin) => {
+    if (!isFoxwayConfigured()) return fail("Foxway API ei ole seadistatud (FOXWAY_API_BASE_URL / FOXWAY_API_KEY).");
+    const result = await runFoxwaySyncNow({ trigger: "ADMIN", triggeredBy: admin.email, allowLargeDrop: allowLargeDrop === true });
+    if (result.status === "BUSY") return fail("Foxway sync juba käib. Proovi mõne minuti pärast uuesti.");
+    await writeAudit(getDb(), admin, {
+      action: "foxway.sync",
+      entityType: "CatalogSync",
+      entityId: result.runId,
+      entityLabel: "Foxway",
+      changes: { status: { from: null, to: result.status }, ...(allowLargeDrop ? { allowLargeDrop: { from: false, to: true } } : {}) },
+    });
+    if (result.status === "FAILED") {
+      refresh();
+      return fail(`Foxway sync ebaõnnestus — eelmine kataloog jäi alles. ${result.error}`);
+    }
+    updateTag(CATALOG_CACHE_TAG);
+    refresh();
+    const s = result.stats;
+    const summary = `SKU-sid ${s.uniqueSkus} (kokku ${s.totalQuantity} tk), poes ${s.publishable}, blokeeritud ${s.blocked}, ülevaatus ${s.review}; uusi ${s.created}, muutunud ${s.updated}, maha võetud ${s.madeUnavailable}`;
+    return ok(result.snapshotTrusted ? `Foxway sync tehtud: ${summary}.` : `Foxway sync tehtud, aga puuduvaid SKU-sid maha ei võetud: ${result.trustReason}. (${summary})`);
   });
 }

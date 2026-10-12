@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { DataTable } from "@/components/admin/data-table";
 import { fmtCents } from "@/components/admin/format";
 import { CancelOrderButton, OrderNoteForm } from "@/components/admin/order-actions";
+import { OrderProcurementRow } from "@/components/admin/order-procurement";
 import { OrderUnits } from "@/components/admin/order-units";
 import { Badge, Card, DefinitionList, Missing, PageHeader, StatusBadge } from "@/components/admin/ui";
 import { CHECKOUT_COUNTRIES } from "@/domain/checkout/checkout-form";
@@ -25,7 +26,7 @@ export default async function OrderDetailPage({ params }: PageProps<"/admin/orde
   if (!id) notFound();
   const data = await getOrderDetail(id);
   if (!data) notFound();
-  const { order, items, history, notes, units } = data;
+  const { order, items, history, notes, units, procurements } = data;
 
   return (
     <>
@@ -83,6 +84,19 @@ export default async function OrderDetailPage({ params }: PageProps<"/admin/orde
               ]}
             />
           </Card>
+
+          {procurements.length > 0 && (
+            <Card
+              title="Tarnijalt tellimine (Foxway)"
+              description="Need read tuleb tarnijalt käsitsi tellida (enne võib erihinda küsida). Automaatset Foxway tellimust ega dropshippingut ei tehta — märgi siin seis."
+            >
+              <div className="flex flex-col gap-3">
+                {procurements.map((row) => (
+                  <OrderProcurementRow key={row.procurement.id} orderId={order.id} row={row} isTest={order.isTest} />
+                ))}
+              </div>
+            </Card>
+          )}
 
           {units.length > 0 && (
             <Card

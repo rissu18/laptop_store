@@ -7,9 +7,11 @@ import { requireAdmin } from "@/server/auth/auth";
 import { lastSuccessfulSyncRun, listSyncRuns } from "@/server/catalog-sync/sync-runs";
 import { isCronConfigured } from "@/server/catalog-sync/cron-auth";
 import { getDb } from "@/server/db/client";
-import { supplierInventoryUnits, supplierListings } from "@/server/db/schema";
+import { orderItemProcurements, orderItems, orders, supplierInventoryUnits, supplierListings } from "@/server/db/schema";
 import { isTechConfigured } from "@/integrations/tech/tech-config";
 import { TECH_SOURCE, TECH_SUPPLIER_CODE } from "@/integrations/tech/tech-normalizer";
+import { isFoxwayConfigured } from "@/integrations/foxway/foxway-config";
+import { FOXWAY_SOURCE, FOXWAY_SUPPLIER_CODE } from "@/integrations/foxway/foxway-normalizer";
 
 /** Admin → Tarnijad: Laptopid.ee sync'i seis. */
 export async function getSupplierOverview() {
@@ -76,5 +78,50 @@ export async function getTechSupplierOverview() {
     lastSuccess,
     listings,
     units,
+  };
+}
+
+/** Kinnipidamise efektiivne väärtus (admini parandus ?? tarnija) */
+const effectiveHold = sql`(CASE WHEN ${supplierListings.manualOverrides} ? 'qualityHold' THEN ${supplierListings.manualOverrides}->>'qualityHold' ELSE ${supplierListings.qualityHold} END)`;
+
+/** Admin → Tarnijad: Foxway sync'i seis (ajastus nagu Laptopid.ee: päeval iga 30 min, öösel iga 2 h → sama hoiatuse piir). */
+export async function getFoxwaySupplierOverview() {
+  await requireAdmin();
+  const db = getDb();
+  const [runs, lastSuccess, [listings], [procurement]] = await Promise.all([
+    listSyncRuns(db, FOXWAY_SOURCE, 10),
+    lastSuccessfulSyncRun(db, FOXWAY_SOURCE),
+    db
+      .select({
+        total: count(),
+        inStock: sql<number>`count(*) FILTER (WHERE ${supplierListings.available} IS TRUE)::int`,
+        publishable: sql<number>`count(*) FILTER (WHERE ${supplierListings.available} IS TRUE AND ${effectiveHold} IS NULL AND ${supplierListings.status} = 'ACTIVE')::int`,
+        blocked: sql<number>`count(*) FILTER (WHERE ${supplierListings.available} IS TRUE AND ${effectiveHold} = 'BLOCKED')::int`,
+        review: sql<number>`count(*) FILTER (WHERE ${supplierListings.available} IS TRUE AND ${effectiveHold} = 'REVIEW')::int`,
+        stock: sql<number>`coalesce(sum(${supplierListings.stock}) FILTER (WHERE ${supplierListings.available} IS TRUE), 0)::int`,
+      })
+      .from(supplierListings)
+      .where(eq(supplierListings.supplier, FOXWAY_SUPPLIER_CODE)),
+    // Käsitsi hange: päris (mitte test, mitte tühistatud) tellimuste read, mis on veel Foxwayst tellimata
+    db
+      .select({
+        toOrder: sql<number>`count(*) FILTER (WHERE ${orderItemProcurements.status} = 'TO_ORDER' AND NOT ${orders.isTest})::int`,
+        inProgress: sql<number>`count(*) FILTER (WHERE ${orderItemProcurements.status} IN ('ORDERED', 'SUPPLIER_SHIPPED') AND NOT ${orders.isTest})::int`,
+        testRows: sql<number>`count(*) FILTER (WHERE ${orders.isTest})::int`,
+      })
+      .from(orderItemProcurements)
+      .innerJoin(orderItems, eq(orderItems.id, orderItemProcurements.orderItemId))
+      .innerJoin(orders, eq(orders.id, orderItems.orderId))
+      .where(and(eq(orderItemProcurements.supplier, FOXWAY_SUPPLIER_CODE), ne(orders.status, "CANCELLED"))),
+  ]);
+  return {
+    procurement,
+    configured: isFoxwayConfigured(),
+    cronConfigured: isCronConfigured(),
+    health: syncHealth(lastSuccess?.finishedAt ?? null, new Date()),
+    lastFinished: runs.find((run) => run.status !== "RUNNING") ?? null,
+    runs,
+    lastSuccess,
+    listings,
   };
 }

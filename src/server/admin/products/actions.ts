@@ -31,7 +31,8 @@ import { runAdminAction } from "../run-action";
  */
 
 const uuid = z.uuid();
-const pick = <T extends Record<string, unknown>>(source: T, keys: readonly string[]) => Object.fromEntries(keys.map((key) => [key, source[key]]));
+/** Ainult vormis olnud väljad (undefined = välja polnud) — puuduv väli ei tohi tekitada tahtmatut parandust */
+const pick = <T extends Record<string, unknown>>(source: T, keys: readonly string[]) => Object.fromEntries(keys.filter((key) => source[key] !== undefined).map((key) => [key, source[key]]));
 
 export async function updateModelAction(id: string, _prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   return runAdminAction("model.update", async (admin) => {

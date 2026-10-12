@@ -3,11 +3,12 @@
 import { RefreshCw } from "lucide-react";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { syncLaptopidNowAction, syncTechNowAction } from "@/server/admin/suppliers/actions";
+import { syncFoxwayNowAction, syncLaptopidNowAction, syncTechNowAction } from "@/server/admin/suppliers/actions";
 import { useToast } from "./toast";
 
 const SUPPLIERS = {
   laptopid: { action: syncLaptopidNowAction, largeDropLabel: "Luba suur muutus — kinnitan, et paljud tooted on Laptopid.ee nimekirjast päriselt kadunud (muidu jäetakse need ohutuse mõttes saadavaks)." },
+  foxway: { action: syncFoxwayNowAction, largeDropLabel: "Luba suur muutus — kinnitan, et paljud SKU-d on Foxway hinnakirjast päriselt kadunud (muidu jäetakse need ohutuse mõttes saadavaks)." },
   tech: { action: syncTechNowAction, largeDropLabel: "Luba suur muutus — kinnitan, et paljud seadmed on Techi hinnakirjas päriselt müüdud või kadunud (muidu sync peatub ja kataloog jääb samaks)." },
 };
 

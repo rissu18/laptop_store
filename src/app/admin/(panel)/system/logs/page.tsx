@@ -13,7 +13,7 @@ export const instant = false;
 
 export const metadata: Metadata = { title: "Logid" };
 
-const SOURCE_LABELS: Record<string, string> = { APPLICATION: "Rakendus", DATABASE: "Andmebaas", ADMIN: "Admin", AUTH: "Autentimine", ICECAT: "Icecat", LAPTOPID: "Laptopid.ee", TECH: "Tech" };
+const SOURCE_LABELS: Record<string, string> = { APPLICATION: "Rakendus", DATABASE: "Andmebaas", ADMIN: "Admin", AUTH: "Autentimine", ICECAT: "Icecat", LAPTOPID: "Laptopid.ee", TECH: "Tech", FOXWAY: "Foxway" };
 
 export default async function LogsPage({ searchParams }: PageProps<"/admin/system/logs">) {
   const sp = await searchParams;

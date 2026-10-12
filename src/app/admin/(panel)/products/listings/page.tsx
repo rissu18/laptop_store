@@ -60,6 +60,13 @@ const columns: Column<Row>[] = [
       return issues.length ? <Badge tone="warning">{issues.length}</Badge> : <span className="text-muted">—</span>;
     },
   },
+  {
+    key: "hold",
+    header: "Avaldamine",
+    mobile: "hidden",
+    cell: ({ effective }) =>
+      effective.qualityHold === "BLOCKED" ? <Badge tone="danger">Blokeeritud</Badge> : effective.qualityHold === "REVIEW" ? <Badge tone="warning">Ülevaatus</Badge> : <span className="text-muted">—</span>,
+  },
 ];
 
 export default async function ListingsPage({ searchParams }: PageProps<"/admin/products/listings">) {
@@ -70,6 +77,8 @@ export default async function ListingsPage({ searchParams }: PageProps<"/admin/p
     grade: oneOf(sp.grade, GRADE_CODES),
     model: uuidParam(sp.model),
     issue: oneOf(sp.issue, Object.keys(LISTING_ISSUES) as ListingIssue[]),
+    supplier: oneOf(sp.supplier, ["laptopid", "tech", "foxway", "mock"] as const),
+    hold: oneOf(sp.hold, ["REVIEW", "BLOCKED", "none"] as const),
     sort: oneOf(sp.sort, ["sku", "price-asc", "price-desc", "stock", "updated"] as const),
   };
   const page = pageNumber(sp.page);
@@ -92,6 +101,8 @@ export default async function ListingsPage({ searchParams }: PageProps<"/admin/p
         <SelectFilter name="status" label="Staatus" value={filters.status} options={[{ value: "ACTIVE", label: "Aktiivne" }, { value: "HIDDEN", label: "Peidetud" }, { value: "ARCHIVED", label: "Arhiveeritud" }]} />
         <SelectFilter name="grade" label="Seisukord" value={filters.grade} options={GRADE_CODES.map((g) => ({ value: g, label: g }))} />
         <SelectFilter name="model" label="Mudel" value={filters.model} options={models.map((m) => ({ value: m.id, label: m.label }))} />
+        <SelectFilter name="supplier" label="Tarnija" value={filters.supplier} options={[{ value: "laptopid", label: "Laptopid.ee" }, { value: "tech", label: "Tech" }, { value: "foxway", label: "Foxway" }, { value: "mock", label: "Mock" }]} />
+        <SelectFilter name="hold" label="Avaldamine" value={filters.hold} options={[{ value: "none", label: "Avaldatav" }, { value: "REVIEW", label: "Ülevaatus" }, { value: "BLOCKED", label: "Blokeeritud" }]} />
         <SelectFilter name="issue" label="Probleem" value={filters.issue} options={Object.entries(LISTING_ISSUES).map(([value, { label }]) => ({ value, label }))} />
         <SelectFilter
           name="sort"

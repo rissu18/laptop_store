@@ -1,7 +1,7 @@
 import { and, count, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createTestDatabase, hasTestDatabase, type TestDatabase } from "@/test/test-db";
-import { catalogSyncRuns, listingImages, productImages, productModels, supplierListings } from "@/server/db/schema";
+import { catalogSyncRuns, listingImages, orderItemProcurements, orderItems, orders, productImages, productModels, supplierListings } from "@/server/db/schema";
 import { MAC_DIMS, foxwayFeeds, foxwayLine, type FoxwayLineInput } from "@/integrations/foxway/foxway-fixtures";
 import type { FoxwayFeedInput } from "@/integrations/foxway/foxway-snapshot";
 import type { FoxwayLine } from "@/integrations/foxway/foxway-schema";
@@ -18,6 +18,8 @@ vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ updateTag: () => {}, revalidateTag: () => {}, cacheTag: () => {}, cacheLife: () => {}, refresh: () => {} }));
 vi.mock("@/server/db/client", async (importOriginal) => ({ ...(await importOriginal<object>()), getDb: () => state.db, isDatabaseConfigured: () => true }));
 vi.mock("@/server/logging/system-log", () => ({ writeSystemLog: async () => {}, newErrorId: () => "TESTID", errorMessage: (e: unknown) => String(e) }));
+vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined, set: () => {} }), headers: async () => new Headers() }));
+vi.mock("@/server/auth/auth", () => ({ getClientMeta: async () => ({ ip: "10.9.9.7", userAgent: "vitest" }) }));
 
 const sku = (n: number) => `0120${String(n).padStart(6, "0")}TEST`;
 
@@ -271,6 +273,36 @@ describe.skipIf(!hasTestDatabase)("Foxway sync (andmebaas)", () => {
     expect(third.items).toHaveLength(PAGE_SIZE);
     expect(new Set([...first.items, ...third.items].map((i) => i.variant.id)).size).toBe(PAGE_SIZE * 2);
     expect(third.items[0].variant.price.saleCents).toBeGreaterThan(first.items[PAGE_SIZE - 1].variant.price.saleCents);
+  });
+
+  it("tellimus: Foxway rida → hankekirje 'Tellida Foxwayst' (SKU, ItemVariantId, hinnakirja hind snapshot); automaatset tellimust pole", async () => {
+    const { computeCheckout } = await import("@/server/checkout/checkout-service");
+    const { placeOrder } = await import("@/server/orders/order-service");
+    const items = [{ variantId: `foxway-${sku(1).toLowerCase()}`, quantity: 2 }];
+    const { quote } = await computeCheckout(t.db, { items, couponCode: null });
+    const created = await placeOrder(t.db, {
+      idempotencyKey: crypto.randomUUID(),
+      items,
+      couponCode: null,
+      form: { firstName: "Mari", lastName: "Maasikas", email: "mari@example.com", phone: "+372 5123 4567", addressLine1: "Pärnu mnt 1", addressLine2: null, city: "Tallinn", postalCode: "10115", country: "EE", isCompany: false, companyName: null, companyRegistryCode: null, companyVatNumber: null, customerNote: null },
+      acknowledged: { lines: quote.lines.map((l) => ({ variantId: l.variantId, unitPriceCents: l.unitPriceCents })), totalCents: quote.totalCents, discountCents: 0 },
+    });
+    if (created.status !== "CREATED") throw new Error(created.status);
+    const [order] = await t.db.select().from(orders).where(eq(orders.orderNumber, created.orderNumber));
+    const [item] = await t.db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
+    const [procurement] = await t.db.select().from(orderItemProcurements).where(eq(orderItemProcurements.orderItemId, item.id));
+    expect(procurement).toMatchObject({ supplier: "foxway", supplierSku: sku(1), supplierVariantId: "50001", supplierListedPriceCents: 40_000, supplierCurrency: "EUR", status: "TO_ORDER", actualPurchasePriceCents: null });
+    // Kliendi müügihind on rea snapshot (admini parandus 399 €), tarnija hind eraldi
+    expect(item.unitPriceCents).toBe(39_900);
+    // Hiljem muutuv Foxway hind ei muuda tellimuse snapshot'i
+    const lines = baseLines();
+    lines.t14 = { ...lines.t14, price: 999 };
+    await ok(feeds(lines, { workingPc: Array.from({ length: 30 }, (_, i) => foxwayLine({ sku: sku(500 + i), name: 'HP EliteBook 840 G9 14"', quantity: 1 })) }));
+    expect((await t.db.select().from(orderItemProcurements).where(eq(orderItemProcurements.id, procurement.id)))[0].supplierListedPriceCents).toBe(40_000);
+    const { procurementDates } = await import("@/domain/orders/procurement");
+    const now = new Date("2026-10-12T10:00:00Z");
+    expect(procurementDates("SUPPLIER_SHIPPED", { orderedAt: null, supplierShippedAt: null, receivedAt: null }, now)).toEqual({ orderedAt: now, supplierShippedAt: now, receivedAt: null });
+    expect(procurementDates("TO_ORDER", { orderedAt: now, supplierShippedAt: now, receivedAt: now }, now)).toEqual({ orderedAt: null, supplierShippedAt: null, receivedAt: null });
   });
 
   it("lukk: Foxway sync ei jookse iseendaga topelt (BUSY)", async () => {

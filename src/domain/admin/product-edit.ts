@@ -9,6 +9,8 @@ import { GRADE_CODES } from "@/domain/grade/grades";
  */
 
 export const CATALOG_STATUS_VALUES = ["ACTIVE", "HIDDEN", "ARCHIVED"] as const;
+/** = supplier_listings.quality_hold (schema.ts QUALITY_HOLDS) */
+export const QUALITY_HOLD_VALUES = ["REVIEW", "BLOCKED"] as const;
 export const STATUS_LABELS: Record<(typeof CATALOG_STATUS_VALUES)[number], string> = {
   ACTIVE: "Aktiivne (poes nähtav)",
   HIDDEN: "Peidetud (poes ei näidata)",
@@ -75,6 +77,9 @@ export const listingEditSchema = z.object({
   warrantyMonths: int(0, 120),
   batteryHealthPct: int(0, 100),
   chargerIncluded: triState,
+  // Tarnija kvaliteedi kinnipidamine (Foxway rike): tühi = avaldatud; parandusena salvestub teadlik admini otsus
+  // Puuduv väli (vanem vorm / API) = muutmata (pick jätab undefined välja) — kinnipidamist ei avaldata kogemata
+  qualityHold: enumOrNull(QUALITY_HOLD_VALUES).optional(),
   // Admini väljad
   salePriceCents: euroCents,
   status: z.enum(CATALOG_STATUS_VALUES),

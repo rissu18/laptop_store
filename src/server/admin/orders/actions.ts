@@ -5,7 +5,8 @@ import { refresh } from "next/cache";
 import { z } from "zod";
 import { canTransition, type OrderStatus } from "@/domain/orders/order-status";
 import { getDb } from "@/server/db/client";
-import { discountRedemptions, orderInternalNotes, orderStatusHistory, orders } from "@/server/db/schema";
+import { discountRedemptions, orderInternalNotes, orderItemProcurements, orderItems, orderStatusHistory, orders } from "@/server/db/schema";
+import { procurementDates, procurementUpdateSchema } from "@/domain/orders/procurement";
 import { cancelRedemption } from "@/server/discounts/redemptions";
 import { assignUnitToOrderItem, unassignUnitFromOrderItem } from "@/server/orders/order-units";
 import { getOrderNotificationService } from "@/server/orders/notifications";
@@ -106,5 +107,41 @@ export async function unassignOrderUnitAction(orderId: string, assignmentId: str
     if (!result.ok) return fail(result.error);
     refresh();
     return ok(`Seade ${result.externalUnitId} eemaldatud.`);
+  });
+}
+
+/**
+ * Tarnijalt käsitsi tellimise (hange) seis tellimuse real — nt Foxway: "Tellida Foxwayst" → "Foxwayst tellitud" →
+ * "Tarnija saatnud" → "Meieni jõudnud". Ainult märge adminis: Foxway API-sse midagi ei saadeta (automaatset tellimust
+ * ega dropshippingut pole). Tegelik ostuhind võib erineda hinnakirja hinnast (erihind) — mõlemad säilivad.
+ */
+export async function updateProcurementAction(orderId: string, procurementId: string, _prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  return runAdminAction("order.procurement", async (admin) => {
+    if (!uuid.safeParse(orderId).success || !uuid.safeParse(procurementId).success) return fail("Vigane ID");
+    const parsed = procurementUpdateSchema.safeParse(Object.fromEntries(["status", "supplierOrderReference", "note", "supplierSerial", "actualPurchasePriceCents"].map((k) => [k, formData.get(k) ?? ""])));
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Kontrolli välju");
+    const input = parsed.data;
+    const result = await getDb().transaction(async (tx) => {
+      const [row] = await tx
+        .select({ procurement: orderItemProcurements, orderNumber: orders.orderNumber })
+        .from(orderItemProcurements)
+        .innerJoin(orderItems, eq(orderItems.id, orderItemProcurements.orderItemId))
+        .innerJoin(orders, eq(orders.id, orderItems.orderId))
+        .where(and(eq(orderItemProcurements.id, procurementId), eq(orders.id, orderId)))
+        .for("update");
+      if (!row) return fail("Hankekirjet ei leitud");
+      const current = row.procurement;
+      const next = { ...input, ...procurementDates(input.status, current, new Date()), updatedBy: admin.email };
+      const changes: Record<string, { from: unknown; to: unknown }> = {};
+      for (const key of ["status", "supplierOrderReference", "note", "supplierSerial", "actualPurchasePriceCents"] as const) {
+        if ((current[key] ?? null) !== (next[key] ?? null)) changes[key] = { from: current[key] ?? null, to: next[key] ?? null };
+      }
+      if (!Object.keys(changes).length) return ok("Muudatusi polnud.");
+      await tx.update(orderItemProcurements).set(next).where(eq(orderItemProcurements.id, procurementId));
+      await writeAudit(tx, admin, { action: "order.procurement", entityType: "Order", entityId: orderId, entityLabel: `${row.orderNumber} · ${current.supplier} ${current.supplierSku}`, changes });
+      return ok("Hanke seis salvestatud.");
+    });
+    if (result.ok) refresh();
+    return result;
   });
 }

@@ -5,6 +5,7 @@ import { requireAdmin } from "@/server/auth/auth";
 import { getDb } from "@/server/db/client";
 import { orderInternalNotes, orderItems, orderStatusHistory, orders, supplierInventoryUnits } from "@/server/db/schema";
 import { loadCandidateUnits, loadOrderItemUnits } from "@/server/orders/order-units";
+import { loadProcurements } from "@/server/orders/procurement";
 import { ADMIN_PAGE_SIZE } from "../products/queries";
 
 export interface OrderListFilters {
@@ -100,14 +101,23 @@ export async function getOrderDetail(id: string) {
   ]);
   // Tarnija füüsilised seadmed (nt Tech seerianumbrid) — ainult admin
   const listingIds = [...new Set(items.map((i) => i.supplierListingId).filter((id): id is string => id !== null))];
-  const [unitsByItem, candidatesByListing] = await Promise.all([loadOrderItemUnits(db, items.map((i) => i.id)), loadCandidateUnits(db, listingIds)]);
+  const [unitsByItem, candidatesByListing, procurementByItem] = await Promise.all([
+    loadOrderItemUnits(db, items.map((i) => i.id)),
+    loadCandidateUnits(db, listingIds),
+    loadProcurements(db, items.map((i) => i.id)),
+  ]);
   const listingsWithUnits = listingIds.length
     ? new Set((await db.selectDistinct({ id: supplierInventoryUnits.supplierListingId }).from(supplierInventoryUnits).where(inArray(supplierInventoryUnits.supplierListingId, listingIds))).map((r) => r.id))
     : new Set<string | null>();
   const units = items
     .filter((item) => (item.supplierListingId && listingsWithUnits.has(item.supplierListingId)) || unitsByItem.has(item.id))
     .map((item) => ({ itemId: item.id, title: item.title, quantity: item.quantity, assigned: unitsByItem.get(item.id) ?? [], candidates: item.supplierListingId ? (candidatesByListing.get(item.supplierListingId) ?? []) : [] }));
-  return { order, items, history, notes, units };
+  // Tarnijalt käsitsi tellimine (Foxway): rea snapshot + hanke seis
+  const procurements = items.flatMap((item) => {
+    const procurement = procurementByItem.get(item.id);
+    return procurement ? [{ item: { id: item.id, title: item.title, model: item.model, sku: item.sku, quantity: item.quantity, unitPriceCents: item.unitPriceCents }, procurement }] : [];
+  });
+  return { order, items, history, notes, units, procurements };
 }
 
 /** Töölaud: testtellimused eraldi (need ei ole müük). Käivet ega konversiooni ei arvutata. */

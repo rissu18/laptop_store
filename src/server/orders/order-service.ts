@@ -9,6 +9,7 @@ import { computeCheckout, detectPriceChanges, type CheckoutItemInput, type Check
 import type { Database } from "@/server/db/client";
 import { orderItems, orderStatusHistory, orders } from "@/server/db/schema";
 import { reserveRedemption } from "@/server/discounts/redemptions";
+import { createProcurementRecords } from "./procurement";
 import { getOrderNotificationService, type OrderNotificationService } from "./notifications";
 
 /**
@@ -187,6 +188,8 @@ export async function placeOrder(db: Database, input: PlaceOrderInput, deps: { n
           await reserveRedemption(tx, { discountCodeId: computation.discountRuleId, orderId: created.id, rule: computation.discountRule!, result: evaluation });
         }
         // Laoseisu testtellimus ei vähenda. Päris tellimus: laoseisu reserveerimine + tarnija tellimus (tarnija faasis).
+        // Foxway jms: hankekirje "Tellida tarnijalt" (käsitsi tellimine adminis; automaatset tarnija tellimust pole)
+        await createProcurementRecords(tx, created.id);
         return created;
       });
       await (deps.notifier ?? getOrderNotificationService()).send("ORDER_CONFIRMATION", { orderNumber: order.orderNumber, isTest, customerEmail: order.customerEmail });
