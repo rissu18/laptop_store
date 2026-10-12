@@ -34,6 +34,7 @@ Custom e-pood **kasutatud äriklassi sülearvutitele** — **Sülearvutid.ee** (
 - **Klaviatuur kogu poes:** üks register `src/domain/catalog/keyboard.ts` (SCA, DEU → "Saksa (DE)", FRA, INT, Laptopid.ee `ENG` = "Inglise (ENG)" (US/UK täpsustamata) ja `SWE/RUS` …; tundmatu kood toorkujul; "Missing Keyboard" = eraldi kvaliteediprobleem), filtri valikud SQL-ist (kõik tarnijad).
 - **CPU perekond/põlvkond:** üks parser `cpu-filter.ts → parseCpuInfo` (sync'id + filter): Core i, Core seeria 1 (`core-1`), Core m, Ultra, Ryzen (turunduse seeria), Ryzen AI, Apple M (`apple-N`, Pro/Max perekonnas), Snapdragon X (`snapdragon-1`); ebakindel (Intel N, AMD A, "Ryzen 7") → NULL.
 - **Rikastus (LOCAL-FIRST, 2026-10-12):** meie andmebaas → Laptopid.ee andmed (sync'itud pakkumised ja fotod) → Icecat; käib offline (`npm run enrich:catalog [-- --dry-run|--images|--specs|--icecat]`, admin → Andmekvaliteet → "Rikasta kataloogi"), tulemus `product_images` (allikas LAPTOPID/ICECAT), `product_models.enrichment`, `supplier_listings.enrichment`. Pood loeb ainult andmebaasi; efektiivne = parandus ?? tarnija ?? rikastus. Vaste konservatiivne (`model-match.ts`, ebakindel → REVIEW). Täpsemalt ARCHITECTURE.md → Kataloogi rikastus.
+- **Kiirusindeks ja maks. sagedus (2026-10-12):** Laptopid.ee `cpu_3dmark06` / `gpu_3dmark11` + CPU tekstis maks. turbo → `details`; teistele tarnijatele ainult täpse CPU/GPU vastega (`enrich:catalog` → `enrichment`). Tooteleht "Tehnilised andmed → Jõudlus": Protsessor, Maks. sagedus, Kiirusindeks ⓘ, põlvkond, Mälu, Salvestus, Graafika, Kiirusindeks ⓘ (`benchmarks.ts`, `info-tip.tsx`). Tähti / 1–5 taset veel ei tehta (vaja enne jaotust).
 - **Tootelehe kiirinfo kastid:** `domain/catalog/quick-specs.ts` — Protsessor, Mälu, Salvestus, Ekraan, Klaviatuur, Graafika ("Integreeritud graafika", kui tarnija ütles Integrated ja täpsemat pole); tühja lahtrit ei jää.
 - **Tarnija omadused, mida ei antud** (HDMI, sõrmejälg …) on poes NULL (rida ei kuvata) — varem näitas tehniliste andmete tabel Techi ja Foxway pakkumistel neid ekslikult "Ei" (parandatud mapperis).
 
@@ -82,7 +83,7 @@ Täielik kirjeldus: **docs/FOXWAY_SYNC.md**.
 
 ## 6. Testid ja kontrollid
 
-- **680 testi / 56 testifaili — kõik läbivad** (2026-10-12 rikastuse sprint; enne 591) — varasem kirjeldus: **578 testi / 54 testifaili** (Foxway: 51 ühik- + klienditesti, 16 andmebaasitesti, 6 cron-testi, 3 poe kuvamise testi) (`npm test`, DB testid päris Neonis ajutises skeemis `test_xxxx`, ~45 s).
+- **694 testi / 57 testifaili — kõik läbivad** (kiirusindeksi sprint) — enne: **680 testi / 56 testifaili** (2026-10-12 rikastuse sprint; enne 591) — varasem kirjeldus: **578 testi / 54 testifaili** (Foxway: 51 ühik- + klienditesti, 16 andmebaasitesti, 6 cron-testi, 3 poe kuvamise testi) (`npm test`, DB testid päris Neonis ajutises skeemis `test_xxxx`, ~45 s).
 - `npm run typecheck` ✅ · `npm run lint` ✅ · `npm run build` ✅ (Git Bashis: `set -a; . ./.env.development.local; . ./.env.local; set +a; npm run build`).
 - Viimane production deploy: Foxway integratsioon (HEAD, vt `git log`). Jõudlus pärast Foxway importi (1128 pakkumist, lokaalselt → Neon, soe): kataloogi lehekülg 134 ms (enne 86 ms / 500 pakkumist), filter 107 ms (79), lk 3 112 ms (75), tooteleht 29 ms (30), otsing 270 ms (151); lehekülje andmemaht sama (24 kaarti). Tootmises filtri JSON 1,6–6,9 KB gzip.
 - Dev-serveri vana CSS (Turbopacki vahemälu) → peata server, kustuta `.next`, käivita uuesti. `next start` ei loe `.env.development.local` faili (kassa/DB ei tööta) — brauseris testimiseks kasuta `dev`. Brauseripaan on sageli peidetud → Suspense jääb `hidden` alla ja `requestAnimationFrame`/kerimissündmused ei käi; tee enne kuvatõmmis.
@@ -110,6 +111,8 @@ a77e106  fix(laptopid): "Uus" seisukord, Lenovo V-seeria ja LAPTOPID_API_BASE_UR
 ```
 
 ## 8. Lahtised teemad (ära lahenda omal algatusel)
+
+- **Kiirusindeks:** CPU väärtus puudub 466 / GPU 614 müügis konfiguratsioonil (Laptopid.ee-s pole täpselt sama CPU/GPU-d: AMD Ryzen 3/5, vanemad Intelid, AMD Radeon, Apple). Järgmine samm (kasutaja otsus): benchmarkide jaotuse põhjal kasutajasõbralik jõudlustase. Laptopid.ee andmetes kahtlased: i7-10510U 4800 MHz (ametlik 4,9), Core Ultra 7 255U 4800 MHz (ametlik 5,2), i5-8350U GPU "Intel HD 520" (tegelikult UHD 620).
 
 - **Rikastus (2026-10-12):** 343 mudelil pole pilti (Foxway tarbijamudelid, Tech; Laptopid.ee-s vastet pole, GTIN/MPN puudub) → lahendused: käsitsi Icecati vaste adminis, tarnijalt GTIN/MPN, püsiv pildisalvestus (R13). 8 mudelit "Pildivaste vajab ülevaatust" (7310 vs 7310 Carbon, L15/X13/P15 ilma Gen-ita jne) — admin otsustab. X1 Carbon Gen 6: Icecati MPN vaste ülevaatusel (pealkirjas pole "Gen 6"). Tech hinnakirjas pole klaviatuuri veergu (206 "tundmatut") ja Laptopid.ee annab 27-l tühja väärtuse — ei arvata; vajadusel kasutaja otsus (nt Techi vaikepaigutus). Laptopid.ee `ENG` ei ütle US vs UK. Apple "Retina" resolutsiooni ei leitud ühestki allikast (79 Foxway pakkumist) — kuvatakse "Retina". CPU põlvkond NULL 19-l (Intel N/Celeron, AMD A, "Ryzen 7") — teadlikult. CLI ei tühjenda poe vahemälu (järgmine muutev cron või admini nupp).
 

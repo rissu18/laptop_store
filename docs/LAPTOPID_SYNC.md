@@ -43,6 +43,7 @@ Mõlemad otspunktid asuvad samas kataloogis ja neid kutsutakse päisega `X-API-K
   - `usb_c`, `usb_2`, `usb_3` (arv);
   - `thunderbolt_3`, `thunderbolt_4`, `hdmi`, `displayport`, `vga`, `dvi`, `lan`, `sd_card_reader`, `smartcard_reader`, `webcam`, `ir_camera`, `fingerprint_reader`, `docking_support`, `backlit_keyboard`, `touchpad`, `pointing_stick`, `numpad`, `mobile_4g`, `privacy_screen`, `yoga` (0/1);
   - `refresh_rate` (arv, üks väärtus on 0);
+  - `cpu_3dmark06`, `gpu_3dmark11` (lisatud 2026-10-12; number või null — protsessori 3DMark06 CPU ja graafika 3DMark11 GPU tulemus, komponendi omadus). Kontrollitud live: CPU 291/301, GPU 269/301 (Apple = null), nulle pole;
   - `keyboard_layout` (SWE, ENG, GER, EST, SWE/RUS või "");
   - `new_price`, `sale_price` (tekst "749.00");
   - `defects`, `ports` (HTML-killud);
@@ -125,7 +126,7 @@ Kui tootja ja mudel on korras, aga seeria taksonoomia on tundmatu, **toodet väl
 | Tase | Väljad | Kust |
 | --- | --- | --- |
 | **SupplierListing** (konfiguratsioon) | CPU, RAM, SSD, GPU, ekraan (suurus, resolutsioon, paneel, puutetundlikkus), OS, klaviatuur, seisukord, garantii, müügihind, saadavus, kaal, defektid; tunnused (`features`): sõrmejälg, Smart Card, taustavalgus, numpad, IR-kaamera, 4G, Thunderbolt, USB-C, HDMI, LAN, SD, 2-in-1 | iga Laptopid.ee toode eraldi |
-| SupplierListing `details` (JSONB) | USB-A/USB-C arv, Thunderbolt 3/4, DisplayPort, VGA, DVI, veebikaamera, TrackPoint, dokk, privaatsusekraan, värskendussagedus, CPU max MHz, aku tunnid, videoväljundid, pordid vabatekstina, PDF, `new_price`, allikas | iga toode eraldi (`details.source = "LAPTOPID"`) |
+| SupplierListing `details` (JSONB) | USB-A/USB-C arv, Thunderbolt 3/4, DisplayPort, VGA, DVI, veebikaamera, TrackPoint, dokk, privaatsusekraan, värskendussagedus, CPU maks. (turbo) MHz CPU tekstist ("i5-8350U 3600Mhz"), kiirusindeksid `cpuBenchmark3dmark06` / `gpuBenchmark3dmark11` (parseBenchmark: lõplik > 0, muidu NULL), aku tunnid, videoväljundid, pordid vabatekstina, PDF, `new_price`, allikas | iga toode eraldi (`details.source = "LAPTOPID"`) |
 | **ProductModel** | tootja, seeria, mudel, põlvkond, ekraani suurus, kaal, USB-A/USB-C arv | **sagedaseim väärtus** selle mudeli Laptopid.ee pakkumistest; Wi-Fi/Bluetooth = NULL |
 
 - Konfiguratsioonist sõltuvaid omadusi (puuteekraan, sõrmejälg, Smart Card, taustavalgus, privaatsusekraan, 4G, värskendussagedus, numpad, IR-kaamera) **ei panda mudeli universaalseteks omadusteks**.

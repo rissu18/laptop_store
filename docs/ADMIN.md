@@ -192,6 +192,8 @@ Kontrollid töötavad SQL-is **efektiivsete väärtuste** järgi, seega parandat
 
 **Rikastus (2026-10-12):** kaart "Pildiallikad" näitab mudeleid poes kuvatava pildi päritolu järgi (Icecat / Laptopid.ee mudelipildid / muu / ainult pakkumise fotod / placeholder; kõik ja müügis). Nupp **"Rikasta kataloogi"** (`enrichCatalogAction`, sessioon + päritolu, audit `catalog.enrich`, `updateTag('catalog')`) käivitab sama teenuse mis `npm run enrich:catalog`: Laptopid.ee pildid mudelitele + GPU/resolutsiooni rikastus (Icecati allalaadimist Vercelis ei tehta). Konfiguratsiooni lehel on kaart "Rikastatud andmed" (väärtus + allikas + vaste alus), mudeli lehel "Piltide päritolu" (allikad, rikastuse otsus, Laptopid.ee vaste, ülevaatuse kandidaadid, Icecati tulemus). Vt [ARCHITECTURE.md → Kataloogi rikastus](ARCHITECTURE.md#kataloogi-rikastus-local-first).
 
+**Kiirusindeks ja maks. sagedus (2026-10-12):** kaart näitab müügis konfiguratsioonide katet (tarnijalt / LAPTOPID täpne vaste / puudub) CPU kiirusindeksi (3DMark06 CPU), GPU kiirusindeksi (3DMark11 GPU) ja CPU maks. sageduse kohta; konfiguratsiooni lehel kaart "Jõudlus ja rikastatud andmed" (väärtus + päritolu + vaste alus).
+
 Iga kategooria näitab probleemide arvu ja osakaalu. Klõps kategoorial avab filtreeritud nimekirja (`?issue=…`) ja sealt viib "Paranda" detailvaatesse. Samu kontrolle näitavad ka detailvaated ja töölaud ("Suurimad andmeprobleemid").
 
 ## 9. Seaded

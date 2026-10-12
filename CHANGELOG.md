@@ -5,6 +5,18 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 ---
 
+## 2026-10-12 — Kiirusindeks (3DMark), CPU maks. sagedus ja selgem "Tehnilised andmed"
+
+- **Laptopid.ee API** andis uued väljad `cpu_3dmark06` ja `gpu_3dmark11` (live: CPU 291/301, GPU 269/301; Apple null) → sync salvestab need `details` alla (lõplik positiivne arv, muidu NULL). Maks. sagedus oli juba Laptopid.ee CPU tekstis ("i5-8350U 3600Mhz" = maksimaalne turbo; kontrollitud Inteli/AMD andmetega) — nüüd valideeritud ja poes kuvatud.
+- **Ülekanne teistele tarnijatele ainult täpse vastega** (sama CPU mudel / sama GPU nimi; üldnimed nagu "Integrated", "Intel Graphics" ei sobi) → `supplier_listings.enrichment` päritoluga; konflikte 0. Poes müügis 1117 konfiguratsioonist: CPU kiirusindeks 651 (Laptopid.ee 291 + täpne vaste 360), GPU 503 (269 + 234), maks. sagedus 663 (298 + 365). Unikaalsetest müügis CPU-dest 60/226 ja GPU-dest 34/125 sai väärtuse (enne 0).
+- **Tooteleht → Tehnilised andmed:** Jõudlus algab protsessori täisnimest, järgnevad Maks. sagedus ("4,70 GHz"), Kiirusindeks (ⓘ "Benchmark: 3DMark06 CPU …"), põlvkond, Mälu, Mälu tüüp, Salvestus, Graafika ja selle Kiirusindeks (ⓘ 3DMark11 GPU). Olulised väärtused tugevamad, nimetused vaiksemad; puuduv / 0 → rida puudub; dubleeriv väike kokkuvõte pealkirja all eemaldati. Tooltip (`InfoTip`): hover, fookus, puudutus, Escape; ekraanilugeja kirjeldus.
+- **Admin:** kiirusindeksi / sageduse kate ja päritolu. Tähti ega 1–5 jõudlustaset teadlikult veel pole.
+- **Testid:** 680 → 694.
+
+**Leitud:** Laptopid.ee andmetes on mõned kahtlased väärtused — i7-10510U "4800MHz" (Inteli ametlik maks. turbo 4,9 GHz), Core Ultra 7 255U "4800MHz" (ametlik 5,2 GHz), i5-8350U GPU "Intel HD 520" (8350U-l on UHD 620). Neid ei muudetud (allikas on Laptopid.ee), parandus Laptopid.ee andmebaasis.
+
+---
+
 ## 2026-10-12 — Andmekvaliteet ja rikastus: pildid, klaviatuur, CPU põlvkond, GPU kast
 
 **Miks:** adminis oli "pildiga mudeleid" 34/521, "tundmatu klaviatuur" 273, "puudub CPU põlvkond" 111 ja tootelehe kiirinfos puudus Foxway pakkumistel graafika kast (514 pakkumist) ning paaritu arvu korral jäi tühi lahter (767 pakkumist).
