@@ -1,7 +1,6 @@
 "use client";
 
 import { ArrowUpDown, SlidersHorizontal, X } from "lucide-react";
-import Link from "next/link";
 import { useState } from "react";
 import { FACETS, MULTI_FACET_KEYS, type MultiFacetKey } from "@/domain/catalog/facets";
 import { FEATURE_LABELS } from "@/domain/catalog/features";
@@ -22,7 +21,7 @@ import type { FeatureKey } from "@/domain/catalog/types";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { cx } from "@/components/ui/class-names";
-import { useCatalogNavigation } from "./catalog-navigation";
+import { CatalogLink, useCatalogNavigation } from "./catalog-navigation";
 import { FilterPanel } from "./filter-panel";
 
 // ---- Sorteerimine ------------------------------------------------------------
@@ -83,18 +82,18 @@ export function FilterDrawer({ query, facets, total }: { query: CatalogQuery; fa
 // ---- Aktiivsed filtrid ------------------------------------------------------------
 
 export function ActiveFilters({ query }: { query: CatalogQuery }) {
-  const { hrefFor, locked } = useCatalogNavigation();
-  const chips: { key: string; label: string; href: string }[] = [];
+  const { locked } = useCatalogNavigation();
+  const chips: { key: string; label: string; query: CatalogQuery }[] = [];
 
-  if (query.q) chips.push({ key: "q", label: `„${query.q}“`, href: hrefFor({ ...query, q: "", page: 1 }) });
+  if (query.q) chips.push({ key: "q", label: `„${query.q}“`, query: { ...query, q: "", page: 1 } });
   for (const key of MULTI_FACET_KEYS) {
     if (locked[key]) continue;
     for (const value of query.facets[key]) {
-      chips.push({ key: `${key}-${value}`, label: FACETS[key].optionLabel(value), href: hrefFor(toggleFacetValue(query, key, value)) });
+      chips.push({ key: `${key}-${value}`, label: FACETS[key].optionLabel(value), query: toggleFacetValue(query, key, value) });
     }
   }
   for (const feature of query.features) {
-    chips.push({ key: `f-${feature}`, label: FEATURE_LABELS[feature], href: hrefFor(toggleFeature(query, feature)) });
+    chips.push({ key: `f-${feature}`, label: FEATURE_LABELS[feature], query: toggleFeature(query, feature) });
   }
   if (query.minPrice !== null || query.maxPrice !== null) {
     const label =
@@ -103,7 +102,7 @@ export function ActiveFilters({ query }: { query: CatalogQuery }) {
         : query.minPrice !== null
           ? `Alates ${query.minPrice} €`
           : `Kuni ${query.maxPrice} €`;
-    chips.push({ key: "price", label, href: hrefFor(withPriceRange(query, null, null)) });
+    chips.push({ key: "price", label, query: withPriceRange(query, null, null) });
   }
 
   if (chips.length === 0) return null;
@@ -112,20 +111,19 @@ export function ActiveFilters({ query }: { query: CatalogQuery }) {
     <div className="flex flex-wrap items-center gap-2">
       <span className="sr-only">Aktiivsed filtrid:</span>
       {chips.map((chip) => (
-        <Link
+        <CatalogLink
           key={chip.key}
-          href={chip.href}
-          scroll={false}
+          query={chip.query}
           className="inline-flex items-center gap-1 rounded-full bg-primary-soft py-1 pl-3 pr-2 text-sm font-medium text-primary hover:bg-primary hover:text-on-primary"
           aria-label={`Eemalda filter: ${chip.label}`}
         >
           {chip.label}
           <X className="size-3.5" aria-hidden />
-        </Link>
+        </CatalogLink>
       ))}
-      <Link href={hrefFor(clearFilters(query))} scroll={false} className="px-2 text-sm font-medium text-muted underline-offset-2 hover:text-text hover:underline">
+      <CatalogLink query={clearFilters(query)} className="px-2 text-sm font-medium text-muted underline-offset-2 hover:text-text hover:underline">
         Tühjenda kõik
-      </Link>
+      </CatalogLink>
     </div>
   );
 }
@@ -169,7 +167,6 @@ const QUICK_CHIPS: QuickChip[] = [
 ];
 
 export function QuickFilterChips({ query, facets }: { query: CatalogQuery; facets: CatalogFacets }) {
-  const { hrefFor } = useCatalogNavigation();
   const chips = QUICK_CHIPS.filter((chip) => chip.isActive(query) || chip.available(facets));
   if (chips.length === 0) return null;
 
@@ -180,9 +177,8 @@ export function QuickFilterChips({ query, facets }: { query: CatalogQuery; facet
           const active = chip.isActive(query);
           return (
             <li key={chip.label} className="shrink-0">
-              <Link
-                href={hrefFor(chip.toggle(query))}
-                scroll={false}
+              <CatalogLink
+                query={chip.toggle(query)}
                 aria-pressed={active}
                 className={cx(
                   "inline-flex h-9 items-center rounded-full border px-4 text-sm font-medium transition-colors",
@@ -190,7 +186,7 @@ export function QuickFilterChips({ query, facets }: { query: CatalogQuery; facet
                 )}
               >
                 {chip.label}
-              </Link>
+              </CatalogLink>
             </li>
           );
         })}
@@ -202,7 +198,6 @@ export function QuickFilterChips({ query, facets }: { query: CatalogQuery; facet
 // ---- Lehekülgede navigeerimine -------------------------------------------------------
 
 export function Pagination({ query, page, pageCount }: { query: CatalogQuery; page: number; pageCount: number }) {
-  const { hrefFor } = useCatalogNavigation();
   if (pageCount <= 1) return null;
 
   const pages = [...new Set([1, page - 1, page, page + 1, pageCount])].filter((p) => p >= 1 && p <= pageCount).sort((a, b) => a - b);
@@ -213,8 +208,9 @@ export function Pagination({ query, page, pageCount }: { query: CatalogQuery; pa
         {pages.map((p, index) => (
           <li key={p} className="flex items-center gap-1">
             {index > 0 && p - pages[index - 1] > 1 && <span className="px-1 text-muted">…</span>}
-            <Link
-              href={hrefFor(withPage(query, p))}
+            <CatalogLink
+              query={withPage(query, p)}
+              scrollToResults
               aria-current={p === page ? "page" : undefined}
               className={cx(
                 "tabular flex size-10 items-center justify-center rounded-md text-sm font-medium",
@@ -222,7 +218,7 @@ export function Pagination({ query, page, pageCount }: { query: CatalogQuery; pa
               )}
             >
               {p}
-            </Link>
+            </CatalogLink>
           </li>
         ))}
       </ul>

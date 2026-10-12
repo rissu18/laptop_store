@@ -1,5 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { toCardItem } from "@/domain/catalog/card";
+import type { CatalogItem } from "@/domain/catalog/types";
 import { cardImageView, type ProductImageView } from "@/domain/images/product-image";
 
 /**
@@ -19,6 +21,7 @@ describe("kataloogi lugemistee leping", () => {
       "src/app/(shop)/toode/[slug]/page.tsx",
       "src/app/(shop)/sulearvutid/catalog-listing.tsx",
       "src/app/(shop)/page.tsx",
+      "src/app/api/catalog/route.ts",
       "src/server/cart/cart-actions.ts",
     ]) {
       expect(source(page), page).not.toMatch(/getAllItems|loadDbCatalogItems|queryStorefrontCatalogRows/);
@@ -45,5 +48,31 @@ describe("kaardi pildid", () => {
   it("tarnija kaugpilt: ainult largeUrl (Next/Image); meie fail: thumbnail + medium", () => {
     expect(cardImageView(image("https://laptopid.ee/images/product/1.png"))).toMatchObject({ thumbnailUrl: "", mediumUrl: "", largeUrl: "https://laptopid.ee/images/product/1.png" });
     expect(cardImageView(image("/l.webp"))).toMatchObject({ thumbnailUrl: "/t.webp", mediumUrl: "/m.webp", largeUrl: "" });
+  });
+});
+
+describe("filtri vastus (/api/catalog)", () => {
+  it("saadab kaardi andmed (toCardItem), mitte toorandmeid; laoseis ei muutu", () => {
+    const route = source("src/app/api/catalog/route.ts");
+    expect(route).toContain("items.map(toCardItem)");
+    expect(route).toMatch(/no-store/);
+    const img: ProductImageView = { thumbnailUrl: "/t", mediumUrl: "/m", largeUrl: "/l", width: 1, height: 1, alt: "a", type: "MODEL_GENERIC" };
+    const item = {
+      product: { images: [img] },
+      variant: { images: [], details: { ports: "x" }, conditionNotes: "kriimustus", stock: { available: true, quantity: null } },
+    } as unknown as CatalogItem;
+    const card = toCardItem(item);
+    expect(card.variant.details).toEqual({});
+    expect(card.variant.conditionNotes).toBeNull();
+    expect(card.variant.stock).toEqual({ available: true, quantity: null });
+    expect(card.product.images).toEqual([{ ...img, largeUrl: "" }]);
+  });
+
+  it("kliendi olek: AbortController katkestab vanema päringu, filtrilingid ei tee Next eellaadimist", () => {
+    const nav = source("src/components/catalog/catalog-navigation.tsx");
+    expect(nav).toContain("new AbortController()");
+    expect(nav).toContain("return () => controller.abort()");
+    expect(nav).toContain("fetch(`/api/catalog?");
+    expect(source("src/components/catalog/listing-controls.tsx")).not.toContain("from \"next/link\"");
   });
 });
