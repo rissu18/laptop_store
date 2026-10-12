@@ -8,6 +8,7 @@ import { cx } from "./class-names";
  * Väike info-ikoon selgitusega.
  * - Desktop: hover ja klaviatuuri fookus näitavad selgitust (CSS group-hover / group-focus-within).
  * - Mobiil: puudutus (klõps) avab/sulgeb; Escape ja klõps mujal sulgevad.
+ * - Paigutus: ikooni kohal, vasakult joondatud (vasakus veerus ei lähe mobiilis ekraanist välja).
  * - Ekraanilugeja: nupul on nimi (`label`) ja selgitus on seotud aria-describedby kaudu (loetakse ka peidetuna).
  */
 export function InfoTip({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
@@ -45,7 +46,7 @@ export function InfoTip({ label, children, className }: { label: string; childre
         id={id}
         role="tooltip"
         className={cx(
-          "absolute bottom-full left-1/2 z-20 mb-2 w-64 max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-md border border-border bg-surface p-3 text-left text-xs font-normal leading-snug text-body shadow-lg",
+          "absolute bottom-full left-0 z-20 mb-2 w-64 max-w-[calc(100vw-2rem)] rounded-md border border-border bg-surface p-3 text-left text-xs font-normal leading-snug text-body shadow-lg",
           "transition-opacity duration-100",
           open ? "visible opacity-100" : "invisible opacity-0 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100",
         )}
