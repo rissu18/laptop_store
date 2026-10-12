@@ -5,6 +5,41 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 ---
 
+## 2026-10-12 — Teine päris tarnija: Tech hinnakiri (Google Sheets → PostgreSQL)
+
+**Mis lisati** (täielik kirjeldus: [docs/TECH_SYNC.md](docs/TECH_SYNC.md))
+
+- **Allikas:** Techi avalik Google Sheet (`TECH_SHEET_URL`, Config — Vercelis Production/Preview/Development) → **XLSX eksport** → ExcelJS (`serverExternalPackages`, ainult server). CSV-d ei kasutata ega ole varuvariandina: müüdud seadmed on tähistatud lahtri taustavärviga, mis CSV-s kaob.
+- **Ainult sülearvutid:** `Used Laptops ` ja `Laptops 2` tervikuna; `Laptops 3` ja `Incoming …` ainult kategooria pealkirja "Laptops" sektsioon (ühendatud lahter B:K) kuni järgmise pealkirjani; `Monitors`, `Desktops`, `Parts + Docking stations` ignoreeritakse. Päise veerge kontrollitakse; vale layout → tab vahele + snapshot pole usaldusväärne. Tabide nimedest/kuupäevadest loogika ei sõltu.
+- **Müüdud = Brand (B) või Model (C) lahter värvitud** (toon ei loe; valge/täideta = müügis; hinna või märkuse värv ei loe).
+- **Märkused K/L:** `bl` → taustavalgus, `id` → Smart Card (mitte sõrmejälg), `4g` → LTE, `5g` → 5G; defektid (dead battery, dead, no/missing keyboard, klava x, hinge, damage, laik, usb, fan, touchbar x, screen, scr) → aktiivsest laost välja; `e/g/f/w/p`, protsendid ja laadija kirjeldus ignoreeritakse; muu tundmatu tekst → `UNKNOWN_NOTE`, seade välja, admin näeb.
+- **Ainult sülearvutid ka sektsiooni sees:** tahvelarvutid ja eemaldatava ekraaniga 2-in-1 (Surface Go/Pro/Book, Elite x2, Toughpad, Toughbook CF-20/CF-33, Tab M10, ZenPad, Latitude 7200/7210 2-in-1 …) → `NOT_LAPTOP` (kasutaja otsus).
+- **Seisukord alati B**, **hind** = hinnakirja hind M + 60 € (lõpphind koos KM-ga), **ostuhind** = M − 20 € (`supplier_price_cents`), **KM režiim MARGIN** (kasutaja otsus; marginaalikaitse töötab), **tarne 1–2 tööpäeva** (pakkumise tasemel `delivery_min/max_days` — üldine väli), garantii NULL, laadija kaasas. Salvestus peab olema SSD (pood kuvab kõikjal "SSD").
+- **Füüsilised seadmed:** uus tabel `supplier_inventory_units` (Tech ID = identiteet, seerianumber algkujul, staatus, põhjus, tab/rida, toorandmed). Sama konfiguratsiooni + hinnaga müügis seadmed = **üks SupplierListing**, `stock` = seadmete arv (täpne). Pakkumise ID = räsi(konfiguratsioon + hind). Sama Tech ID mitmes tabis: identne → üks seade, erinev → konflikt.
+- **Ohutus:** fataalne (kataloog samaks): allalaadimine/vorming, stiiliinfo puudub, värvitud ridade järsk kadu, hind/ID/seerianumber massiliselt loetamatud, palju konflikte, suur kadu (> 50%, admin saab lubada). Mitte-usaldusväärne (puuduvaid maha ei võeta): tab jäi lugemata, puuduvaid > 25%.
+- **ProductModel:** jagatud vaste (`model-resolver.ts`, Laptopid.ee loogika tõsteti sinna muutmata kujul) + Techi kirjapildi ühtlustus ("10th Gen" → "Gen 10"). Olemasolevat mudelit Tech ei muuda; uus mudel ilma leiutatud väärtusteta. Uued tootjad: Microsoft, Panasonic, ASUS, Acer, Getac.
+- **Pildid:** mapper kasutab mudeli varupiltidena sama mudeli teise müügis pakkumise tarnija pilte (Techi pakkumine näeb Laptopid.ee fotosid), kui Icecati pilte pole.
+- **Seerianumbrid ainult adminis:** konfiguratsiooni leht (seadmete nimekiri), tellimuse leht — uus tabel `order_item_units`, admin määrab seadmed (kogus 3 → 3 seadet; kontrollid; testtellimus ei kuluta laoseisu). Poe HTML, otsing, ostukorv, kassa, kinnitusleht ja tellimuse otsing seerianumbreid ei sisalda.
+- **Admin → Tarnijad → Tech:** seis, arvud, näidised, rikastuseta mudelid, käivitused, **Sync now** (sama kaitse kui Laptopidil). Laptopid.ee kaart muutmata. Süsteemilogi allikas TECH.
+- **Ajastamine:** `GET /api/cron/tech-sync` (`CRON_SECRET`, 401/503/200/BUSY/502), `npm run tech:sync` ja **`npm run tech:sync -- --dry-run`** (ainult lugemine). Eraldi DB-lukk (allikas TECH).
+- **Muu:** `formatStorage` — 2000 GB → "2 TB" (enne "1,953125 TB"); `db:counts` loeb ka tellimusi ja pakkumiste pilte.
+
+**Kuivkäivitus (live XLSX, 2026-10-12, enne andmebaasi kirjutamist):** 8 tabi; sülearvuti ridu 730 (Used Laptops 382, Laptops 2 90, Laptops 3 / Laptops 53, Incoming 1 / Laptops 110, Incoming 2 / Laptops 95); müüdud 248, ei ole sülearvuti 106, defekt 9, tundmatu märkus 31, vigased 9 (ID puudub 8, seerianr 2, hind 6); konflikte 0, duplikaate 0; müügis seadmeid 327 → 206 gruppi (laoseis 1–13). Olemasoleva mudeliga vaste 45, uusi 95.
+
+**Migratsioon `0004_tech_inventory_units.sql`** (ainult lisav): `db:counts` enne ja pärast identne (177 / 351 / 320 / 1134 / 1 / 1 / 1 / 1 / 7 / 81 / 51).
+
+**Esimene live sync:** 730 rida, 327 müügis seadet, 206 pakkumist, 712 seadet tabelisse, 45 mudelit taaskasutatud, 95 uut; rikastus olemasolev 28 / Icecat 16 / puudub 96. **Teine identne sync:** 0 uut, 0 muutunud, 206 / 712 muutmata, duplikaate 0. Laptopid.ee 305 pakkumise sõrmejälg ja algsed 177 mudelit enne/pärast identsed. Pärast SSD-reeglit (vt probleemid): 324 müügis seadet, 203 pakkumist poes (3 pakkumist laoseisuga 0, alles andmebaasis).
+
+**Testid:** 393 → 480 (46 testifaili; `tech.test.ts`, `tech-workbook.test.ts` päris XLSX-iga, `tech-sync.db.test.ts` päris PostgreSQL-is, `tech-sync/route.test.ts`, `format.test.ts`).
+
+**Probleemid ja lahendused**
+
+- Hinnakirjas oli ka tahvelarvuteid ja detachable'eid "Laptops" sektsioonides ning ühetähelisi koode (`e`, `g` …) ja `5g` — spec neid ei katnud; otsustas kasutaja (tahvlid ja detachable'id välja, koodid ignoreeritakse, 5g = tunnus, KM erikord).
+- Brauseri kontrollis kuvas Acer "1,953125 TB SSD": hinnakirjas "2 x 1000" (tüübita, tõenäoliselt HDD). Lahendus: Techi salvestus peab olema SSD (muidu "vigased andmed"), `formatStorage` vormindab kümnendkujul TB-d õigesti.
+- GPU kirjapildid ("Intel iris Xe", "Intel® Iris® Xe Graphics") oleksid teinud identsetest konfiguratsioonidest eri pakkumised → GPU ühtlustatakse enne grupeerimist.
+- Kuivkäivitus pidi töötama enne migratsiooni (seadmete tabelit veel polnud) → `--dry-run` kontrollib tabeli olemasolu (`to_regclass`).
+- Kui Tech muudab seadme hinda, tekib uus pakkumine (hind on identiteedi osa) — vana jääb laoseisuga 0 ja selle admini parandus uuele üle ei kandu (dokumenteeritud).
+
 ## 2026-10-11 — Admini stale-sync hoiatus järgib uut ajastust
 
 - `SYNC_STALE_AFTER_MS` (15 min) asendati Eesti kohalikust ajast (`Europe/Tallinn`, Intl — mitte fikseeritud nihe) sõltuva piiriga `syncStaleAfterMs(now)`: päeval 08:00–00:00 üle 45 min, öösel 00:00–08:00 üle 150 min vana edukas sync → „Automaatne sünkroonimine ei ole ajakohane.“ Hoiatuses: „Viimane edukas sünkroonimine: X tagasi“ ja kehtiv piir.

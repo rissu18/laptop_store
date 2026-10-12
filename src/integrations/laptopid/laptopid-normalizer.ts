@@ -1,9 +1,8 @@
 import { LIGHT_LAPTOP_MAX_KG } from "@/domain/catalog/features";
 import type { ListingDetails } from "@/domain/catalog/listing-details";
-import { BRAND_NAMES, type BrandCode, type CpuFamily, type FeatureFlags, type KeyboardLayout } from "@/domain/catalog/types";
+import type { CpuFamily, FeatureFlags, KeyboardLayout } from "@/domain/catalog/types";
 import { parseSupplierGrade, type GradeCode } from "@/domain/grade/grades";
-import { productTitle } from "@/domain/catalog/title";
-import { canonicalModelName, parseBrand, slugify, splitSeries } from "@/integrations/supplier/model-names";
+import { ModelResolutionError, resolveModelRef, type ModelRef } from "@/integrations/supplier/model-resolver";
 import { parseCpu, parseDisplay, parseKeyboardLayout, parseRam, parseStorageGb } from "@/integrations/supplier/spec-parsers";
 import { htmlToText } from "./html-text";
 import type { LaptopidImage, LaptopidProduct } from "./laptopid-schema";
@@ -36,17 +35,7 @@ export interface LaptopidImageRef {
   largeUrl: string;
 }
 
-export interface LaptopidModelRef {
-  brand: BrandCode;
-  series: string;
-  model: string;
-  generation: string | null;
-  /** Mudeli slug — sama arvutus mis olemasolevatel mudelitel (tootja + seeria + mudel) */
-  slug: string;
-  title: string;
-  /** Seeria taksonoomia oli tundmatu ja kasutati konservatiivset tagavara (sync logib hoiatuse) */
-  taxonomyWarning: string | null;
-}
+export type LaptopidModelRef = ModelRef;
 
 export interface LaptopidListingColumns {
   supplierSku: string;
@@ -199,43 +188,14 @@ function safeHttpsUrl(value: string | null | undefined): string | null {
   }
 }
 
-/**
- * Lenovo V-seeria (äriklassi soodne liin): "V330-14IKB", "V340-17IWL", "V14 G2 ITL", "V15-IIL".
- * Konservatiivne muster — mitte iga "V"-ga algav nimi (nt "Vostro" on Delli, mitte Lenovo).
- */
-const LENOVO_V_SERIES = /^V(?:\d{3}-\d{2}[A-Z]{2,4}\d?|1[3457](?=[\s-]|$))/i;
-
-/**
- * Tootja + mudel → seeria ja mudel. Järjekord:
- *   1. teadaolevad seeriad (splitSeries)          → nt ThinkPad, Latitude, EliteBook
- *   2. Lenovo V-seeria                             → seeria "V Series", mudel "V330-14IKB" (pealkiri "Lenovo V330-14IKB")
- *   3. tundmatu seeria: tootja ja mudel on korras → seeria = mudelinime esimene sõna, mudel = kogu nimi, HOIATUS
- *      (parem õige uus mudel kui toode poest väljas; fuzzy-vastet olemasoleva mudeliga ei tehta)
- * Tühi mudel või tundmatu tootja → tagasi lükatud.
- */
+/** Tootja + mudel → ProductModel viide (jagatud loogika: integrations/supplier/model-resolver.ts). */
 export function resolveLaptopidModel(manufacturer: string, modelName: string): LaptopidModelRef {
-  const brand = parseBrand(manufacturer) ?? fail(`Tundmatu tootja: ${manufacturer.trim()}`);
-  const name = modelName.replace(/\s+/g, " ").trim();
-  if (!name) fail("Mudel puudub");
-  let taxonomyWarning: string | null = null;
-  let names = splitSeries(name);
-  if (!names && brand === "lenovo" && LENOVO_V_SERIES.test(name)) names = { series: "V Series", model: name };
-  if (!names) {
-    const series = name.split(" ")[0];
-    names = { series, model: name };
-    taxonomyWarning = `Tundmatu seeria, kasutati "${series}": ${BRAND_NAMES[brand]} ${name}`;
+  try {
+    return resolveModelRef(manufacturer, modelName);
+  } catch (error) {
+    if (error instanceof ModelResolutionError) fail(error.message);
+    throw error;
   }
-  const model = canonicalModelName(names.series, names.model);
-  const title = productTitle(BRAND_NAMES[brand], names.series, model);
-  return {
-    taxonomyWarning,
-    brand,
-    series: names.series,
-    model,
-    generation: model.match(/\b(Gen \d+|G\d{1,2})\b/i)?.[1] ?? null,
-    slug: slugify(title),
-    title,
-  };
 }
 
 export function normalizeLaptopidProduct(product: LaptopidProduct, images: LaptopidImage[]): LaptopidOffer {

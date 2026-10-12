@@ -5,7 +5,8 @@ import { fmtDateTime } from "@/components/admin/format";
 import { SyncNowButton } from "@/components/admin/sync-now-button";
 import { SYNC_STALE_MESSAGE } from "@/domain/catalog/sync-health";
 import { Badge, Card, DefinitionList, PageHeader } from "@/components/admin/ui";
-import { getSupplierOverview } from "@/server/admin/suppliers/queries";
+import { getSupplierOverview, getTechSupplierOverview } from "@/server/admin/suppliers/queries";
+import { TechSupplierSection } from "@/components/admin/tech-supplier-section";
 import type { SyncRunRow } from "@/server/catalog-sync/sync-runs";
 
 /** Admin on alati päringupõhine (sessioon, värsked andmed) — eelrenderdust ega "instant" navigeerimist ei kasutata. */
@@ -43,7 +44,7 @@ const COLUMNS: Column<SyncRunRow>[] = [
 ];
 
 export default async function SuppliersPage() {
-  const data = await getSupplierOverview();
+  const [data, tech] = await Promise.all([getSupplierOverview(), getTechSupplierOverview()]);
   const { health, lastFinished } = data;
   const last = data.lastSuccess;
   const rejectedSample = Array.isArray(last?.stats.rejectedSample) ? (last.stats.rejectedSample as { externalId: string | null; message: string }[]) : [];
@@ -54,7 +55,7 @@ export default async function SuppliersPage() {
       <PageHeader
         title="Tarnijad"
         breadcrumbs={[{ label: "Kataloog" }, { label: "Tarnijad" }]}
-        description="Laptopid.ee API → valideerimine → PostgreSQL → pood. Pood ja kassa loevad ainult andmebaasi, mitte otse API-d."
+        description="Laptopid.ee API ja Tech hinnakiri (Google Sheets XLSX) → valideerimine → PostgreSQL → pood. Pood ja kassa loevad ainult andmebaasi, mitte otse tarnijat."
       />
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="flex min-w-0 flex-col gap-6">
@@ -149,6 +150,7 @@ export default async function SuppliersPage() {
           </Card>
         </aside>
       </div>
+      <TechSupplierSection data={tech} />
     </>
   );
 }

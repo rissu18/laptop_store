@@ -130,6 +130,15 @@ export function mapCatalogRows(
     imagesByListing.set(image.supplierListingId, list);
   }
 
+  // Mudeli piltide varu: kui mudelil endal (Icecat) pilte pole, kasutatakse sama mudeli mõne teise müügis pakkumise
+  // tarnija pilte (nt Laptopid.ee fotod Techi sama mudeli pakkumisel). Need on MODEL_GENERIC → "illustratiivne" märge.
+  const siblingImagesByModel = new Map<string, ProductImageView[]>();
+  for (const listing of listings) {
+    if (siblingImagesByModel.has(listing.productModelId) || listing.status !== "ACTIVE" || listing.available === false) continue;
+    const own = imagesByListing.get(listing.id);
+    if (own?.length) siblingImagesByModel.set(listing.productModelId, own);
+  }
+
   const products = new Map<string, CatalogItem["product"]>();
   const items: SearchableItem[] = [];
   const incomplete: IncompleteListing[] = [];
@@ -163,7 +172,7 @@ export function mapCatalogRows(
         ports: { usbA: model.usbAPorts, usbC: model.usbCPorts },
         wifi: model.wifi,
         bluetooth: model.bluetooth,
-        images: imagesByModel.get(model.id) ?? [],
+        images: imagesByModel.get(model.id) ?? siblingImagesByModel.get(model.id) ?? [],
       };
       products.set(model.id, product);
     }

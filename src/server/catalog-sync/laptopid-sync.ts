@@ -8,6 +8,7 @@ import {
   type LaptopidOffer,
 } from "@/integrations/laptopid/laptopid-normalizer";
 import { LaptopidSnapshotError, decideSnapshotTrust, parseLaptopidSnapshot, type SnapshotRejection } from "@/integrations/laptopid/laptopid-snapshot";
+import { stableStringify } from "@/integrations/supplier/stable-stringify";
 import { mapWithConcurrency } from "@/server/concurrency/map-with-concurrency";
 import type { Database } from "@/server/db/client";
 import { listingImages, productModels, supplierListings } from "@/server/db/schema";
@@ -100,15 +101,7 @@ const emptyStats = (): LaptopidSyncStats => ({
   durationMs: 0,
 });
 
-/** Võtmete järjekorrast sõltumatu JSON (muutuste tuvastamiseks) */
-export function stableStringify(value: unknown): string {
-  if (value === null || typeof value !== "object") return JSON.stringify(value) ?? "null";
-  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
-  const entries = Object.entries(value as Record<string, unknown>)
-    .filter(([, v]) => v !== undefined)
-    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-  return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v)}`).join(",")}}`;
-}
+export { stableStringify };
 
 /** Sagedaseim väärtus (viik → väiksem); null-e ei arvestata */
 export function modeOf(values: (number | null | undefined)[]): number | null {

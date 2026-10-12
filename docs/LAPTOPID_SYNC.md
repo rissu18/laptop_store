@@ -84,6 +84,7 @@ Mõlemad otspunktid asuvad samas kataloogis ja neid kutsutakse päisega `X-API-K
 
   Neist arvutatakse slug täpselt samamoodi nagu olemasolevatel mudelitel. **Vaste = täpselt sama slug.** Kui vastet pole, luuakse uus mudel ("parem uus kui vale merge"). Näiteks "Latitude 7420 Carbon" ja "Latitude 7420" on eraldi mudelid.
 - Laptopid.ee ei anna GTIN-i ega tootja koodi (MPN), seega identifikaatoritega võrrelda ei saa.
+- Mudeli leidmise loogika on 2026-10-12 tõstetud jagatud faili `src/integrations/supplier/model-resolver.ts` (`resolveModelRef`, käitumine muutmata) — sama arvutust kasutab Tech sync, nii et mõlema tarnija sama mudel saab sama ProductModeli ([TECH_SYNC.md](TECH_SYNC.md)). Samal päeval lisati tootjad Microsoft, Panasonic, ASUS, Acer ja Getac; kui Laptopid.ee API peaks neid kunagi andma, imporditakse need edaspidi (varem lükati tagasi).
 - Esimese sync'i tulemus (2026-10-11): 285 pakkumist, **122 uut mudelit** ja **21 olemasolevat mock-mudelit** (nt `dell-latitude-5430`, `lenovo-thinkpad-t14-gen-3`). Olemasolevatel mudelitel jäävad alles Icecati pildid ja admini otsused.
 - Kui tarnija hiljem mudeli nime muudab, mudeli seost sync ei muuda. See on admini otsus (`product_model_id`); sync loendab juhtumid (`modelMismatches`).
 
@@ -216,7 +217,7 @@ Logitakse: algus, lõpp, `received`, `valid`, `rejected`, `created`, `updated`, 
 - Faile **Git'i ei laeta**. Salvestatakse kaugaadressid: thumbnail = `small.png`, medium = `medium.png`, large = `original.png`. Mõõdud loetakse originaali päisest HTTP Range päringuga (~30 baiti, mitte 1 MB faili).
 - Poes kuvatakse kaugpildid Next/Image kaudu (`StoredImage` → `next/image`, `fill` + `sizes`), mis optimeerib 0,4–2 MB PNG-d WebP/AVIF-iks õiges laiuses. `remotePatterns` lubab **ainult** `https://laptopid.ee/images/product/**`; `maximumRedirects: 0` ja `minimumCacheTTL` on 31 päeva (Laptopid annab muutunud pildile uue ID).
 - Puuduv või katkine pilt toodet katki ei tee: mõõtude lugemine ebaõnnestub → pilti ei lisata (järgmine sync proovib uuesti; praegu 4 katkist pilti), poes kuvatakse ülejäänud pildid, mudeli Icecati pildid või illustratsioon.
-- Kuvamise järjekord: pakkumise pildid → mudeli (Icecat) pildid → illustratsioon.
+- Kuvamise järjekord: pakkumise pildid → mudeli (Icecat) pildid → sama mudeli mõne teise müügis pakkumise tarnija pildid (lisatud 2026-10-12 Techi jaoks: Techi pakkumine näeb sama mudeli Laptopid.ee fotosid) → illustratsioon.
 - Laptopid pildid on tüübiga `MODEL_GENERIC`, mitte `ACTUAL_UNIT`, sest pole kinnitatud, et foto on täpselt müüdavast eksemplarist. Seetõttu kuvatakse "illustratiivne" märge.
 - **Icecat** jääb mudeli piltide varu- ja rikastusallikaks ega kirjuta kunagi pakkumise konfiguratsiooni andmeid üle (Icecati import puudutab ainult `product_images` ja `icecat_metadata` tabeleid).
 

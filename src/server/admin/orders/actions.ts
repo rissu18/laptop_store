@@ -7,6 +7,7 @@ import { canTransition, type OrderStatus } from "@/domain/orders/order-status";
 import { getDb } from "@/server/db/client";
 import { discountRedemptions, orderInternalNotes, orderStatusHistory, orders } from "@/server/db/schema";
 import { cancelRedemption } from "@/server/discounts/redemptions";
+import { assignUnitToOrderItem, unassignUnitFromOrderItem } from "@/server/orders/order-units";
 import { getOrderNotificationService } from "@/server/orders/notifications";
 import { fail, ok, type ActionResult } from "../action-result";
 import { writeAudit } from "../audit";
@@ -70,5 +71,40 @@ export async function addOrderNoteAction(id: string, _prev: ActionResult | null,
     });
     if (result.ok) refresh();
     return result;
+  });
+}
+
+/**
+ * Tellimuse reale füüsilise seadme (Tech ID + seerianumber) määramine — ainult admin, kliendile ei näidata.
+ * Ainult märge: seadet ei reserveerita, ei märgita müüduks ega saadeta tarnijale (vt docs/TECH_SYNC.md).
+ */
+export async function assignOrderUnitAction(orderId: string, orderItemId: string, inventoryUnitId: string): Promise<ActionResult> {
+  return runAdminAction("order.unit_assign", async (admin) => {
+    if (![orderId, orderItemId, inventoryUnitId].every((id) => uuid.safeParse(id).success)) return fail("Vigane ID");
+    const result = await getDb().transaction(async (tx) => {
+      const assigned = await assignUnitToOrderItem(tx, { orderId, orderItemId, inventoryUnitId, admin: { id: admin.id, email: admin.email } });
+      if (!assigned.ok) return assigned;
+      // Auditisse ainult Tech ID (mitte seerianumber)
+      await writeAudit(tx, admin, { action: "order.unit_assigned", entityType: "Order", entityId: orderId, entityLabel: assigned.orderNumber, changes: { unit: { from: null, to: assigned.externalUnitId } } });
+      return assigned;
+    });
+    if (!result.ok) return fail(result.error);
+    refresh();
+    return ok(`Seade ${result.externalUnitId} määratud.`);
+  });
+}
+
+export async function unassignOrderUnitAction(orderId: string, assignmentId: string): Promise<ActionResult> {
+  return runAdminAction("order.unit_unassign", async (admin) => {
+    if (![orderId, assignmentId].every((id) => uuid.safeParse(id).success)) return fail("Vigane ID");
+    const result = await getDb().transaction(async (tx) => {
+      const removed = await unassignUnitFromOrderItem(tx, { orderId, assignmentId });
+      if (!removed.ok) return removed;
+      await writeAudit(tx, admin, { action: "order.unit_unassigned", entityType: "Order", entityId: orderId, entityLabel: removed.orderNumber, changes: { unit: { from: removed.externalUnitId, to: null } } });
+      return removed;
+    });
+    if (!result.ok) return fail(result.error);
+    refresh();
+    return ok(`Seade ${result.externalUnitId} eemaldatud.`);
   });
 }

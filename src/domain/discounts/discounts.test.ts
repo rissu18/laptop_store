@@ -285,6 +285,6 @@ describe("admini vorm", () => {
   it("valitakse ainult aktiivse kehtivusala valikud; võltsitud tootja lükatakse tagasi", () => {
     const r = form({ ...base, scope: "SELECTED_MANUFACTURERS", manufacturers: ["dell"], productModelIds: ["00000000-0000-4000-8000-000000000000"] });
     expect(r.success && [r.data.manufacturers, r.data.productModelIds]).toEqual([["dell"], []]);
-    expect(form({ ...base, scope: "SELECTED_MANUFACTURERS", manufacturers: ["acer"] }).success).toBe(false);
+    expect(form({ ...base, scope: "SELECTED_MANUFACTURERS", manufacturers: ["toshiba"] }).success).toBe(false);
   });
 });

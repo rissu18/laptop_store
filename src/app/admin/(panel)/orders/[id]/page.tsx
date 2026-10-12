@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { DataTable } from "@/components/admin/data-table";
 import { fmtCents } from "@/components/admin/format";
 import { CancelOrderButton, OrderNoteForm } from "@/components/admin/order-actions";
+import { OrderUnits } from "@/components/admin/order-units";
 import { Badge, Card, DefinitionList, Missing, PageHeader, StatusBadge } from "@/components/admin/ui";
 import { CHECKOUT_COUNTRIES } from "@/domain/checkout/checkout-form";
 import { formatDiscountValue } from "@/domain/discounts/discount-engine";
@@ -24,7 +25,7 @@ export default async function OrderDetailPage({ params }: PageProps<"/admin/orde
   if (!id) notFound();
   const data = await getOrderDetail(id);
   if (!data) notFound();
-  const { order, items, history, notes } = data;
+  const { order, items, history, notes, units } = data;
 
   return (
     <>
@@ -82,6 +83,15 @@ export default async function OrderDetailPage({ params }: PageProps<"/admin/orde
               ]}
             />
           </Card>
+
+          {units.length > 0 && (
+            <Card
+              title="Seerianumbrid (tarnija seadmed)"
+              description={`Ainult adminile — kliendile ei näidata. Märge ei reserveeri ega müü seadet${order.isTest ? " (testtellimus ei kuluta laoseisu)" : ""}; reserveerimine seotakse makse faasis.`}
+            >
+              <OrderUnits orderId={order.id} rows={units} />
+            </Card>
+          )}
 
           <Card title="Ajalugu">
             <ol className="space-y-2 text-sm">

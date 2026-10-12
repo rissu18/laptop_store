@@ -2,8 +2,13 @@ import type { CatalogItem, KeyboardLayout } from "./types";
 
 /** Tehniliste väärtuste vormindamine eesti keeles. */
 
+/** 512 → "512 GB"; 1024 → "1 TB"; 2000 (tarnija kümnendkujul) → "2 TB" — mitte "1,953125 TB" */
 export function formatStorage(gb: number): string {
-  return gb >= 1024 ? `${String(gb / 1024).replace(".", ",")} TB` : `${gb} GB`;
+  if (gb < 1000) return `${gb} GB`;
+  // Binaarne (1024 → 1, 1536 → 1,5), kui see on täpne; muidu tarnija kümnendkuju (2000 → 2)
+  const binary = gb / 1024;
+  const tb = Number.isInteger(binary * 100) ? binary : Math.round(gb / 10) / 100;
+  return `${String(tb).replace(".", ",")} TB`;
 }
 
 export function formatScreenSize(inches: number): string {

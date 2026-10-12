@@ -44,4 +44,11 @@ export interface ListingDetails {
   newPriceCents?: number | null;
   /** Tarnija slug (ainult viide; identiteet on tarnija ID) */
   upstreamSlug?: string | null;
+  /**
+   * Tarnija hinnakirja hind (Tech: veerg M) — sellest arvutatakse ostuhind (M − 20 €) ja müügihind (M + 60 €).
+   * Ainult admin/diagnostika; kliendile ei kuvata.
+   */
+  sourcePriceCents?: number | null;
+  /** Salvestuse tüüp tarnija tekstist ("SSD"), kui see on antud */
+  storageType?: string | null;
 }

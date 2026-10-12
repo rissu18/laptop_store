@@ -67,14 +67,16 @@ const EURO_FIELDS = new Set(["supplierPriceCents", "salePriceCents"]);
  * Tarnija hinnaga pakkumine (price_source = SUPPLIER, nt Laptopid.ee): müügihind on tarnija väli ja admini hind
  * salvestub parandusena (sync uuendab tarnija hinda, parandus jääb kehtima kuni "Taasta").
  */
-function sectionsFor(priceSource: string): FormSection[] {
+function sectionsFor(priceSource: string, costKnown: boolean): FormSection[] {
   if (priceSource !== "SUPPLIER") return SECTIONS;
   return SECTIONS.map((section) =>
     section.title !== "Hind ja nähtavus"
       ? section
       : {
           ...section,
-          description: "Müügihind tuleb tarnijalt. Sinu hind salvestub parandusena — järgmine sync uuendab ainult tarnija hinda. Ostuhinda tarnija ei anna (marginaal teadmata).",
+          description: costKnown
+            ? "Müügihind ja ostuhind tulevad tarnija andmetest. Sinu hind salvestub parandusena — järgmine sync uuendab ainult tarnija hinda."
+            : "Müügihind tuleb tarnijalt. Sinu hind salvestub parandusena — järgmine sync uuendab ainult tarnija hinda. Ostuhinda tarnija ei anna (marginaal teadmata).",
           fields: section.fields.map((field) =>
             field.name === "salePriceCents" ? { ...field, overridable: true, hint: "Tarnija müügihind; muutmisel kehtib sinu hind" } : field,
           ),
@@ -87,8 +89,10 @@ export default async function ListingDetailPage({ params }: PageProps<"/admin/pr
   if (!id) notFound();
   const data = await getListingDetail(id);
   if (!data) notFound();
-  const { effective: listing, supplier, overrides, model } = data;
-  const sections = sectionsFor(listing.priceSource);
+  const { effective: listing, supplier, overrides, model, units } = data;
+  const sections = sectionsFor(listing.priceSource, supplier.supplierPriceCents !== null);
+  const sourcePriceCents = typeof listing.details?.sourcePriceCents === "number" ? listing.details.sourcePriceCents : null;
+  const activeUnits = units.filter((u) => u.available);
   const fields = sections.flatMap((s) => s.fields);
   const defaults = Object.fromEntries(fields.map((f) => [f.name, toInput((listing as Record<string, unknown>)[f.name], EURO_FIELDS.has(f.name) ? "euro" : undefined)]));
   const supplierDisplay = Object.fromEntries(fields.filter((f) => f.overridable).map((f) => [f.name, toDisplay((supplier as Record<string, unknown>)[f.name], EURO_FIELDS.has(f.name) ? "euro" : undefined)]));
@@ -139,6 +143,42 @@ export default async function ListingDetailPage({ params }: PageProps<"/admin/pr
               </ul>
             )}
           </Card>
+          {(sourcePriceCents !== null || units.length > 0) && (
+            <Card title={listing.supplier === "tech" ? "Tech hinnakiri" : "Tarnija seadmed"} description="Ainult adminile — seerianumbreid kliendile ei näidata.">
+              <DefinitionList
+                items={[
+                  { label: "Tarnija", value: listing.supplier === "tech" ? "Tech" : listing.supplier },
+                  ...(sourcePriceCents !== null
+                    ? [
+                        { label: "Hinnakirja hind (M)", value: fmtCents(sourcePriceCents) },
+                        { label: "Ostuhind (M − 20 €)", value: fmtCents(supplier.supplierPriceCents) },
+                        { label: "Müügihind (M + 60 €)", value: fmtCents(supplier.salePriceCents) },
+                        { label: "Kehtiv müügihind", value: overrides.salePriceCents !== undefined ? `${fmtCents(listing.salePriceCents)} (admini parandus)` : fmtCents(listing.salePriceCents) },
+                      ]
+                    : []),
+                  { label: "Laoseis (täpne)", value: listing.stock === null ? null : `${listing.stock} tk` },
+                  { label: "Seisukord", value: listing.grade },
+                  { label: "Tarne", value: listing.deliveryMinDays !== null ? `${listing.deliveryMinDays}–${listing.deliveryMaxDays} tööpäeva` : null },
+                  { label: "Müügis seadmeid", value: `${activeUnits.length} (kokku seotud ${units.length})` },
+                  { label: "Näidis seerianumber", value: activeUnits[0]?.serialNumber ?? units[0]?.serialNumber ?? null },
+                ]}
+              />
+              {units.length > 0 && (
+                <details className="mt-3 text-sm">
+                  <summary className="cursor-pointer text-primary">Seadmed ({units.length})</summary>
+                  <ul className="mt-2 divide-y divide-border">
+                    {units.map((u) => (
+                      <li key={u.id} className="py-1.5">
+                        <span className="font-mono">{u.serialNumber ?? "—"}</span> <span className="text-xs text-muted">Tech ID {u.externalUnitId}</span>{" "}
+                        {u.available ? <span className="text-xs text-success">müügis</span> : <span className="text-xs text-warning">{u.excludedReason ?? u.status}</span>}
+                        {u.sourceSheet && <span className="block text-xs text-muted">{u.sourceSheet.trim()} rida {u.sourceRow}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+            </Card>
+          )}
           <Card title="Tarnija">
             <DefinitionList
               items={[

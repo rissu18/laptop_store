@@ -20,6 +20,7 @@
     "admin:delete": "tsx --conditions=react-server scripts/admin-delete.ts",
     "db:counts": "tsx --conditions=react-server scripts/db-counts.ts",
     "laptopid:sync": "tsx --conditions=react-server scripts/laptopid-sync.ts",
+    "tech:sync": "tsx --conditions=react-server scripts/tech-sync.ts",
     "catalog:archive-mock": "tsx --conditions=react-server scripts/catalog-archive-mock.ts"
   },
   "engines": {
@@ -27,6 +28,7 @@
   },
   "dependencies": {
     "drizzle-orm": "^0.45.4",
+    "exceljs": "4.4.0",
     "lucide-react": "^1.55.0",
     "next": "16.4.0",
     "pg": "^8.23.1",

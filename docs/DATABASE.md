@@ -56,6 +56,9 @@ erDiagram
   product_models ||--o{ product_identifiers : "CASCADE"
   product_models ||--o| icecat_metadata : "CASCADE"
   supplier_listings ||--o{ listing_images : "CASCADE"
+  supplier_listings ||--o{ supplier_inventory_units : "SET NULL"
+  supplier_inventory_units ||--o{ order_item_units : "RESTRICT"
+  order_items ||--o{ order_item_units : "CASCADE"
 ```
 
 Lisaks on seosteta tabelid `login_attempts`, `pricing_rules`, `store_settings`, `system_logs` ja `catalog_sync_runs`.
@@ -81,6 +84,8 @@ erDiagram
 | `product_identifiers` | GTIN, MPN, Icecat ID-d ja admini otsused | `kind` (GTIN / MPN / ICECAT_ID / CONFIRMED_ICECAT_ID / REJECTED_ICECAT_ID), `value`, `source` (SUPPLIER / CURATED / ADMIN) |
 | `supplier_listings` | Tarnija pakkumised (konfiguratsioonid) | tarnija veerud (CPU, RAM, SSD, GPU, ekraan, klaviatuur, seisukord, OS, garantii, aku, laadija, laoseis, tarneaeg, ostuhind, KM režiim, `raw_data`); **saadavus** `available` (true/false/NULL) + `stock` (täpne kogus, NULL = teadmata); `price_source` (PRICING / SUPPLIER); `weight_kg`, `condition_notes`, `details` (JSONB lisaandmed); admin: `sale_price_cents` (SUPPLIER puhul tarnija väli + parandus), `status`, `manual_overrides`; `sku` (meie, unikaalne), UNIQUE (`supplier`, `supplier_product_id`), `first_seen_at`, `last_synced_at`, `last_seen_at` |
 | `listing_images` | Konkreetse pakkumise tarnija pildid (Laptopid.ee) | `supplier_listing_id`, `source`, `source_id` (UNIQUE koos), `position`, `is_hidden`, `thumbnail_url` / `medium_url` / `large_url` (kaug-URL), mõõdud, `alt` |
+| `supplier_inventory_units` | Tarnija füüsilised seadmed (Tech: iga hinnakirja rida) — ainult server/admin | `supplier` + `external_unit_id` (Tech ID, UNIQUE koos), `serial_number` (algkujul), `supplier_listing_id` (konfiguratsioon), `available`, `status` (AVAILABLE / SOLD / NOT_LAPTOP / INVALID / DEFECT / UNKNOWN_NOTE / CONFLICT / MISSING), `sold_by_color`, `excluded_reason`, `source_sheet`, `source_row`, `raw_data` (märkused, värvid — ilma seerianumbrita), `first_seen_at`, `last_seen_at` |
+| `order_item_units` | Tellimuse rea ↔ seadme (seerianumbri) seos — ainult admin | `order_item_id`, `inventory_unit_id` (UNIQUE paar), `admin_email`, `created_at` |
 | `catalog_sync_runs` | Sync'i lukk ja ajalugu | `source`, `status` (RUNNING / SUCCESS / FAILED; osaline UNIQUE: üks RUNNING allika kohta), `trigger`, `lease_until`, `stats` (JSONB), `snapshot_trusted`, `error` |
 | `product_images` | Mudelipildid | `source`, `source_id`, `position`, `is_main`, `is_hidden`, `thumbnail_path` / `medium_path` / `large_path`, mõõdud, `alt`, `content_hash`, `storage_keys` |
 | `icecat_metadata` | Icecati vaste mudeli kohta | `status` (MATCHED / NEEDS_REVIEW / NOT_FOUND / ERROR / REJECTED), `reason`, `match_type`, `confidence`, `icecat_id`, `icecat_title`, `matched_by`, `title_verified`, `image_count`, `checked_at` |
@@ -91,7 +96,7 @@ erDiagram
 | `discount_manufacturers`, `discount_product_models`, `discount_supplier_listings` | Millele kood kehtib / mis on välistatud | `mode` INCLUDE / EXCLUDE, välisvõtmed tootele |
 | `discount_redemptions` | Koodi kasutused tellimustes (valmis tellimuste süsteemiks) | `order_id`, `status` PENDING / CONFIRMED / CANCELLED, snapshot-väljad; UNIQUE (kood, tellimus) |
 | `discount_validation_attempts` | Ebaõnnestunud koodikatsed (piirang) | `ip`, `success`, `created_at` |
-| `system_logs` | Süsteemilogi | `level` (DEBUG / INFO / WARN / ERROR), `source` (APPLICATION / DATABASE / ADMIN / AUTH / ICECAT / LAPTOPID), `message`, `details`, `error_id` |
+| `system_logs` | Süsteemilogi | `level` (DEBUG / INFO / WARN / ERROR), `source` (APPLICATION / DATABASE / ADMIN / AUTH / ICECAT / LAPTOPID / TECH), `message`, `details`, `error_id` |
 
 `store_settings` on koos `manual_overrides`-iga ainus koht, kus JSON on põhjendatud. Seadeid on vähe, neid ei filtreerita ja iga võtme struktuur valideeritakse zod-skeemiga. Filtreeritavad väärtused (RAM, SSD, seisukord, hind …) on päris veerud.
 
@@ -101,6 +106,8 @@ erDiagram
 - `drizzle/0001_discount_codes.sql`: sooduskoodid (6 tabelit). Lisab ainult uusi tabeleid, olemasolevaid ei muuda.
 - `drizzle/0002_orders.sql`: tellimused (`orders`, `order_items`, `order_status_history`, `order_internal_notes`, `order_lookup_attempts`) ja välisvõti `discount_redemptions.order_id → orders` (tühjale tabelile). Lisav; `npm run db:counts` kinnitas enne ja pärast samad arvud. Kokku on 23 tabelit. Kirjeldus: [ORDERS.md](ORDERS.md#8-andmebaas).
 - `drizzle/0003_laptopid_sync.sql`: Laptopid.ee sync — uued tabelid `listing_images`, `catalog_sync_runs` ja `supplier_listings` uued nullitavad/vaikeväärtusega veerud (`available`, `price_source`, `weight_kg`, `condition_notes`, `details`, `last_seen_at`). Ainult lisav; `npm run db:counts` enne ja pärast samad arvud (38 / 46 / 320). Kokku 25 tabelit. Kirjeldus: [LAPTOPID_SYNC.md](LAPTOPID_SYNC.md).
+- `drizzle/0004_tech_inventory_units.sql`: Tech hinnakiri — uued tabelid `supplier_inventory_units` (füüsilised seadmed, seerianumbrid) ja `order_item_units` (tellimuse rea ↔ seade). Ainult lisav; olemasolevaid tabeleid ei muudetud. `npm run db:counts` enne ja pärast samad arvud (2026-10-12: mudelid 177, pakkumised 351, mudelipildid 320, pakkumiste pildid 1134, sooduskoodid 1, tellimused 1 / read 1, adminid 1, seaded 7, audit 81, sync'i käivitused 51). Kokku 27 tabelit (+ `__drizzle_migrations`). Kirjeldus: [TECH_SYNC.md](TECH_SYNC.md).
+- Tech sync ei vajanud `supplier_listings` muudatusi: olemasolevad veerud `stock` (täpne kogus), `available`, `delivery_min_days`/`delivery_max_days` (tarne 1–2 tööpäeva), `supplier_price_cents` (ostuhind), `vat_scheme` ja `details` (hinnakirja hind) katavad vajaduse. `system_logs.source` sai uue väärtuse `TECH` (tekstiveerg, CHECK-i pole).
 - Migratsioonide ajalugu on tabelis `public.__drizzle_migrations`.
 - Uus muudatus: muuda `schema.ts` → `npm run db:generate` → vaata genereeritud SQL üle → `npm run db:migrate`.
 - Migratsiooni SQL commit'itakse Git'i (`.gitignore`-is on erand `!/drizzle/*.sql`).
@@ -143,7 +150,7 @@ Pildikirjed ja Icecati vasted on andmebaasis (`product_images`, `icecat_metadata
 
 Andmemudel on valmis neid vastu võtma (UUID võtmed, `supplier` veerg, snapshot-põhimõte):
 
-- `suppliers`, `sync_errors`: tarnija ühendus (Foxway). Sync'i käivitused on juba olemas (`catalog_sync_runs`, Laptopid.ee)
+- `suppliers`, `sync_errors`: tarnija ühendus (Foxway). Sync'i käivitused on juba olemas (`catalog_sync_runs`, Laptopid.ee ja Tech); tarnija füüsilised seadmed on `supplier_inventory_units` (Tech)
 - `customers` (kliendikontod), `payments` (makseteenuse faas). Tellimused on juba olemas ([ORDERS.md](ORDERS.md))
 - `supplier_orders` (idempotentsusvõti duplikaatide vastu), `shipments`, `tracking_events`
 - `price_history`, `stock_history` (ainult lisatavad)

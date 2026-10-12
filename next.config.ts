@@ -4,6 +4,8 @@ const nextConfig: NextConfig = {
   /* config options here */
   cacheComponents: true,
   partialPrefetching: true,
+  // Tech hinnakirja XLSX-i lugemine (ainult serveris: sync / cron / admin) — Node.js require, mitte bundle
+  serverExternalPackages: ["exceljs"],
   images: {
     // Tarnija tootepildid (Laptopid.ee). Ainult see host ja tootepiltide tee — mitte kogu domeen.
     remotePatterns: [{ protocol: "https", hostname: "laptopid.ee", pathname: "/images/product/**" }],

@@ -1,6 +1,6 @@
 # Sülearvutipood
 
-Kasutatud äriklassi sülearvutite e-pood (Lenovo ThinkPad, Dell Latitude, HP EliteBook …), mille kataloog sünkroniseeritakse Laptopid.ee API-st (tulevikus ka hulgilaost).
+Kasutatud äriklassi sülearvutite e-pood (Lenovo ThinkPad, Dell Latitude, HP EliteBook …), mille kataloog sünkroniseeritakse Laptopid.ee API-st ja Techi Google Sheetsi hinnakirjast (tulevikus ka hulgilaost).
 
 Custom veebirakendus — ei kasuta WordPressi, WooCommerce'i, Shopifyd ega muud e-poe platvormi. Kogu äriloogika on selles repositooriumis ja rakendust saab self-hostida tavalisel Linuxi VPS-il ilma kuutasuta tarkvarata.
 
@@ -18,7 +18,8 @@ Custom veebirakendus — ei kasuta WordPressi, WooCommerce'i, Shopifyd ega muud 
 | 3b — Sooduskoodid | ✅ valmis — vt [docs/DISCOUNTS.md](docs/DISCOUNTS.md) |
 | 5a — Kassa ja tellimused (ilma makseta, testtellimused) | ✅ valmis — vt [docs/ORDERS.md](docs/ORDERS.md) |
 | 4a — Päris kataloog Laptopid.ee API-st (sync → PostgreSQL) | ✅ valmis — vt [docs/LAPTOPID_SYNC.md](docs/LAPTOPID_SYNC.md) |
-| Laptopid.ee automaatne sync iga 5 min (Upstash QStash) | ✅ töötab |
+| Laptopid.ee automaatne sync (Upstash QStash: päeval iga 30 min, öösel iga 2 h) | ✅ töötab |
+| 4b — Teine tarnija: Tech hinnakiri (Google Sheets XLSX → PostgreSQL, füüsilised seadmed + seerianumbrid) | ✅ valmis — vt [docs/TECH_SYNC.md](docs/TECH_SYNC.md) |
 | 4–9 — Foxway, maksed, automaatika, lihvimine, tootmine | planeeritud |
 
 Vt [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md).
@@ -85,6 +86,7 @@ Seejärel ava <http://localhost:3000/admin/login>. Admini kasutajat ega parooli 
 | `ICECAT_CONTENT_TOKEN` | – | Valikuline; saadetakse ainult HTTP päises |
 | `LAPTOPID_API_KEY` | – | Laptopid.ee API võti (ainult server, ainult HTTP päises `X-API-Key`) |
 | `LAPTOPID_API_BASE_URL` | – | Laptopid.ee API kataloog (`https://laptopid.ee/api/sulearvutid/`); sellest ehitatakse `products.php` ja `images.php`. Puudumisel sync ei käivitu (tagavara-URL-i pole) |
+| `TECH_SHEET_URL` | – | Techi avaliku Google Sheetsi hinnakirja aadress (Config, mitte saladus); sellest ehitatakse XLSX ekspordi URL. Puudumisel Tech sync ei käivitu |
 | `CRON_SECRET` | – | Ajastatud sync'i otspunkti kaitse (`Authorization: Bearer …`, vähemalt 16 märki). Puudumisel otspunkt ei käivitu. Vercelis Secret-tüübina |
 
 Muutujad valideeritakse käivitamisel failis [`src/config/env.ts`](src/config/env.ts). Saladusi (API võtmed, paroolid, ühendusstringid) ei commit'ita ega logita kunagi. Prototüübirežiim (hoiatusriba + noindex) on nüüd poe seadetes: admin → Seaded → Pood.
@@ -114,6 +116,7 @@ Ava <http://localhost:3000>.
 | `npm run db:counts` | Olemasolevate andmete arvud (kontroll enne/pärast migratsiooni) |
 | `npm run db:generate` | Uus migratsioon pärast skeemi muutmist |
 | `npm run laptopid:sync` | Laptopid.ee → andmebaas sync (`-- --allow-large-drop` lubab suure muutuse) |
+| `npm run tech:sync` | Tech hinnakiri → andmebaas sync; `-- --dry-run` ainult loeb ja näitab raporti (seerianumbriteta), `-- --allow-large-drop` lubab suure muutuse |
 | `npm run catalog:archive-mock` | Mock-testandmete pakkumised → ARCHIVED (`-- --confirm`; ilma selleta ainult näitab) |
 | `npm run admin:create` | Loo admin (parool küsitakse varjatult); `-- --reset-password` vahetab parooli |
 | `npm run admin:delete -- <e-post>` | Kustuta admin |
@@ -149,13 +152,14 @@ Testitud on äriloogika, mis peab olema kindlasti õige:
 - **autentimine** — scrypt, nõrgad paroolid, sessioonid, sisselogimise piirang, proxy, CSRF päritolu, open redirect;
 - **admin** — parandused vs tarnija väärtus, pildid, andmekvaliteet, hinnastamine (eelvaade/rakendamine), seaded, audit, toimingud ilma sessioonita, SQL-süst;
 - **Laptopid.ee sync** — API skeem, normaliseerimine (pordid, omadused, pildid), allikas + väline ID, idempotentsus (duplikaate ei teki), muutuste uuendamine, sama mudeli konfiguratsioonid eraldi, admini parandus säilib, ostuhind NULL, saadavus ilma koguseta (ei väida "1 tk", 1 tk lubatud, rohkem → teade), API viga / poolik snapshot ei muuda kataloogi, usaldusväärne snapshot võtab puuduva maha ja taastab tagasi tulnu, lukk, otsing, ostukorv, kassa hind andmebaasist, hinnamuutuse tuvastus, vana tellimuse snapshot;
+- **Tech sync** — XLSX värvid (Brand/Model värv = müüdud, toon ei loe; hinna värv ei loe), tabid ja sektsioonid (ainult Laptops), päise kontroll, märkused (bl/id/4g/5g, defektid, e/g/f/w/p, protsendid, laadija, tundmatu), hind M+60 / ostuhind M−20, SSD nõue, tahvlid välja, grupeerimine ja täpne laoseis, dedup/konflikt, snapshot'i ohutus (stiiliinfo puudub, värvide kadu, suur kadu), mudeli taaskasutus, idempotentsus, müük/defekt/taastumine, admini parandus, ostukorv/kassa kogus, marginaalikaitse, tellimuse seerianumbrid, seerianumbri privaatsus, lukk, cron-otspunkt;
 - **sooduskoodid** — tõstutundetus, %, €, maksimum, miinimumsumma, kuupäevad, tootja/mudeli/konfiguratsiooni piirang, välistused, negatiivne summa, marginaalikaitse, kliendi võltsimine, üks kood korraga, kontroll ei suurenda kasutust, piirang, kasutuste reserveerimine/kinnitamine, admini õigused ja audit.
 
 Andmebaasi testid jooksevad päris PostgreSQL-is **ajutises skeemis**, mis testi lõpus kustutatakse. Ilma `DATABASE_URL`-ita jäetakse need vahele. E2E testid (Playwright) lisanduvad koos checkout'iga.
 
 ## Andmebaas
 
-PostgreSQL (Neon) + Drizzle ORM: 25 tabelit, migratsioonid `drizzle/0000_init.sql`, `0001_discount_codes.sql`, `0002_orders.sql` ja `0003_laptopid_sync.sql`. Skeem, ORM valiku põhjendus ja impordi tulemused: [docs/DATABASE.md](docs/DATABASE.md).
+PostgreSQL (Neon) + Drizzle ORM: 27 tabelit, migratsioonid `drizzle/0000_init.sql`, `0001_discount_codes.sql`, `0002_orders.sql`, `0003_laptopid_sync.sql` ja `0004_tech_inventory_units.sql`. Skeem, ORM valiku põhjendus ja impordi tulemused: [docs/DATABASE.md](docs/DATABASE.md).
 
 ## Admin
 
@@ -167,7 +171,11 @@ PostgreSQL (Neon) + Drizzle ORM: 25 tabelit, migratsioonid `drizzle/0000_init.sq
 
 ## Päris kataloog (Laptopid.ee)
 
-Laptopid.ee API → valideerimine → normaliseerimine → sync → PostgreSQL → sama kataloogiteenus kõigile lehtedele (pood, otsing, ostukorv, kassa). Pood ja kassa ei küsi kunagi API-st otse. Laptopid annab ainult saadavuse (mitte kogust): poes "Kohe saadaval", tellida saab 1 tk rea kohta. Müügihind tuleb tarnijalt (admin saab parandada), ostuhind on teadmata. Puuduvad tooted võetakse maha ainult usaldusväärse täieliku nimekirjaga. Pildid on Laptopid.ee kaug-URL-id läbi Next/Image (Git'i neid ei laeta). Sync: admin → Tarnijad → **Sync now**, `npm run laptopid:sync` või kaitstud cron-otspunkt `/api/cron/laptopid-sync` (Upstash QStash iga 5 min; Vercel Hobby enda cron kord päevas varuks). Vt [docs/LAPTOPID_SYNC.md](docs/LAPTOPID_SYNC.md).
+Laptopid.ee API → valideerimine → normaliseerimine → sync → PostgreSQL → sama kataloogiteenus kõigile lehtedele (pood, otsing, ostukorv, kassa). Pood ja kassa ei küsi kunagi API-st otse. Laptopid annab ainult saadavuse (mitte kogust): poes "Kohe saadaval", tellida saab 1 tk rea kohta. Müügihind tuleb tarnijalt (admin saab parandada), ostuhind on teadmata. Puuduvad tooted võetakse maha ainult usaldusväärse täieliku nimekirjaga. Pildid on Laptopid.ee kaug-URL-id läbi Next/Image (Git'i neid ei laeta). Sync: admin → Tarnijad → **Sync now**, `npm run laptopid:sync` või kaitstud cron-otspunkt `/api/cron/laptopid-sync` (Upstash QStash; Vercel Hobby enda cron kord päevas varuks). Vt [docs/LAPTOPID_SYNC.md](docs/LAPTOPID_SYNC.md).
+
+## Teine tarnija (Tech hinnakiri)
+
+Techi avalik Google Sheet → **XLSX** (mitte CSV — müüdud seadmed on tähistatud Brand/Model lahtri taustavärviga) → ainult sülearvutite tabid/sektsioonid → iga rida = füüsiline seade (Tech ID + seerianumber, ainult admin) → sama konfiguratsiooni ja hinnaga seadmed üheks pakkumiseks täpse laoseisuga. Seisukord B, müügihind = hinnakirja hind + 60 € (ostuhind − 20 €), tarne 1–2 tööpäeva. Defekti või tundmatu märkusega seadmed, tahvelarvutid ja vigased read jäävad välja. Sync: admin → Tarnijad → Tech → **Sync now**, `npm run tech:sync` või `/api/cron/tech-sync` (QStash: tööpäeviti 10–20 iga tund + iga öö 03:00). Vt [docs/TECH_SYNC.md](docs/TECH_SYNC.md).
 
 ## Kassa ja tellimused
 
@@ -192,7 +200,8 @@ src/
   integrations/supplier/  SupplierAdapter liides, normaliseerimine, MockSupplierAdapter + testandmed
   integrations/icecat/    Icecati klient, vaste otsimine, pildivalik
   integrations/laptopid/  Laptopid.ee API klient, skeem, normaliseerimine, snapshot'i kontroll
-  server/catalog-sync/    Laptopid.ee sync (lukk, käivitused, pildi mõõdud, cron-kaitse)
+  integrations/tech/      Tech hinnakiri: XLSX allalaadimine/lugemine (ExcelJS), tabid/sektsioonid, värvid, märkused, grupid
+  server/catalog-sync/    Laptopid.ee ja Tech sync (lukk, käivitused, pildi mõõdud, cron-kaitse)
   server/images/          piltide import, töötlus, salvestusruum, Data Quality
 scripts/                  käsurea tööriistad (icecat, db:*, admin:*)
 drizzle/                  andmebaasi migratsioonid (SQL)

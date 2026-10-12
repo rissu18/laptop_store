@@ -224,7 +224,7 @@ Stack trace'i, SQL-viga ega sisemisi ID-sid kliendile ei näidata. Viga logitaks
 ## 15. Tulevik
 
 - **Makse faas:** `PaymentProvider` (Montonio, Maksekeskus või Stripe) annab `CREATED → AWAITING_PAYMENT`, siis webhook → kontroll pakkuja API-st → `PAID` (allikas `PAYMENT`). Lisanduvad `confirmRedemption` ja tellimuse kinnituse e-kiri. Päris tellimused avanevad alles siis (`LIVE` režiim).
-- **Tarnija faas:** laoseisu reserveerimine, Foxway tellimus idempotentsusvõtmega (= tellimuse number), tracking.
+- **Tarnija faas:** laoseisu reserveerimine (Tech: seadme/seerianumbri reserveerimine makse kinnitusega samas tehingus, vt §17), Foxway tellimus idempotentsusvõtmega (= tellimuse number), tracking.
 - **Teavitused:** `OrderNotificationService` (kinnitus, makse, saatmine, tühistamine). Praegu Noop.
 - **Kliendikontod:** `orders` sisaldab kliendi snapshot'i. Hiljem saab tellimuse siduda kliendiga e-posti järgi.
 
@@ -238,3 +238,15 @@ Stack trace'i, SQL-viga ega sisemisi ID-sid kliendile ei näidata. Viga logitaks
 - **Admini leht ei uuenenud pärast tühistamist:** tellimuse toimingud ei tühjenda ühtegi vahemälu silti. Lahendus: Next.js 16 `refresh()` server action'is.
 - **React lähtestab vormi pärast server action'it:** tellimuse otsingu väljad tühjenesid ka vale vastuse järel. Lahendus: sisestatud väärtused tulevad vastusega tagasi ja on vormi vaikeväärtused.
 - **Välisvõti muutis vana testi kehtetuks:** sooduskoodi kasutuse test kasutas väljamõeldud `order_id`-d, mida uus välisvõti enam ei luba. Lahendus: test loob päris tellimused, mis on ühtlasi parem test.
+
+## 17. Tarnija seadmed ja seerianumbrid (Tech)
+
+Tech müüb konkreetseid füüsilisi seadmeid (Tech ID + seerianumber, vt [TECH_SYNC.md](TECH_SYNC.md)). Klient ostab konfiguratsiooni (pakkumise) ega näe seerianumbrit; admin peab teadma, milline seade tellimusele läheb.
+
+- Tabel **`order_item_units`** (`order_item_id` → `order_items`, `inventory_unit_id` → `supplier_inventory_units`, admin, aeg). Unikaalne paar (rida, seade).
+- **Admin → tellimus → "Seerianumbrid":** iga Tech rea juures määratud seadmed (seerianumber + Tech ID) ja valik sama konfiguratsiooni müügis seadmetest. Kogus 1 → 1 seade, kogus 3 → 3 eri seadet. Eemaldamine võimalik. Mõlemad lähevad tegevuslogisse (ainult Tech ID, mitte seerianumber).
+- Kontrollid (`src/server/orders/order-units.ts`, tehingus, `FOR UPDATE`): rida kuulub tellimusele; tellimus pole tühistatud; seade kuulub sama pakkumise alla; seade on müügis; seade pole juba sellel real; määratud seadmeid ≤ kogus; seade pole mõne teise tühistamata **päris** tellimuse küljes (testtellimused ei broneeri).
+- **Testtellimus ei kuluta laoseisu:** määramine on ainult märge — seadet ei reserveerita, `available` ei muutu, pakkumise laoseis ei vähene ja Techi hinnakirja ei muudeta.
+- `order_items` jääb muutumatuks snapshot'iks (mudel, CPU, RAM, salvestus, seisukord, hind, soodustus). Seerianumber on eraldi admini seos.
+- **Klient ei näe seerianumbrit:** kinnitusleht ja tellimuse otsing (`public-order.ts`) seda tabelit ei loe (test kontrollib).
+- **TODO (makse/LIVE faas):** makse kinnitamisel tuleb seade reserveerida/kulutada samas tehingus tellimuse ja makse kinnitusega, käsitleda olukorda, kus Tech müüs seadme vahepeal mujal, ning vajadusel määrata seade automaatselt.

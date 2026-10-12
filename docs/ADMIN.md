@@ -268,3 +268,15 @@ Täielik kirjeldus: [LAPTOPID_SYNC.md](LAPTOPID_SYNC.md).
 - **Audit:** `laptopid.sync` (käivitaja, tulemus, kas suur muutus lubati). Detailid on süsteemilogis (allikas LAPTOPID).
 - **Konfiguratsiooni leht:** Laptopid pakkumisel näidatakse saadavust ("Saadaval (kogus teadmata)"), hinna allikat ja viimast nimekirjas olemise aega. Müügihinda saab parandada (tarnija väärtus jääb nähtavale, "Taasta" viib tagasi).
 - **Andmekvaliteet:** "Puudub laoseis" ei rakendu pakkumistele, mille saadavuse tarnija kinnitab ilma koguseta.
+
+## 17. Tarnijad (Tech hinnakiri)
+
+Täielik kirjeldus: [TECH_SYNC.md](TECH_SYNC.md).
+
+- **`/admin/suppliers` → sektsioon "Tech (hinnakiri)"** (Laptopid.ee kaart on eraldi ja muutmata): viimane edukas sync ja viimane katse; lähteread, müüdud (värvitud), ei ole sülearvuti, defekt, tundmatu märkus, vigased andmed, konfliktid; müügis seadmed, pakkumised, uued / muutunud / muutmata / maha võetud; mudel olemasolev / uus; rikastus olemasolev / Icecat / puudub; näidised (tab!rida, Tech ID, põhjus, toorväärtus — seerianumbrid mitte), rikastuseta mudelid, tabide hoiatused, käivituste tabel. Stale-hoiatus, kui edukas Tech sync on üle 26 h vana.
+- **Sync now (Tech):** `syncTechNowAction` — sama kaitse (`runAdminAction`: sessioon + päritolu/CSRF), sama teenus mis cron. "Luba suur muutus" lubab sync'il jätkata, kui korraga kaoks müügist üle poole seadmetest.
+- **Audit:** `tech.sync` (käivitaja, tulemus, kas suur muutus lubati); detailid süsteemilogis (allikas TECH).
+- **Konfiguratsiooni leht (Tech pakkumine):** kaart "Tech hinnakiri": hinnakirja hind M, ostuhind M − 20 €, müügihind M + 60 €, kehtiv müügihind (parandusega), täpne laoseis, seisukord, tarne 1–2 tööpäeva, müügis seadmete arv, näidis-seerianumber ja lahtikäiv seadmete nimekiri (seerianumber, Tech ID, staatus/põhjus, tab ja rida). Tarnija hinna kirjeldus ütleb, et ostuhind on teada.
+- **Parandused:** nagu Laptopid.ee puhul — tarnija veerud + `manual_overrides`; sync parandusi ei puutu (testitud: parandus 429 € jääb kehtima, tarnija väärtus 440 € on nähtav, "Taasta" viib tagasi).
+- **Tellimuse leht:** kaart "Seerianumbrid (tarnija seadmed)" — vt [ORDERS.md](ORDERS.md#17-tarnija-seadmed-ja-seerianumbrid-tech).
+- Süsteemilogi filtris on uus allikas **Tech**.

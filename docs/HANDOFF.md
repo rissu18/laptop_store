@@ -1,20 +1,20 @@
 # HANDOFF — üleandmine järgmisele Claude Code sessioonile
 
-> Seis: **2026-10-11 õhtu**, haru `main` = `origin/main`. Live: <https://laptop-store-rouge.vercel.app> · GitHub: <https://github.com/rissu18/laptop_store>
+> Seis: **2026-10-12**, haru `main` = `origin/main`. Live: <https://laptop-store-rouge.vercel.app> · GitHub: <https://github.com/rissu18/laptop_store>
 > Kasutaja kirjutab eesti keeles; vasta eesti keeles. Projekt on 12. klassi praktiline lõputöö — dokumentatsioon (docs/, CHANGELOG.md) on osa tööst.
-> Püsireeglid: **AGENTS.md** (ainus juhiste fail). Detailid: docs/LAPTOPID_SYNC.md, ARCHITECTURE.md, DATABASE.md, ADMIN.md, ORDERS.md, DISCOUNTS.md, PROJECT_PLAN.md.
+> Püsireeglid: **AGENTS.md** (ainus juhiste fail). Detailid: docs/LAPTOPID_SYNC.md, **TECH_SYNC.md**, ARCHITECTURE.md, DATABASE.md, ADMIN.md, ORDERS.md, DISCOUNTS.md, PROJECT_PLAN.md.
 
 ## 1. Projekt
 
-Custom e-pood **kasutatud äriklassi sülearvutitele** — **Sülearvutid.ee** (müüja Sülearvutid OÜ, sama ettevõte mis Laptopid.ee). Ilma WordPressi/Shopify jms platvormita. Päris kataloog tuleb **Laptopid.ee API-st** (sync → PostgreSQL). Pood on **prototüübirežiimis**: hoiatusriba, noindex, ainult testtellimused, päris makseid pole.
+Custom e-pood **kasutatud äriklassi sülearvutitele** — **Sülearvutid.ee** (müüja Sülearvutid OÜ, sama ettevõte mis Laptopid.ee). Ilma WordPressi/Shopify jms platvormita. Päris kataloog tuleb **kahest tarnijast**: **Laptopid.ee API** ja **Techi Google Sheetsi hinnakiri** (mõlemad sync → PostgreSQL). Pood on **prototüübirežiimis**: hoiatusriba, noindex, ainult testtellimused, päris makseid pole.
 
 ## 2. Tech stack ja arhitektuur
 
 - **Next.js 16.4** (App Router, `cacheComponents`) + **React 19**, **TypeScript strict** — enne Next-koodi loe `node_modules/next/dist/docs/` (AGENTS.md). **Tailwind 4** (tokenid `src/app/globals.css`, poe värvid `.storefront` plokis), zod 4, Vitest, tsx.
 - **PostgreSQL (Neon) + Drizzle 0.45**. **Lokaalne arendus ja Vercel kasutavad SAMA live-andmebaasi** — kirjuta andmebaasi ainult teadlikult.
 - **Vercel Hobby** (push `main` → automaatne deploy; CLI `npx --yes vercel@63.1.2 …`). **Upstash QStash** käivitab sync'i. Node 24, Windows (PowerShell / Git Bash).
-- Modulaarne monoliit: `src/domain` (puhas äriloogika), `src/server` (server-only: db, catalog, catalog-sync, auth, admin, checkout, orders …), `src/integrations` (laptopid, supplier/mock, icecat), `src/components`, `src/client` (brauseri store'id), `src/config` (company, info-pages). Migratsioonid `drizzle/0000–0003` (kõik lisavad), 25 tabelit.
-- **PostgreSQL on poe tööaegne tõeallikas.** Pood, otsing, ostukorv, kassa ja tellimused loevad ainult andmebaasi (`catalog-service`, `computeCheckout`) — mitte kunagi Laptopid.ee API-d. Raha arvutab ainult server (täisarvulised sendid).
+- Modulaarne monoliit: `src/domain` (puhas äriloogika), `src/server` (server-only: db, catalog, catalog-sync, auth, admin, checkout, orders …), `src/integrations` (laptopid, tech, supplier/mock, icecat), `src/components`, `src/client` (brauseri store'id), `src/config` (company, info-pages). Migratsioonid `drizzle/0000–0004` (kõik lisavad), 27 tabelit. XLSX lugemiseks **ExcelJS 4.4.0** (`serverExternalPackages`, ainult server).
+- **PostgreSQL on poe tööaegne tõeallikas.** Pood, otsing, ostukorv, kassa ja tellimused loevad ainult andmebaasi (`catalog-service`, `computeCheckout`) — mitte kunagi Laptopid.ee API-d ega Google Sheetsi. Raha arvutab ainult server (täisarvulised sendid).
 
 ## 3. Olulised äri- ja andmereeglid
 
@@ -28,6 +28,9 @@ Custom e-pood **kasutatud äriklassi sülearvutitele** — **Sülearvutid.ee** (
 - **Lenovo kuvanimi `Gen N` → `GN`** (`src/domain/catalog/display-name.ts`) **ainult kliendile kuvamisel** (kataloogi mapper: kaart, tooteleht, võrdlus, ostukorv, kassa, tellimuse snapshot). Andmebaasi mudelinimi, slug, SKU, Laptopid ID ja sync'i mudelite sobitamine jäävad **`Gen N`** kujule (muidu tekiks duplikaate). Otsing leiab mõlemad ("T14 G4" ja "T14 Gen 4").
 - **Icecat** = mudeli piltide / rikastuse varuallikas (`product_images`, `icecat_metadata`); ei kirjuta kunagi pakkumise CPU/RAM/SSD/seisukorda jms üle. Pildid: **Laptopid pakkumise pildid (`listing_images`) esmased → mudeli (Icecat) pildid → illustratsioon** (`imagesForDisplay`).
 
+- **Tech (teine tarnija):** iga hinnakirja rida = füüsiline seade (`supplier_inventory_units`: Tech ID + seerianumber, **ainult admin**). Sama konfiguratsiooni + hinnaga müügis seadmed = üks SupplierListing, **täpne laoseis** ("Partnerlaos 4 tk"). Brand/Model lahtri värv = müüdud. Seisukord **B**, hind **M + 60 €**, ostuhind **M − 20 €**, KM **MARGIN**, tarne **1–2 tööpäeva** (pakkumise `delivery_min/max_days`), garantii NULL. Defekt / tundmatu märkus / tahvel / detachable / vigased andmed / mitte-SSD → välja. Täpselt: docs/TECH_SYNC.md.
+- **Mudeli piltide varu:** kui mudelil Icecati pilte pole, kasutatakse sama mudeli teise müügis pakkumise tarnija pilte (nt Techi pakkumisel Laptopid.ee fotod).
+
 ## 4. Laptopid.ee sync — praegune seis
 
 Täielik kirjeldus: **docs/LAPTOPID_SYNC.md**.
@@ -38,6 +41,17 @@ Täielik kirjeldus: **docs/LAPTOPID_SYNC.md**.
 - **Automaatne sync: Upstash QStash, prototüübi ressursisäästlik ajastus (Eesti aeg, `CRON_TZ=Europe/Tallinn`):** 08:00–23:30 iga 30 min (schedule `scd_696gjRsEk4PkPVQdGeFCn4qGKqco`, `*/30 8-23 * * *`) ja 00:00–06:00 iga 2 h (`scd_76f6zhpjE9tY9t4yedt6aR67Q94x`, `0 0-6/2 * * *`) — 36 käivitust ööpäevas (enne iga 5 min = 288), et säästa Neoni compute'i; enne päris poe avamist vaata sagedus üle. → `GET /api/cron/laptopid-sync` päisega `Authorization: Bearer <CRON_SECRET>` (401 vale/puuduv, 503 seadistamata, 200 SUCCESS/BUSY, 502 FAILED), korduskatseid 0. **Verceli igapäevane cron** (`vercel.json`, 03:00 UTC) on varuvõrk.
 - `CRON_SECRET` on Vercelis Secret-tüüpi (roteeritud 2026-10-11, väärtust ei saa lugeda). QStashi token (`QSTASH_TOKEN`, `QSTASH_URL`) on ainult kohalikus `.env.local` failis schedule'i haldamiseks.
 - Käsitsi: admin → Tarnijad → **Sync now** (tühjendab ka poe vahemälu) või `npm run laptopid:sync`. Admin → Tarnijad → "Sync'i seis" näitab hoiatust "Automaatne sünkroonimine ei ole ajakohane.", kui edukas sync on Eesti aja järgi päeval (08–00) üle 45 min või öösel (00–08) üle 150 min vana (ainult adminis).
+
+## 4b. Tech hinnakirja sync — praegune seis
+
+Täielik kirjeldus: **docs/TECH_SYNC.md**.
+
+- Allikas `TECH_SHEET_URL` (Config, Vercel Production/Preview/Development + `.env.local`) → **XLSX** (mitte CSV). Tabid: `Used Laptops `, `Laptops 2` tervikuna; `Laptops 3` ja `Incoming …` ainult "Laptops" sektsioon; Monitors/Desktops/Parts ignoreeritakse.
+- Seis 2026-10-12: 730 sülearvuti rida → müüdud 248, ei ole sülearvuti 106, defekt 9, tundmatu märkus 31, vigased 12 → **324 müügis seadet, 203 pakkumist poes** (206 andmebaasis, 3 laoseisuga 0); 712 seadet tabelis; 140 mudelit (45 olemasolevat, 95 uut; rikastus puudub 96-l). Poes kokku 508 sülearvutit (305 Laptopid + 203 Tech).
+- Kasutaja otsused (2026-10-12): `e/g/f/w/p` ignoreeritakse; tahvlid **ja** detachable'id (Surface Go/Pro/Book, Elite x2, CF-33 …) välja; KM režiim MARGIN; `5g` = 5G tunnus.
+- Käivitamine: admin → Tarnijad → Tech → **Sync now**; `GET /api/cron/tech-sync` (CRON_SECRET); `npm run tech:sync`; **`npm run tech:sync -- --dry-run`** (ainult lugemine, raport seerianumbriteta). Eraldi DB-lukk (allikas TECH).
+- **QStash:** tööpäeviti 10:00–20:00 iga täistund + iga öö 03:00 (Europe/Tallinn) — seadistatakse pärast production endpointi kontrolli.
+- Seerianumbrid: admin konfiguratsiooni leht (seadmete nimekiri) ja tellimuse leht (`order_item_units`, admin määrab). Testtellimus ei kuluta laoseisu. Kliendile ei kuvata (testitud + live-HTML 0 tabamust).
 
 ## 5. Storefront, kassa, sisu
 
@@ -53,7 +67,7 @@ Täielik kirjeldus: **docs/LAPTOPID_SYNC.md**.
 
 ## 6. Testid ja kontrollid
 
-- **393 testi / 41 testifaili — kõik läbivad** (`npm test`, DB testid päris Neonis ajutises skeemis `test_xxxx`, ~45 s).
+- **480 testi / 46 testifaili — kõik läbivad** (`npm test`, DB testid päris Neonis ajutises skeemis `test_xxxx`, ~45 s).
 - `npm run typecheck` ✅ · `npm run lint` ✅ · `npm run build` ✅ (Git Bashis: `set -a; . ./.env.development.local; . ./.env.local; set +a; npm run build`).
 - Viimane production deploy (`be11d1d`): **Ready**.
 - Dev-serveri vana CSS (Turbopacki vahemälu) → peata server, kustuta `.next`, käivita uuesti. `next start` ei loe `.env.development.local` faili (kassa/DB ei tööta) — brauseris testimiseks kasuta `dev`. Brauseripaan on sageli peidetud → Suspense jääb `hidden` alla ja `requestAnimationFrame`/kerimissündmused ei käi; tee enne kuvatõmmis.
@@ -61,7 +75,11 @@ Täielik kirjeldus: **docs/LAPTOPID_SYNC.md**.
 ## 7. Viimased commitid
 
 ```
-be11d1d  feat(storefront): kaardi pildisirvija, mobiilse võrdluse parandus, filtrid, Lenovo G-nimed   ← viimane funktsionaalne
+(Tech)   feat(tech): teine tarnija — Tech hinnakiri (Google Sheets XLSX → PostgreSQL)   ← viimane funktsionaalne
+9f8994d  fix(admin): stale-sync hoiatus järgib QStashi päeva/öö ajastust
+727671c  docs: Laptopid.ee sync'i QStash ajastus prototüübi säästurežiimis
+f1e8df2  perf: kitsam poe kataloogipäring ja piiratud pildilaiused
+be11d1d  feat(storefront): kaardi pildisirvija, mobiilse võrdluse parandus, filtrid, Lenovo G-nimed
 c4ba28f  content: tolmust puhastamise hind eemaldatud (Garantii ja E-poe tingimused)
 5457435  feat(checkout): kohustuslik E-poe tingimustega nõustumine; tingimuste ja infolehtede parandused
 664dbbd  docs: Laptopid.ee sync iga 5 min Upstash QStashiga
@@ -73,6 +91,12 @@ a77e106  fix(laptopid): "Uus" seisukord, Lenovo V-seeria ja LAPTOPID_API_BASE_UR
 ## 8. Lahtised teemad (ära lahenda omal algatusel)
 
 - **Foxway** integratsioon — alustamata.
+- **Tech — tundmatud märkused (31 seadet müügist väljas):** Apple `n-650`/`sr-420` (aku tsüklid?), aastad, `safety`/`saf`, `new KB`/`new lcd`, `type-c`, `L00164…`, `0`, `M.M.`, `kolonki`, `5min`, `1 aku ok`, `war 35` — tähendus vajab kasutaja kinnitust, siis lisada `src/integrations/tech/tech-notes.ts` reeglitesse. Nimekiri: admin → Tarnijad → Tech.
+- **Tech — rikastus:** 96 mudelil pole pilte ega mudeliandmeid (Tech ei anna GTIN/MPN-i, Icecati auto-vaste pole võimalik, püsiv pildisalvestus R13 puudub) → poes illustratsioon. Lahendus: käsitsi Icecati vasted adminis või tulevikus muu allikas.
+- **Tech — hinnamuutus:** M muutub → uus pakkumine (hind on identiteedi osa), vana jääb laoseisuga 0 ja selle admini parandus ei kandu üle. Kui see segab, arutada (nt paranduse ülekandmine).
+- **Tech — LIVE faas:** seadme/seerianumbri reserveerimine ja kulutamine makse kinnitusega samas tehingus; Techi samaaegse müügi käsitlus (vt TECH_SYNC.md §12).
+- **Tech — admini UI brauseris kontrollimata:** admini lehed (Tarnijad → Tech, konfiguratsiooni seadmed, tellimuse seerianumbrid, Sync now) on build'i, tüüpide ja server-testidega kaetud, aga sessioonis ei saanud admini parooliga sisse logida — vaata üle.
+- **Tech — mudelinimede kirjapildid:** nt "Toughbook CF-54MK2" vs "CF-54 MK2", "Surface Laptop 3 15icnh" tekitavad eraldi mudeleid; 13 mudelit tundmatu seeriaga (taksonoomia hoiatus).
 - **Päris maksed** (makseteenus, webhook, `confirmRedemption`) — alustamata; **prototüüp → LIVE** lülitus tulevikus.
 - **Tarnehind** (6,99 € näidis) vajab enne avamist lõplikku otsust; pakiautomaadid puuduvad.
 - **Garantii/tagastuse/tingimuste** lõplik juriidiline ülevaatus enne avamist (nt p 9.12–9.13 tellimuskinnitus/müügipakkumiste nõusolek, 9.2–9.3 kaardimaksed kirjeldavad tulevikku).

@@ -60,12 +60,13 @@ src/
     logging/              struktureeritud logi + system_logs
     discounts/            sooduskoodi laadimine, ostukorvi kontroll, piirang, kasutused (redemptions)
     checkout/             kassa arvutus (computeCheckout) ja server action'id
-    orders/               tellimuse loomine (idempotentne tehing), avalik vaade, otsing, teavitused (Noop)
+    orders/               tellimuse loomine (idempotentne tehing), avalik vaade, otsing, teavitused (Noop), seadmete/seerianumbrite määramine (admin)
     payments/             PaymentProvider liides (praegu ühtegi pakkujat pole)
-    catalog-sync/         tarnija sync (Laptopid.ee): lukk + käivitused, pildi mõõdud, ajastatud otspunkti kaitse
+    catalog-sync/         tarnija sync (Laptopid.ee, Tech): lukk + käivitused, pildi mõõdud, ajastatud otspunkti kaitse
   integrations/           välised süsteemid adapterite taga
     supplier/             SupplierAdapter, normaliseerimine, MockSupplierAdapter
     laptopid/             Laptopid.ee API klient (server-only), skeem, normaliseerimine, snapshot'i kontroll
+    tech/                 Tech hinnakiri: XLSX allalaadimine/lugemine (ExcelJS, server-only), tabid/sektsioonid, värvid, märkused, grupid
     payment/              PaymentProvider (Phase 6)
     email/                EmailProvider (Phase 7)
     shipping/             ShippingProvider (Phase 5)
@@ -191,6 +192,28 @@ Laptopid.ee API → valideerimine → normaliseerimine → sync (lukk, üks tehi
 - Pakkumise pildid eraldi tabelis `listing_images` (kaug-URL-id, Next/Image), mudeli pildid (Icecat) `product_images`.
 
 Täpsemalt: [LAPTOPID_SYNC.md](LAPTOPID_SYNC.md).
+
+## Tech hinnakiri (teine päris tarnija)
+
+Techi laoseis on avalikus Google Sheetsis, kus iga rida on üks füüsiline seade. Andmevoog on sama põhimõttega — **pood ei loe Google Sheetsi kunagi**:
+
+```
+Google Sheet → XLSX eksport (mitte CSV: müüdud = Brand/Model lahtri taustavärv) → ExcelJS (ainult server)
+  → ainult sülearvutite tabid/sektsioonid → read → füüsilised seadmed (dedup Tech ID järgi)
+  → snapshot'i kontroll (stiiliinfo, hinnad, ID-d, konfliktid, suur kadu) → sync (lukk TECH, üks tehing)
+  → product_models (olemasolev mudel taaskasutatakse) + supplier_listings (konfiguratsioon) + supplier_inventory_units (seadmed)
+  → catalog-service → pood / otsing / ostukorv / kassa
+```
+
+- **Kolm taset:** ProductModel (mudel) → SupplierListing (müüdav konfiguratsioon + hinnakirja hind; laoseis = müügis seadmete arv) → SupplierInventoryUnit (füüsiline seade: Tech ID, seerianumber, staatus). Sama konfiguratsiooni seadmed = üks tootekaart ("Partnerlaos 4 tk").
+- **Identiteedid:** seade = (`tech`, Tech ID); pakkumine = räsi(konfiguratsioon + hind) — mitte rida, tab ega seerianumber.
+- **Tarneaeg pakkumise tasemel** (`delivery_min_days`/`delivery_max_days`, Tech 1–2 tööpäeva) — üldine väli, UI-s pole tarnijapõhiseid tingimusi; Laptopid.ee (tarneajata) kuvab endiselt "Kohe saadaval".
+- **Teada ostuhind:** `supplier_price_cents` = M − 20 €, KM režiim MARGIN → olemasolev sooduskoodi marginaalikaitse töötab Techi pakkumistel.
+- **Seerianumbrid ainult serveris/adminis** (`supplier_inventory_units`, `order_item_units`); poe kataloogipäring neid tabeleid ei loe.
+- **Mudeli vaste** on jagatud (`src/integrations/supplier/model-resolver.ts`, sama mis Laptopid.ee): täpne kanooniline slug, muidu uus mudel. Tech olemasolevat mudelit ei muuda.
+- **Mudeli piltide varu:** kui mudelil Icecati pilte pole, kasutab mapper sama mudeli teise müügis pakkumise tarnija pilte (nt Laptopid.ee fotod Techi pakkumisel), märgitud illustratiivseks.
+
+Täpsemalt: [TECH_SYNC.md](TECH_SYNC.md).
 
 ## Hulgilao integratsioon
 

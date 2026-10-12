@@ -281,6 +281,53 @@ export const listingImages = pgTable(
   ],
 );
 
+export const INVENTORY_UNIT_STATUSES = ["AVAILABLE", "SOLD", "NOT_LAPTOP", "INVALID", "DEFECT", "UNKNOWN_NOTE", "CONFLICT", "MISSING"] as const;
+export type InventoryUnitStatus = (typeof INVENTORY_UNIT_STATUSES)[number];
+
+/**
+ * Tarnija füüsiline seade (nt Tech: iga hinnakirja rida = üks konkreetne sülearvuti). Mitu sama konfiguratsiooniga
+ * seadet = üks SupplierListing (müüdav konfiguratsioon), mille laoseis = saadaval seadmete arv.
+ * Seerianumber on AINULT serveris/adminis — poe päringud seda tabelit ei loe ja kliendile seda ei kuvata.
+ * Ajalugu ei kustutata: müüdud / kadunud seade jääb alles (available=false + põhjus).
+ */
+export const supplierInventoryUnits = pgTable(
+  "supplier_inventory_units",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** Tarnija kood, nt "tech" */
+    supplier: text("supplier").notNull(),
+    /** Tarnija seadme ID (Tech: veerg D) — füüsilise seadme identiteet koos tarnijaga */
+    externalUnitId: text("external_unit_id").notNull(),
+    /** Seerianumber tarnija kujul (ainult trim; komasid/lisakoode ei tükeldata) */
+    serialNumber: text("serial_number"),
+    /** Müüdav konfiguratsioon, kuhu seade kuulub (viimati teada); NULL = vigane konfiguratsioon */
+    supplierListingId: uuid("supplier_listing_id").references(() => supplierListings.id, { onDelete: "set null" }),
+    /** Kas seade on müügis (loetakse pakkumise laoseisu) */
+    available: boolean("available").notNull().default(false),
+    status: text("status", { enum: INVENTORY_UNIT_STATUSES }).notNull(),
+    /** Brand/Model lahter oli värvitud (tarnija märkis müüduks) */
+    soldByColor: boolean("sold_by_color").notNull().default(false),
+    /** Miks seade pole müügis (inimloetav, adminile) */
+    excludedReason: text("excluded_reason"),
+    sourceSheet: text("source_sheet"),
+    sourceRow: integer("source_row"),
+    /** Lähterea toorväärtused (sh märkused) — admini diagnostika, äriloogika ei loe */
+    rawData: jsonb("raw_data"),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    /** Viimane snapshot, kus seade oli hinnakirjas */
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("supplier_inventory_units_supplier_unit_uq").on(t.supplier, t.externalUnitId),
+    index("supplier_inventory_units_listing_idx").on(t.supplierListingId, t.available),
+    check(
+      "supplier_inventory_units_status_ck",
+      sql`status in ('AVAILABLE', 'SOLD', 'NOT_LAPTOP', 'INVALID', 'DEFECT', 'UNKNOWN_NOTE', 'CONFLICT', 'MISSING')`,
+    ),
+  ],
+);
+
 export const SYNC_RUN_STATUSES = ["RUNNING", "SUCCESS", "FAILED"] as const;
 export const SYNC_RUN_TRIGGERS = ["ADMIN", "CRON", "CLI", "TEST"] as const;
 
@@ -422,7 +469,7 @@ export const auditLogs = pgTable(
 );
 
 export const LOG_LEVELS = ["DEBUG", "INFO", "WARN", "ERROR"] as const;
-export const LOG_SOURCES = ["APPLICATION", "DATABASE", "ADMIN", "AUTH", "ICECAT", "LAPTOPID"] as const;
+export const LOG_SOURCES = ["APPLICATION", "DATABASE", "ADMIN", "AUTH", "ICECAT", "LAPTOPID", "TECH"] as const;
 
 export const systemLogs = pgTable(
   "system_logs",
@@ -691,6 +738,29 @@ export const orderItems = pgTable(
     index("order_items_order_idx").on(t.orderId, t.position),
     check("order_items_amounts_ck", sql`quantity > 0 AND unit_price_cents >= 0 AND line_subtotal_cents = unit_price_cents * quantity AND discount_amount_cents >= 0 AND line_total_cents = line_subtotal_cents - discount_amount_cents`),
   ],
+);
+
+/**
+ * Tellimuse rea ↔ tarnija füüsilise seadme (seerianumbri) seos — AINULT admin. Admin määrab, milline konkreetne
+ * seade tellimusele läheb (kogus 3 → 3 eri seadet). Kliendile (kinnitusleht, tellimuse otsing) seda ei näidata.
+ * Selles faasis on see ainult märge: seadet ei reserveerita ega märgita müüduks (testtellimus ei kuluta laoseisu).
+ * Päris makse faasis seotakse reserveerimine/kulutamine tehinguga (vt docs/TECH_SYNC.md).
+ */
+export const orderItemUnits = pgTable(
+  "order_item_units",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orderItemId: uuid("order_item_id")
+      .notNull()
+      .references(() => orderItems.id, { onDelete: "cascade" }),
+    inventoryUnitId: uuid("inventory_unit_id")
+      .notNull()
+      .references(() => supplierInventoryUnits.id, { onDelete: "restrict" }),
+    adminUserId: uuid("admin_user_id").references(() => adminUsers.id, { onDelete: "set null" }),
+    adminEmail: text("admin_email"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("order_item_units_uq").on(t.orderItemId, t.inventoryUnitId), index("order_item_units_unit_idx").on(t.inventoryUnitId)],
 );
 
 export const orderStatusHistory = pgTable(

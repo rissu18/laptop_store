@@ -10,7 +10,7 @@ import type { ListingDetails } from "./listing-details";
  * Seetõttu ei ole siin ostuhinda ega tarnija andmeid (vt server/catalog).
  */
 
-export const BRAND_CODES = ["lenovo", "dell", "hp", "fujitsu", "samsung", "apple"] as const;
+export const BRAND_CODES = ["lenovo", "dell", "hp", "fujitsu", "samsung", "apple", "microsoft", "panasonic", "asus", "acer", "getac"] as const;
 export type BrandCode = (typeof BRAND_CODES)[number];
 
 export const BRAND_NAMES: Record<BrandCode, string> = {
@@ -20,6 +20,11 @@ export const BRAND_NAMES: Record<BrandCode, string> = {
   fujitsu: "Fujitsu",
   samsung: "Samsung",
   apple: "Apple",
+  microsoft: "Microsoft",
+  panasonic: "Panasonic",
+  asus: "ASUS",
+  acer: "Acer",
+  getac: "Getac",
 };
 
 export const CPU_FAMILIES = [

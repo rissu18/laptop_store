@@ -15,6 +15,11 @@ const BRAND_ALIASES: Record<string, BrandCode> = {
   fujitsu: "fujitsu",
   samsung: "samsung",
   apple: "apple",
+  microsoft: "microsoft",
+  panasonic: "panasonic",
+  asus: "asus",
+  acer: "acer",
+  getac: "getac",
 };
 
 export function parseBrand(raw: string): BrandCode | null {

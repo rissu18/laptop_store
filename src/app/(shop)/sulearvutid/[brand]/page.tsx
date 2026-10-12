@@ -15,6 +15,11 @@ const BRAND_INTROS: Record<BrandCode, string> = {
   fujitsu: "Fujitsu LifeBook on Fujitsu äriklassi sülearvutite seeria.",
   samsung: "Samsung Galaxy Book on Samsungi õhukeste sülearvutite seeria.",
   apple: "Apple MacBook Air ja MacBook Pro on macOS-iga sülearvutid.",
+  microsoft: "Microsoft Surface Laptop on Microsofti õhukeste sülearvutite seeria.",
+  panasonic: "Panasonic Toughbook on vastupidavate (rugged) sülearvutite seeria.",
+  asus: "ASUS ExpertBook on ASUSe äriklassi sülearvutite seeria.",
+  acer: "Acer Aspire on Aceri igapäevaste sülearvutite seeria.",
+  getac: "Getac valmistab vastupidavaid (rugged) sülearvuteid.",
 };
 
 function isBrand(value: string): value is BrandCode {

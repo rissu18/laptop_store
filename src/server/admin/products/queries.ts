@@ -5,7 +5,7 @@ import type { ListingIssue, ModelIssue } from "@/domain/admin/data-quality-rules
 import { effectiveListing, effectiveModel } from "@/server/catalog/db-catalog-mapper";
 import { requireAdmin } from "@/server/auth/auth";
 import { getDb } from "@/server/db/client";
-import { icecatMetadata, productIdentifiers, productImages, productModels, supplierListings } from "@/server/db/schema";
+import { icecatMetadata, productIdentifiers, productImages, productModels, supplierInventoryUnits, supplierListings } from "@/server/db/schema";
 
 /**
  * Admini andmepäringud tootekataloogi jaoks. Iga eksporditud funktsioon kontrollib ise admini
@@ -219,11 +219,28 @@ export async function getListingDetail(id: string) {
     .where(eq(supplierListings.id, id))
     .limit(1);
   if (!row) return null;
+  // Tarnija füüsilised seadmed (nt Tech: Tech ID + seerianumber) — ainult admin; müügis olevad eespool
+  const units = await db
+    .select({
+      id: supplierInventoryUnits.id,
+      externalUnitId: supplierInventoryUnits.externalUnitId,
+      serialNumber: supplierInventoryUnits.serialNumber,
+      available: supplierInventoryUnits.available,
+      status: supplierInventoryUnits.status,
+      excludedReason: supplierInventoryUnits.excludedReason,
+      sourceSheet: supplierInventoryUnits.sourceSheet,
+      sourceRow: supplierInventoryUnits.sourceRow,
+      lastSeenAt: supplierInventoryUnits.lastSeenAt,
+    })
+    .from(supplierInventoryUnits)
+    .where(eq(supplierInventoryUnits.supplierListingId, id))
+    .orderBy(desc(supplierInventoryUnits.available), asc(supplierInventoryUnits.externalUnitId));
   return {
     supplier: row.listing,
     effective: effectiveListing(row.listing),
     overrides: (row.listing.manualOverrides ?? {}) as Record<string, unknown>,
     model: effectiveModel(row.model),
+    units,
   };
 }
 
