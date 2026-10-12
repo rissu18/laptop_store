@@ -108,7 +108,8 @@ storefront_cpu AS (
     regexp_match(e.cpu_text, '\yCore\s*Ultra\s*([579])\s*(\d)\d{2}[a-z]*', 'i') AS rx_ultra,
     regexp_match(e.cpu_text, '\yi([3579])[-\s]?(\d{4,5})[a-z0-9]*', 'i') AS rx_core,
     regexp_match(e.cpu_text, '\yAMD\s+(?:Ryzen\s+)?AI\s*([579])\s*(?:PRO\s*)?(\d)\d{2}\y', 'i') AS rx_ai,
-    regexp_match(e.cpu_text, '\yRyzen\s*([3579])\s*(?:PRO\s*)?(\d)\d{3}[a-z]*', 'i') AS rx_ryzen
+    regexp_match(e.cpu_text, '\yRyzen\s*([3579])\s*(?:PRO\s*)?(\d)\d{3}[a-z]*', 'i') AS rx_ryzen,
+    e.cpu_text ~* '\ySnapdragon\s+X\y' AS rx_snapdragon
   FROM storefront_eligible e
 ),
 storefront_keys AS (
@@ -120,6 +121,7 @@ storefront_keys AS (
       WHEN e.rx_core IS NOT NULL THEN 'intel-core-i' || e.rx_core[1]
       WHEN e.rx_ai IS NOT NULL THEN 'amd-ryzen-ai-' || e.rx_ai[1]
       WHEN e.rx_ryzen IS NOT NULL THEN 'amd-ryzen-' || e.rx_ryzen[1]
+      WHEN e.rx_snapdragon THEN 'qualcomm-snapdragon-x'
     END AS cpu_family,
     CASE
       WHEN e.cpu_gen_db <> '' THEN e.cpu_gen_db

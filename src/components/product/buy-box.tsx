@@ -1,9 +1,10 @@
-import { Check, CreditCard, PlugZap, RotateCcw, ShieldCheck, TrendingUp } from "lucide-react";
+import { BatteryFull, Check, CreditCard, PlugZap, RotateCcw, ShieldCheck, TrendingUp } from "lucide-react";
 import { modelFit } from "@/domain/catalog/model-fit";
 import { BRAND_NAMES, type CatalogItem } from "@/domain/catalog/types";
 import { formatEur } from "@/domain/money/money";
 import { AddToCartButton } from "./add-to-cart-button";
 import { CompareToggle } from "./compare-toggle";
+import { ConditionNotices } from "./condition-notices";
 import { GradeExplainer } from "./grade-explainer";
 import { PriceTag, VatNote } from "./price-tag";
 import { StockFreshness } from "./stock-freshness";
@@ -26,6 +27,7 @@ export function ProductHeading({ item }: { item: CatalogItem }) {
       <div className="mt-3">
         <GradeExplainer grade={variant.grade} />
       </div>
+      <ConditionNotices notices={variant.details.conditionNotices} className="mt-3" />
       {variant.conditionNotes && (
         <p className="mt-2 whitespace-pre-line text-sm text-muted">
           <span className="font-medium text-text">Märkus: </span>
@@ -46,8 +48,10 @@ export function PurchasePanel({ item, showSecurePayment }: { item: CatalogItem; 
 
   const assurances = [
     variant.warrantyMonths && { icon: ShieldCheck, text: `Garantii ${variant.warrantyMonths} kuud` },
+    variant.details.batteryWarrantyMonths && { icon: BatteryFull, text: `Aku garantii ${variant.details.batteryWarrantyMonths} kuud` },
     { icon: RotateCcw, text: "14-päevane taganemisõigus" },
-    variant.chargerIncluded === true && { icon: PlugZap, text: "Laadija komplektis" },
+    // Foxway: "Laadija kaasas" / "Originaalkarp ja laadija kaasas" (Unboxed puhul lisame laadija ise)
+    variant.chargerIncluded === true && { icon: PlugZap, text: variant.details.chargerLabel ?? "Laadija komplektis" },
     showSecurePayment && { icon: CreditCard, text: "Turvaline maksmine" },
   ].filter((a): a is { icon: typeof ShieldCheck; text: string } => Boolean(a));
 

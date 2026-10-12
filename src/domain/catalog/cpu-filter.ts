@@ -21,6 +21,8 @@ const INTEL_CORE = /\bi([3579])[-\s]?(\d{4,5})[a-z0-9]*/i;
 // "AMD Ryzen AI 7 PRO 360" ja tarnija lühem kirjapilt "AMD AI 7 PRO 360"
 const AMD_AI = /\bAMD\s+(?:Ryzen\s+)?AI\s*([579])\s*(?:PRO\s*)?(\d)\d{2}\b/i;
 const AMD_RYZEN = /\bRyzen\s*([3579])\s*(?:PRO\s*)?(\d)\d{3}[a-z]*/i;
+// Qualcomm Snapdragon X (Elite / Plus / X) — Windows on ARM (Foxway)
+const SNAPDRAGON_X = /\bSnapdragon\s+X\b/i;
 
 // ---- Perekond ----------------------------------------------------------------
 
@@ -37,10 +39,11 @@ export function cpuFilterFamily(cpu: CpuInfo): string | null {
   if (ai) return `amd-ryzen-ai-${ai[1]}`;
   const ryzen = text.match(AMD_RYZEN);
   if (ryzen) return `amd-ryzen-${ryzen[1]}`;
+  if (SNAPDRAGON_X.test(text)) return "qualcomm-snapdragon-x";
   return null;
 }
 
-const FAMILY_PATTERN = /^(intel-core-i[3579]|intel-core-ultra-[579]|amd-ryzen-[3579]|amd-ryzen-ai-[579]|apple-m\d{1,2}(-(pro|max|ultra))?)$/;
+const FAMILY_PATTERN = /^(intel-core-i[3579]|intel-core-ultra-[579]|amd-ryzen-[3579]|amd-ryzen-ai-[579]|apple-m\d{1,2}(-(pro|max|ultra))?|qualcomm-snapdragon-x)$/;
 
 export function isCpuFamilyValue(value: string): boolean {
   return FAMILY_PATTERN.test(value);
@@ -57,10 +60,11 @@ export function cpuFamilyLabel(value: string): string {
   if (m) return `AMD Ryzen ${m[1]}`;
   m = value.match(/^apple-m(\d+)(?:-(pro|max|ultra))?$/);
   if (m) return `Apple M${m[1]}${m[2] ? ` ${m[2][0].toUpperCase()}${m[2].slice(1)}` : ""}`;
+  if (value === "qualcomm-snapdragon-x") return "Qualcomm Snapdragon X";
   return value;
 }
 
-const FAMILY_GROUPS = ["intel-core-i", "intel-core-ultra-", "amd-ryzen-", "amd-ryzen-ai-", "apple-m"];
+const FAMILY_GROUPS = ["intel-core-i", "intel-core-ultra-", "amd-ryzen-", "amd-ryzen-ai-", "apple-m", "qualcomm-"];
 const APPLE_TIERS = ["", "pro", "max", "ultra"];
 
 function familySortKey(value: string): [number, number, number] {
@@ -74,6 +78,7 @@ function familySortKey(value: string): [number, number, number] {
   if (m) return [FAMILY_GROUPS.indexOf("intel-core-ultra-"), Number(m[1]), 0];
   m = value.match(/^intel-core-i(\d)$/);
   if (m) return [FAMILY_GROUPS.indexOf("intel-core-i"), Number(m[1]), 0];
+  if (value.startsWith("qualcomm-")) return [FAMILY_GROUPS.indexOf("qualcomm-"), 0, 0];
   return [FAMILY_GROUPS.length, 0, 0];
 }
 

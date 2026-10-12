@@ -6,6 +6,7 @@ import type { CatalogItem } from "@/domain/catalog/types";
 import { ButtonLink } from "@/components/ui/button";
 import { AddToCartButton } from "./add-to-cart-button";
 import { CompareToggle } from "./compare-toggle";
+import { ConditionNoticeLine } from "./condition-notices";
 import { GradeBadge } from "./grade-badge";
 import { PriceTag } from "./price-tag";
 import { ProductBadges } from "./product-badges";
@@ -63,6 +64,7 @@ export function ProductCard({ item, priority }: { item: CatalogItem; priority?: 
           <GradeBadge grade={variant.grade} size="sm" />
           {extras.length > 0 && <span className="text-xs text-muted">{extras.join(" · ")}</span>}
         </div>
+        <ConditionNoticeLine notices={variant.details.conditionNotices} />
 
         <div className="mt-auto space-y-2 pt-1">
           <PriceTag price={variant.price} />

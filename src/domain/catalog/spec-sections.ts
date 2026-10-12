@@ -58,6 +58,7 @@ export function buildSpecSections({ product, variant }: CatalogItem): SpecSectio
       row("Protsessori põlvkond", variant.cpu.generationKey ? cpuGenerationLabel(variant.cpu.generationKey) : null),
       row("Mälu tüüp", variant.ramType),
       row("Graafika", variant.gpu.model),
+      row("Lisaketas", d.secondaryStorage),
     ]),
     section("Ekraan", [
       row("Suurus", formatScreenSize(product.screenSizeIn)),
@@ -65,7 +66,8 @@ export function buildSpecSections({ product, variant }: CatalogItem): SpecSectio
         "Resolutsioon",
         variant.display.resolution
           ? `${variant.display.resolution.replace("x", " × ")}${variant.display.resolutionLabel ? ` (${variant.display.resolutionLabel})` : ""}`
-          : null,
+          : // Tarnija annab vahel ainult nime (Apple "Retina") — täpset resolutsiooni ei leiutata
+            variant.display.resolutionLabel,
       ),
       row("Paneel", variant.display.panel),
       row("Puuteekraan", yesNo(variant.display.touch)),
@@ -103,10 +105,11 @@ export function buildSpecSections({ product, variant }: CatalogItem): SpecSectio
     section("Muu", [
       row("Operatsioonisüsteem", variant.os),
       row("Aku seisukord", variant.batteryHealthPct !== null ? `vähemalt ${variant.batteryHealthPct}%` : null),
-      row("Laadija komplektis", yesNo(variant.chargerIncluded)),
+      row("Laadija komplektis", variant.chargerIncluded === true && d.chargerLabel ? (d.originalBox ? "Jah, koos originaalkarbiga" : "Jah") : yesNo(variant.chargerIncluded)),
       row("Garantii", variant.warrantyMonths ? `${variant.warrantyMonths} kuud` : null),
+      row("Aku garantii", d.batteryWarrantyMonths ? `${d.batteryWarrantyMonths} kuud` : null),
       row("Seisukord", gradeDisplay(variant.grade)),
-      row("Märkus seisukorra kohta", variant.conditionNotes),
+      row("Märkus seisukorra kohta", variant.conditionNotes ?? (d.conditionNotices?.length ? d.conditionNotices.map((n) => n.text).join(" ") : null)),
       row("Tootja", BRAND_NAMES[product.brand]),
       row("SKU", variant.sku),
     ]),
