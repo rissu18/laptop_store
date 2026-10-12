@@ -8,7 +8,8 @@
  * "NEW" (kliendile "Uus") koondab tarnijate uue/uueväärse kauba klassid — Laptopid.ee: New, Demo, Outlet.
  * Tarnija algne klass säilib pakkumise juures (raw_data + details.sourceGrade), poes kuvatakse "Uus".
  */
-export const GRADE_CODES = ["NEW", "A+", "A", "B", "C"] as const;
+/** Järjekord = parimast halvimani (filtri ja sorteerimise järjekord). C+ on eraldi klass (Foxway "Grade C+") — seda ei muudeta C-ks. */
+export const GRADE_CODES = ["NEW", "A+", "A", "B", "C+", "C"] as const;
 export type GradeCode = (typeof GRADE_CODES)[number];
 
 export interface GradeInfo {
@@ -59,6 +60,15 @@ export const GRADES: Record<GradeCode, GradeInfo> = {
     label: "Hea",
     showCode: true,
     description: "Näidistekst: nähtavad kasutusjäljed, seade on täielikult töökorras.",
+    criteria: ["Korpus: näidiskriteerium", "Ekraan: näidiskriteerium", "Klaviatuur: näidiskriteerium"],
+    isPlaceholder: true,
+  },
+  "C+": {
+    code: "C+",
+    param: "c-plus",
+    label: "Rahuldav+",
+    showCode: true,
+    description: "Näidistekst: selged kasutusjäljed (vähem kui C-klassil), seade on täielikult töökorras.",
     criteria: ["Korpus: näidiskriteerium", "Ekraan: näidiskriteerium", "Klaviatuur: näidiskriteerium"],
     isPlaceholder: true,
   },

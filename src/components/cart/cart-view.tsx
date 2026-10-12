@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { removeFromCart, setAppliedDiscountCode, setCartQuantity, useAppliedDiscountCode, useCart } from "@/client/cart-store";
 import { UNKNOWN_QUANTITY_LIMIT_MESSAGE } from "@/domain/catalog/availability";
-import { formatDeliveryDays, formatSpecLine } from "@/domain/catalog/format";
+import { formatDeliveryDays, formatKeyboard, formatSpecLine } from "@/domain/catalog/format";
 import { productHref } from "@/domain/catalog/urls";
 import { formatEur } from "@/domain/money/money";
 import { resolveCart, type ResolvedCart } from "@/server/cart/cart-actions";
@@ -115,7 +115,7 @@ export function CartView() {
                 </div>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   <GradeBadge grade={item.variant.grade} size="sm" />
-                  {item.variant.keyboardLayout && <span className="text-xs text-muted">{item.variant.keyboardLayout} klaviatuur</span>}
+                  {item.variant.keyboardLayout && <span className="text-xs text-muted">{formatKeyboard(item.variant.keyboardLayout)}</span>}
                   {item.variant.warrantyMonths && <span className="text-xs text-muted">Garantii {item.variant.warrantyMonths} kuud</span>}
                 </div>
                 <div className="mt-auto flex items-center justify-between gap-4">

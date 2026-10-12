@@ -1,3 +1,4 @@
+import { isMobileWorkstation } from "./power-class";
 import { cpuTier, isHighPerformanceCpu } from "./spec-explanations";
 import type { CatalogItem } from "./types";
 
@@ -25,10 +26,9 @@ export interface SimilarityItem {
   };
 }
 
-/** Kasutusklass: mobiilne tööjaam vs tavaline äriklass. */
+/** Kasutusklass: mobiilne tööjaam vs tavaline äriklass (tööjaama seeriad: power-class.ts). */
 function usageClass(item: SimilarityItem): "workstation" | "business" {
-  const series = item.product.series;
-  if (series === "Precision" || series === "ThinkPad P" || series === "ZBook") return "workstation";
+  if (isMobileWorkstation({ brand: item.product.brand, series: item.product.series, model: "" })) return "workstation";
   return item.variant.gpu.dedicated ? "workstation" : "business";
 }
 

@@ -20,6 +20,16 @@ const BRAND_INTROS: Record<BrandCode, string> = {
   asus: "ASUS ExpertBook on ASUSe äriklassi sülearvutite seeria.",
   acer: "Acer Aspire on Aceri igapäevaste sülearvutite seeria.",
   getac: "Getac valmistab vastupidavaid (rugged) sülearvuteid.",
+  msi: "MSI valmistab võimsaid mängu- ja loomingulise töö sülearvuteid.",
+  huawei: "Huawei MateBook on Huawei õhukeste sülearvutite seeria.",
+  lg: "LG gram on LG kergete sülearvutite seeria.",
+  razer: "Razer Blade on Razeri võimsate mängusülearvutite seeria.",
+  gigabyte: "Gigabyte valmistab mängu- ja loomingulise töö sülearvuteid.",
+  xiaomi: "Xiaomi sülearvutid.",
+  honor: "Honor MagicBook on Honori õhukeste sülearvutite seeria.",
+  schenker: "Schenker (XMG) valmistab võimsaid mängu- ja tööjaamasülearvuteid.",
+  cepter: "Cepter sülearvutid.",
+  pcspecialist: "PC Specialist valmistab mängu- ja tööjaamasülearvuteid.",
 };
 
 function isBrand(value: string): value is BrandCode {

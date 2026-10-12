@@ -85,7 +85,7 @@ describe("2. kiirinfo selgitused", () => {
     expect(explainRam(t14)).toBe("Hea igapäevaseks multitaskinguks");
     expect(explainStorage(t14)).toBe("Hea tasakaal mahu ja hinna vahel");
     expect(explainCpu(t14)).toBe("Sobib igapäevatööks ja kontoritööks");
-    expect(explainKeyboard(t14)).toBe("Skandinaavia paigutus");
+    expect(explainKeyboard(t14)).toBe("Rootsi/Soome paigutus");
     expect(explainCpu(find(items, "SP-20160"))).toMatch(/H-seeria/); // i7-11850H
   });
 });

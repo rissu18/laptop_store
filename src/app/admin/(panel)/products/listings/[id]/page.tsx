@@ -6,7 +6,8 @@ import { fmtCents, fmtDateTime, toDisplay, toInput } from "@/components/admin/fo
 import { Card, DefinitionList, PageHeader, StatusBadge } from "@/components/admin/ui";
 import { LISTING_ISSUES, listingIssuesOf } from "@/domain/admin/data-quality-rules";
 import { CATALOG_STATUS_VALUES, STATUS_LABELS } from "@/domain/admin/product-edit";
-import { CPU_FAMILIES, KEYBOARD_LAYOUTS } from "@/domain/catalog/types";
+import { KEYBOARD_REGISTRY } from "@/domain/catalog/keyboard";
+import { CPU_FAMILIES } from "@/domain/catalog/types";
 import { GRADE_CODES } from "@/domain/grade/grades";
 import { updateListingAction } from "@/server/admin/products/actions";
 import { getListingDetail } from "@/server/admin/products/queries";
@@ -36,7 +37,7 @@ const SECTIONS: FormSection[] = [
       { name: "resolutionLabel", label: "Resolutsiooni nimi", type: "text", overridable: true },
       { name: "panel", label: "Paneel", type: "text", overridable: true },
       { name: "touchscreen", label: "Puuteekraan", type: "tri", overridable: true },
-      { name: "keyboard", label: "Klaviatuur", type: "select", overridable: true, options: KEYBOARD_LAYOUTS.map((k) => ({ value: k, label: k })) },
+      { name: "keyboard", label: "Klaviatuur", type: "select", overridable: true, options: KEYBOARD_REGISTRY.map((k) => ({ value: k.code, label: k.label })) },
       { name: "operatingSystem", label: "Operatsioonisüsteem", type: "text", overridable: true },
     ],
   },

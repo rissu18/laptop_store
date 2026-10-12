@@ -1,4 +1,5 @@
-import type { CatalogItem, KeyboardLayout } from "./types";
+import { keyboardLabel } from "./keyboard";
+import type { CatalogItem } from "./types";
 
 /** Tehniliste väärtuste vormindamine eesti keeles. */
 
@@ -23,14 +24,10 @@ export function formatDeliveryDays(min: number, max: number): string {
   return min === max ? `${min} tööpäeva` : `${min}–${max} tööpäeva`;
 }
 
-export const KEYBOARD_SHORT: Record<KeyboardLayout, string> = {
-  SWE: "SWE klaviatuur",
-  NOR: "NOR klaviatuur",
-  EST: "EST klaviatuur",
-  US: "US klaviatuur",
-  UK: "UK klaviatuur",
-  DE: "DE klaviatuur",
-};
+/** "Skandinaavia (SCA) klaviatuur" — kaardil, ostukorvis, tellimuses */
+export function formatKeyboard(code: string): string {
+  return `${keyboardLabel(code)} klaviatuur`;
+}
 
 /** "14" WUXGA IPS" */
 export function formatDisplaySummary({ product, variant }: CatalogItem): string {

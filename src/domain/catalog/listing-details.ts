@@ -51,4 +51,20 @@ export interface ListingDetails {
   sourcePriceCents?: number | null;
   /** Salvestuse tüüp tarnija tekstist ("SSD"), kui see on antud */
   storageType?: string | null;
+  /** Lisaketas tarnija tekstist (nt "1TB HDD") — põhiketas on storage_gb */
+  secondaryStorage?: string | null;
+  /**
+   * Kliendile nähtavad seisukorra märkused (eesti keeles), nt Foxway lubatud kosmeetilised/LCD rikked.
+   * NOTICE kuvatakse ka tootekaardil ("Seisukorra märkus: …"), INFO ainult tootelehel. Tarnija toortermineid
+   * ("Working*", "Scratched on Purpose") kliendile EI kuvata — need on admini toorandmetes.
+   */
+  conditionNotices?: { severity: "INFO" | "NOTICE"; text: string; short: string }[];
+  /** Kliendile: "Laadija kaasas" / "Originaalkarp ja laadija kaasas" (laadija lisame vajadusel ise) */
+  chargerLabel?: string | null;
+  /** Originaalkarp kaasas */
+  originalBox?: boolean | null;
+  /** Aku garantii kuudes (meie poliitika, nt Foxway: 6) — eraldi sülearvuti garantiist */
+  batteryWarrantyMonths?: number | null;
+  /** Resolutsioon tuli sama mudeli teise tarnija andmetest (tarnija andis ainult nt "Retina") */
+  resolutionFromModel?: boolean | null;
 }

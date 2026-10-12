@@ -1,5 +1,6 @@
 import { Cpu, HardDrive, Keyboard, MemoryStick, Monitor, MonitorSmartphone } from "lucide-react";
 import { formatScreenSize, formatStorage } from "@/domain/catalog/format";
+import { keyboardLabel } from "@/domain/catalog/keyboard";
 import {
   explainCpu,
   explainDisplay,
@@ -32,7 +33,7 @@ export function QuickSpecs({ item }: { item: CatalogItem }) {
       note: explainDisplay(item),
     },
     { icon: MonitorSmartphone, label: "Graafika", value: variant.gpu.model || null, note: explainGpu(item) },
-    { icon: Keyboard, label: "Klaviatuur", value: variant.keyboardLayout, note: explainKeyboard(item) },
+    { icon: Keyboard, label: "Klaviatuur", value: variant.keyboardLayout ? keyboardLabel(variant.keyboardLayout) : null, note: explainKeyboard(item) },
   ].filter((spec) => Boolean(spec.value));
 
   if (specs.length === 0) return null;

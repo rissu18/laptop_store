@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { formatKeyboard } from "@/domain/catalog/format";
 import { CHECKOUT_COUNTRIES } from "@/domain/checkout/checkout-form";
 import { gradeDisplay } from "@/domain/grade/grades";
 import { formatEur } from "@/domain/money/money";
@@ -45,7 +46,7 @@ export function OrderDetails({ order }: { order: PublicOrderView }) {
               <span className="min-w-0 flex-1">
                 <span className="block font-medium">{item.title}</span>
                 <span className="block text-xs text-muted">
-                  {[item.cpu, item.ramGb ? `${item.ramGb} GB RAM` : null, item.storageGb ? `${item.storageGb} GB SSD` : null, item.grade ? `seisukord ${gradeDisplay(item.grade)}` : null, item.keyboard ? `${item.keyboard} klaviatuur` : null]
+                  {[item.cpu, item.ramGb ? `${item.ramGb} GB RAM` : null, item.storageGb ? `${item.storageGb} GB SSD` : null, item.grade ? `seisukord ${gradeDisplay(item.grade)}` : null, item.keyboard ? formatKeyboard(item.keyboard) : null]
                     .filter(Boolean)
                     .join(" · ")}
                 </span>

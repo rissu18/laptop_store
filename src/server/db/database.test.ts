@@ -36,6 +36,7 @@ describe.skipIf(!hasTestDatabase)("andmebaas", () => {
       "listing_images",
       "login_attempts",
       "order_internal_notes",
+      "order_item_procurements",
       "order_item_units",
       "order_items",
       "order_lookup_attempts",

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { formatStorage } from "@/domain/catalog/format";
+import { keyboardLabel } from "@/domain/catalog/keyboard";
 import { gradeDisplay } from "@/domain/grade/grades";
 import { productHref } from "@/domain/catalog/urls";
 import { formatEur } from "@/domain/money/money";
@@ -29,7 +30,7 @@ function VariantOption({ product, variant, selected }: { product: CatalogProduct
           </span>
           <span className="block text-xs text-muted">
             Seisukord {gradeDisplay(variant.grade)}
-            {variant.keyboardLayout && ` · ${variant.keyboardLayout}`}
+            {variant.keyboardLayout && ` · ${keyboardLabel(variant.keyboardLayout)}`}
             {variant.display.touch && " · Puuteekraan"}
           </span>
         </span>

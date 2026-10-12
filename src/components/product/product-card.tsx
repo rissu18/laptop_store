@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { formatDisplaySummary, formatStorage } from "@/domain/catalog/format";
+import { formatDisplaySummary, formatKeyboard, formatStorage } from "@/domain/catalog/format";
 import { productHref } from "@/domain/catalog/urls";
 import { cardImageView, imagesForDisplay } from "@/domain/images/product-image";
 import type { CatalogItem } from "@/domain/catalog/types";
@@ -25,7 +25,7 @@ export function ProductCard({ item, priority }: { item: CatalogItem; priority?: 
   // Brauserisse ainult kaardi kasutatud pildi-URL-id (vt cardImageView)
   const images = imagesForDisplay(item).map(cardImageView);
   const imageSizes = "(min-width: 1280px) 330px, (min-width: 640px) 45vw, 100vw";
-  const extras = [variant.keyboardLayout && `${variant.keyboardLayout} klaviatuur`, variant.os?.replace(/ Pro$/, "")].filter(Boolean);
+  const extras = [variant.keyboardLayout && formatKeyboard(variant.keyboardLayout), variant.os?.replace(/ Pro$/, "")].filter(Boolean);
 
   return (
     <article className="group relative flex w-full flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-sm transition-[box-shadow,border-color] hover:border-primary-border hover:shadow-md">

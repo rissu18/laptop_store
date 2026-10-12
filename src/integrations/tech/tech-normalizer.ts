@@ -1,3 +1,4 @@
+import { isNotLaptop } from "@/integrations/supplier/form-factor";
 import { parseCpu } from "@/integrations/supplier/spec-parsers";
 import { ModelResolutionError, resolveModelRef, type ModelRef } from "@/integrations/supplier/model-resolver";
 import { classifyTechNotes, TECH_DEFECT_LABELS, type TechNoteFeatures, type TechNoteResult } from "./tech-notes";
@@ -95,31 +96,8 @@ export interface TechUnit {
   source: TechSourceRow;
 }
 
-const NOT_LAPTOP_PATTERNS: RegExp[] = [
-  /\btablet\b/i,
-  /\btab\s+[a-z]?\d/i,
-  /\bzenpad\b/i,
-  /\btoughpad\b/i,
-  /\belitepad\b/i,
-  /\bFZ-[A-Z]\d/i,
-  /\belite\s*x2\b/i,
-  /\bpro\s*x2\b/i,
-  /\bsurface\s+(go|pro|book)\b/i,
-  /\btoughbook\s+cf-?(20|33)\b/i,
-  /\bmiix\b/i,
-  /\bdetachable\b/i,
-  /\blatitude\s+7(200|210|320)\s+2-in-1\b/i,
-  /^F110\b/i,
-];
-
-/** Väiksem ekraan → ei ole sülearvuti (nt 7" tahvlid) */
-const MIN_LAPTOP_SCREEN_IN = 10;
-
-/** Tahvelarvuti või eemaldatava ekraaniga 2-in-1? */
-export function isNotLaptop(model: string, screenSizeIn: number | null): boolean {
-  if (screenSizeIn !== null && screenSizeIn < MIN_LAPTOP_SCREEN_IN) return true;
-  return NOT_LAPTOP_PATTERNS.some((pattern) => pattern.test(model));
-}
+/** Tahvlid/detachable'id: jagatud reegel (src/integrations/supplier/form-factor.ts) */
+export { isNotLaptop } from "@/integrations/supplier/form-factor";
 
 const SERIES_CASING: Record<string, string> = { thinkpad: "ThinkPad", zbook: "ZBook", expertbook: "ExpertBook", vivobook: "VivoBook", thinkbook: "ThinkBook" };
 

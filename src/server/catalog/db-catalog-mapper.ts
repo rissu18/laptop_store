@@ -1,5 +1,5 @@
 import { displayModelName, displayProductTitle } from "@/domain/catalog/display-name";
-import { BRAND_CODES, KEYBOARD_LAYOUTS, type BrandCode, type CatalogItem, type CpuFamily, type FeatureFlags, type KeyboardLayout, type VatScheme } from "@/domain/catalog/types";
+import { BRAND_CODES, type BrandCode, type CatalogItem, type CpuFamily, type FeatureFlags, type VatScheme } from "@/domain/catalog/types";
 import { resolveStock } from "@/domain/catalog/availability";
 import { buildSearchText } from "@/domain/catalog/search";
 import type { SearchableItem } from "@/domain/catalog/filtering";
@@ -56,7 +56,6 @@ export interface IncompleteListing {
 
 const isBrand = (v: string): v is BrandCode => (BRAND_CODES as readonly string[]).includes(v);
 const isGrade = (v: string | null): v is GradeCode => v !== null && (GRADE_CODES as readonly string[]).includes(v);
-const isKeyboard = (v: string | null): v is KeyboardLayout => v !== null && (KEYBOARD_LAYOUTS as readonly string[]).includes(v);
 const VAT_SCHEMES: VatScheme[] = ["STANDARD", "MARGIN", "UNKNOWN"];
 
 export function effectiveModel<T extends Pick<ModelRow, "manualOverrides">>(model: T): T {
@@ -190,7 +189,7 @@ export function mapCatalogRows(
         storageGb: listing.storageGb!,
         gpu: { model: listing.gpu ?? "", dedicated: listing.gpuDedicated ?? false },
         display: { resolution: listing.resolution, resolutionLabel: listing.resolutionLabel, panel: listing.panel, touch: listing.touchscreen },
-        keyboardLayout: isKeyboard(listing.keyboard) ? listing.keyboard : null,
+        keyboardLayout: listing.keyboard?.trim() ? listing.keyboard.trim() : null,
         features,
         os: listing.operatingSystem,
         batteryHealthPct: listing.batteryHealthPct,

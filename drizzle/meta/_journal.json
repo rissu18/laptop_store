@@ -36,6 +36,13 @@
       "when": 1791784794172,
       "tag": "0004_tech_inventory_units",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791803560385,
+      "tag": "0005_foxway",
+      "breakpoints": true
     }
   ]
 }

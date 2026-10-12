@@ -8,6 +8,7 @@ import { differenceGroups, rowHasDifferences } from "@/domain/catalog/compare-di
 import { cpuGenerationLabel } from "@/domain/catalog/facets";
 import { FEATURE_LABELS } from "@/domain/catalog/features";
 import { formatDeliveryDays, formatScreenSize, formatStorage, formatWeight } from "@/domain/catalog/format";
+import { keyboardLabel } from "@/domain/catalog/keyboard";
 import { productHref } from "@/domain/catalog/urls";
 import type { CatalogItem } from "@/domain/catalog/types";
 import { formatEur } from "@/domain/money/money";
@@ -46,7 +47,7 @@ const ROWS: Row[] = [
   { label: "Resolutsioon", value: (i) => i.variant.display.resolution?.replace("x", " × ") ?? "–" },
   { label: "Kaal", value: (i) => (i.product.weightKg ? formatWeight(i.product.weightKg) : "–") },
   { label: "Puuteekraan", value: (i) => yesNo(i.variant.display.touch) },
-  { label: "Klaviatuur", value: (i) => i.variant.keyboardLayout ?? "–" },
+  { label: "Klaviatuur", value: (i) => (i.variant.keyboardLayout ? keyboardLabel(i.variant.keyboardLayout) : "–") },
   { label: "Numbriklahvistik", value: (i) => yesNo(i.variant.features.numpad) },
   { label: "Thunderbolt", value: (i) => yesNo(i.variant.features.thunderbolt) },
   { label: FEATURE_LABELS.smartcard, value: (i) => yesNo(i.variant.features.smartcard) },

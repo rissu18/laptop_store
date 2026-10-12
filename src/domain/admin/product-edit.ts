@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { BRAND_CODES, CPU_FAMILIES, KEYBOARD_LAYOUTS } from "@/domain/catalog/types";
+import { KEYBOARD_CODES } from "@/domain/catalog/keyboard";
+import { BRAND_CODES, CPU_FAMILIES } from "@/domain/catalog/types";
 import { GRADE_CODES } from "@/domain/grade/grades";
 
 /**
@@ -66,7 +67,7 @@ export const listingEditSchema = z.object({
   resolutionLabel: text(20),
   panel: text(20),
   touchscreen: triState,
-  keyboard: enumOrNull(KEYBOARD_LAYOUTS),
+  keyboard: enumOrNull(KEYBOARD_CODES as [string, ...string[]]),
   grade: enumOrNull(GRADE_CODES),
   stock: int(0, 100_000),
   supplierPriceCents: euroCents,

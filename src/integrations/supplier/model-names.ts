@@ -20,6 +20,17 @@ const BRAND_ALIASES: Record<string, BrandCode> = {
   asus: "asus",
   acer: "acer",
   getac: "getac",
+  msi: "msi",
+  huawei: "huawei",
+  lg: "lg",
+  razer: "razer",
+  gigabyte: "gigabyte",
+  xiaomi: "xiaomi",
+  honor: "honor",
+  schenker: "schenker",
+  cepter: "cepter",
+  "pc specialist": "pcspecialist",
+  pcspecialist: "pcspecialist",
 };
 
 export function parseBrand(raw: string): BrandCode | null {

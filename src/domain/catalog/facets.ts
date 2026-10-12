@@ -9,7 +9,8 @@ import {
   isCpuFamilyValue,
   isCpuGenerationValue,
 } from "./cpu-filter";
-import { BRAND_CODES, BRAND_NAMES, KEYBOARD_LAYOUTS, type CatalogItem, type CatalogProduct } from "./types";
+import { KEYBOARD_FILTER_PATTERN, compareKeyboardFilterValues, keyboardFilterLabel, keyboardFilterValue } from "./keyboard";
+import { BRAND_CODES, BRAND_NAMES, type CatalogItem, type CatalogProduct } from "./types";
 
 export { cpuFamilyLabel, cpuGenerationLabel, cpuGenerationRank } from "./cpu-filter";
 
@@ -185,10 +186,11 @@ export const FACETS: Record<MultiFacetKey, FacetDefinition> = {
   kb: {
     key: "kb",
     label: "Klaviatuur",
-    valuesOf: ({ variant }) => (variant.keyboardLayout ? [variant.keyboardLayout.toLowerCase()] : []),
-    optionLabel: (v) => KEYBOARD_LABELS[v] ?? v.toUpperCase(),
-    isValidValue: (v) => (KEYBOARD_LAYOUTS as readonly string[]).includes(v.toUpperCase()),
-    compare: byList(KEYBOARD_LAYOUTS.map((k) => k.toLowerCase())),
+    // Valikud tulevad andmebaasist (ainult tegelikult müügis olevad paigutused, kõik tarnijad) — vt keyboard.ts
+    valuesOf: ({ variant }) => (variant.keyboardLayout ? [keyboardFilterValue(variant.keyboardLayout)] : []),
+    optionLabel: keyboardFilterLabel,
+    isValidValue: (v) => KEYBOARD_FILTER_PATTERN.test(v),
+    compare: compareKeyboardFilterValues,
   },
 };
 
@@ -230,15 +232,6 @@ function compareSeries(a: string, b: string): number {
 export function seriesLabel(slug: string): string {
   return SERIES_LABELS[slug] ?? slug;
 }
-
-const KEYBOARD_LABELS: Record<string, string> = {
-  swe: "Rootsi/Soome (SWE)",
-  nor: "Norra (NOR)",
-  est: "Eesti (EST)",
-  us: "USA (US)",
-  uk: "Inglise (UK)",
-  de: "Saksa (DE)",
-};
 
 /** Basic filtrid on alati nähtaval; ülejäänud on "Täpsemad filtrid" all. */
 export const PRIMARY_FACETS: MultiFacetKey[] = ["brand", "series", "grade", "screen", "ram", "ssd", "cpu", "gen"];

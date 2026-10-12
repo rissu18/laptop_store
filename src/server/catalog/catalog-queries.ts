@@ -6,7 +6,7 @@ import type { CatalogFacets, FacetOption } from "@/domain/catalog/filtering";
 import { PAGE_SIZE, type CatalogQuery, type FacetSelection, type SortKey } from "@/domain/catalog/query";
 import { tokenize } from "@/domain/catalog/search";
 import { SIMILAR_PRICE_TOLERANCE, findSimilarItems, type SimilarityItem } from "@/domain/catalog/similar";
-import { BRAND_CODES, BRAND_NAMES, FEATURE_KEYS, KEYBOARD_LAYOUTS, type BrandCode, type CatalogItem, type CpuFamily, type FeatureKey } from "@/domain/catalog/types";
+import { BRAND_CODES, BRAND_NAMES, FEATURE_KEYS, type BrandCode, type CatalogItem, type CpuFamily, type FeatureKey } from "@/domain/catalog/types";
 import { GRADES, GRADE_CODES } from "@/domain/grade/grades";
 import type { Database } from "@/server/db/client";
 import { listingImages, productImages, productModels, supplierListings } from "@/server/db/schema";
@@ -152,7 +152,8 @@ storefront AS (
     least(17, greatest(13, floor(e.screen)))::int::text AS screen_b,
     CASE WHEN e.ram >= 64 THEN '64' WHEN e.ram >= 32 THEN '32' WHEN e.ram >= 16 THEN '16' ELSE '8' END AS ram_b,
     CASE WHEN e.storage >= 2048 THEN '2048' WHEN e.storage >= 1024 THEN '1024' WHEN e.storage >= 512 THEN '512' ELSE '256' END AS ssd_b,
-    CASE WHEN e.kb IN (${literalList(KEYBOARD_LAYOUTS)}) THEN lower(e.kb) END AS kb_v,
+    -- keyboard.ts → keyboardFilterValue (kõik tarnijad, ka tundmatu kood toorkujul)
+    CASE WHEN e.kb ~ '^[A-Za-z0-9][A-Za-z0-9/ -]{1,19}$' THEN btrim(regexp_replace(lower(e.kb), '[^a-z0-9]+', '-', 'g'), '-') END AS kb_v,
     COALESCE((
       SELECT CASE split_part(e.cpu_gen, '-', 1)
         WHEN 'intel' THEN g.v WHEN 'ultra' THEN 13 + g.v WHEN 'amd' THEN 6 + g.v / 1000

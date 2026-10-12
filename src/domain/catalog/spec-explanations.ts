@@ -1,4 +1,5 @@
-import type { CatalogItem, CpuFamily, KeyboardLayout } from "./types";
+import { keyboardExplanation } from "./keyboard";
+import type { CatalogItem, CpuFamily } from "./types";
 
 /**
  * Lühikesed, inimesele arusaadavad selgitused tootelehe kiirinfo kastidesse.
@@ -69,15 +70,6 @@ export function explainGpu({ variant }: CatalogItem): string | null {
   return "Sobib igapäevatööks ja videote vaatamiseks";
 }
 
-const KEYBOARD_EXPLANATIONS: Record<KeyboardLayout, string> = {
-  SWE: "Skandinaavia paigutus",
-  NOR: "Norra paigutus",
-  EST: "Eesti paigutus",
-  US: "USA paigutus",
-  UK: "Inglise (UK) paigutus",
-  DE: "Saksa paigutus",
-};
-
 export function explainKeyboard({ variant }: CatalogItem): string | null {
-  return variant.keyboardLayout ? KEYBOARD_EXPLANATIONS[variant.keyboardLayout] : null;
+  return variant.keyboardLayout ? keyboardExplanation(variant.keyboardLayout) : null;
 }

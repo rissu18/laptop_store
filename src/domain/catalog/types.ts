@@ -10,7 +10,11 @@ import type { ListingDetails } from "./listing-details";
  * Seetõttu ei ole siin ostuhinda ega tarnija andmeid (vt server/catalog).
  */
 
-export const BRAND_CODES = ["lenovo", "dell", "hp", "fujitsu", "samsung", "apple", "microsoft", "panasonic", "asus", "acer", "getac"] as const;
+export const BRAND_CODES = [
+  "lenovo", "dell", "hp", "fujitsu", "samsung", "apple", "microsoft", "panasonic", "asus", "acer", "getac",
+  // Foxway (2026-10-12): tarbija- ja mänguriklassi tootjad
+  "msi", "huawei", "lg", "razer", "gigabyte", "xiaomi", "honor", "schenker", "cepter", "pcspecialist",
+] as const;
 export type BrandCode = (typeof BRAND_CODES)[number];
 
 export const BRAND_NAMES: Record<BrandCode, string> = {
@@ -25,6 +29,16 @@ export const BRAND_NAMES: Record<BrandCode, string> = {
   asus: "ASUS",
   acer: "Acer",
   getac: "Getac",
+  msi: "MSI",
+  huawei: "Huawei",
+  lg: "LG",
+  razer: "Razer",
+  gigabyte: "Gigabyte",
+  xiaomi: "Xiaomi",
+  honor: "Honor",
+  schenker: "Schenker",
+  cepter: "Cepter",
+  pcspecialist: "PC Specialist",
 };
 
 export const CPU_FAMILIES = [
@@ -41,8 +55,11 @@ export const CPU_FAMILIES = [
 ] as const;
 export type CpuFamily = (typeof CPU_FAMILIES)[number];
 
-export const KEYBOARD_LAYOUTS = ["SWE", "NOR", "EST", "US", "UK", "DE"] as const;
-export type KeyboardLayout = (typeof KEYBOARD_LAYOUTS)[number];
+/**
+ * Klaviatuuri paigutuse kood (kanooniline, vt domain/catalog/keyboard.ts — register kõigi tarnijate jaoks).
+ * Tundmatu tarnija kood jääb toorkujule, seega tüüp on string.
+ */
+export type KeyboardLayout = string;
 
 /**
  * Kas hinnas sisalduvat käibemaksu käsitletakse tavakorras (24% kogu hinnalt)

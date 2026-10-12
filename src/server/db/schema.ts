@@ -43,6 +43,9 @@ export const PRICE_SOURCES = ["PRICING", "SUPPLIER"] as const;
 export type PriceSource = (typeof PRICE_SOURCES)[number];
 
 export const CATALOG_STATUSES = ["ACTIVE", "HIDDEN", "ARCHIVED"] as const;
+/** supplier_listings.quality_hold — vt veeru kommentaari */
+export const QUALITY_HOLDS = ["REVIEW", "BLOCKED"] as const;
+export type QualityHold = (typeof QUALITY_HOLDS)[number];
 export type CatalogStatus = (typeof CATALOG_STATUSES)[number];
 const statusCheck = (name: string, column: string) =>
   check(name, sql.raw(`${column} in ('ACTIVE', 'HIDDEN', 'ARCHIVED')`));
@@ -228,6 +231,21 @@ export const supplierListings = pgTable(
     details: jsonb("details").$type<ListingDetails>().notNull().default({}),
     status: text("status", { enum: CATALOG_STATUSES }).notNull().default("ACTIVE"),
     manualOverrides: jsonb("manual_overrides").$type<Record<string, unknown>>().notNull().default({}),
+    /**
+     * Tarnija andmetel on see konfiguratsioon käibemaksu marginaalskeemi kaup (Foxway IsVatMargin). SKU tasemel —
+     * sama mudeli eri SKU-del võib see erineda. NULL = tarnija ei anna. Ainult admin/diagnostika (hinnastus ei loe).
+     */
+    supplierVatMargin: boolean("supplier_vat_margin"),
+    /**
+     * Tarnija andmete kvaliteedi/ohutuse kinnipidamine (sync kirjutab, nt Foxway rikkeklassifikaator):
+     *   NULL      = poodi võib (tavaline)
+     *   'REVIEW'  = vajab käsitsi ülevaatust (tundmatu rike, ebamäärane andmestik) — poes EI kuvata
+     *   'BLOCKED' = ei müüda (nt katkine ekraan, rikkis port) — poes EI kuvata
+     * Admin võib parandusega (`manual_overrides.qualityHold`) teadlikult avaldada; sync seda ei puutu.
+     */
+    qualityHold: text("quality_hold", { enum: QUALITY_HOLDS }),
+    /** Inimloetav põhjus (adminile), nt "Rike: Faulty camera (BLOCK)" */
+    qualityHoldReason: text("quality_hold_reason"),
     /** Tarnija toorandmed silumiseks — äriloogika neid ei loe */
     rawData: jsonb("raw_data"),
     firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
@@ -244,6 +262,7 @@ export const supplierListings = pgTable(
     index("supplier_listings_status_idx").on(t.status),
     statusCheck("supplier_listings_status_ck", "status"),
     check("supplier_listings_price_source_ck", sql`price_source in ('PRICING', 'SUPPLIER')`),
+    check("supplier_listings_quality_hold_ck", sql`quality_hold IS NULL OR quality_hold in ('REVIEW', 'BLOCKED')`),
   ],
 );
 
@@ -469,7 +488,7 @@ export const auditLogs = pgTable(
 );
 
 export const LOG_LEVELS = ["DEBUG", "INFO", "WARN", "ERROR"] as const;
-export const LOG_SOURCES = ["APPLICATION", "DATABASE", "ADMIN", "AUTH", "ICECAT", "LAPTOPID", "TECH"] as const;
+export const LOG_SOURCES = ["APPLICATION", "DATABASE", "ADMIN", "AUTH", "ICECAT", "LAPTOPID", "TECH", "FOXWAY"] as const;
 
 export const systemLogs = pgTable(
   "system_logs",
@@ -761,6 +780,57 @@ export const orderItemUnits = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("order_item_units_uq").on(t.orderItemId, t.inventoryUnitId), index("order_item_units_unit_idx").on(t.inventoryUnitId)],
+);
+
+export const PROCUREMENT_STATUSES = ["TO_ORDER", "ORDERED", "SUPPLIER_SHIPPED", "RECEIVED"] as const;
+export type ProcurementStatus = (typeof PROCUREMENT_STATUSES)[number];
+
+/**
+ * Tarnijalt käsitsi tellimise seis tellimuse rea kohta (nt Foxway). Luuakse tellimuse loomisel samas tehingus, kui
+ * rida pärineb tarnijast, kellelt kaup tuleb eraldi tellida. Automaatset tarnija tellimust EI tehta — admin tellib
+ * käsitsi (võib enne erihinda küsida) ja märgib siin seisu.
+ *
+ * Snapshot (tellimuse hetkel, ei muutu): tarnija, SKU, ItemVariantId, tarnija hinnakirja hind.
+ * Muudetav (admin): seis, viide/märkus, kuupäevad, tegelik ostuhind (võib erineda hinnakirja hinnast — erihind).
+ * Kliendi müügihind on order_items.unit_price_cents (snapshot).
+ */
+export const orderItemProcurements = pgTable(
+  "order_item_procurements",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orderItemId: uuid("order_item_id")
+      .notNull()
+      .references(() => orderItems.id, { onDelete: "cascade" }),
+    /** Tarnija kood, nt "foxway" */
+    supplier: text("supplier").notNull(),
+    /** Tarnija SKU (Foxway SKU) — sellega tellitakse */
+    supplierSku: text("supplier_sku").notNull(),
+    /** Foxway ItemVariantId (mudel/variant tarnija süsteemis) — viide, mitte identiteet */
+    supplierVariantId: text("supplier_variant_id"),
+    supplierProductName: text("supplier_product_name"),
+    /** Tarnija hinnakirja hind tellimuse hetkel (ilma KM-ita), sentides */
+    supplierListedPriceCents: integer("supplier_listed_price_cents"),
+    supplierCurrency: text("supplier_currency"),
+    status: text("status", { enum: PROCUREMENT_STATUSES }).notNull().default("TO_ORDER"),
+    /** Tarnija tellimuse number / viide */
+    supplierOrderReference: text("supplier_order_reference"),
+    note: text("note"),
+    /** Tegelik ostuhind ühiku kohta (sentides, ilma KM-ita) — NULL kuni teada; võib erineda hinnakirja hinnast */
+    actualPurchasePriceCents: integer("actual_purchase_price_cents"),
+    /** Valikuline tarnija seerianumber (Foxway annab alles pärast tellimist) */
+    supplierSerial: text("supplier_serial"),
+    orderedAt: timestamp("ordered_at", { withTimezone: true }),
+    supplierShippedAt: timestamp("supplier_shipped_at", { withTimezone: true }),
+    receivedAt: timestamp("received_at", { withTimezone: true }),
+    updatedBy: text("updated_by"),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("order_item_procurements_item_uq").on(t.orderItemId),
+    index("order_item_procurements_status_idx").on(t.supplier, t.status),
+    inList("order_item_procurements_status_ck", "status", PROCUREMENT_STATUSES),
+    check("order_item_procurements_price_ck", sql`actual_purchase_price_cents IS NULL OR actual_purchase_price_cents >= 0`),
+  ],
 );
 
 export const orderStatusHistory = pgTable(

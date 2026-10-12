@@ -2,6 +2,7 @@ import { gradeDisplay } from "@/domain/grade/grades";
 import { BRAND_NAMES, type CatalogItem } from "./types";
 import { cpuGenerationLabel } from "./facets";
 import { FEATURE_LABELS } from "./features";
+import { keyboardLabel } from "./keyboard";
 import { formatScreenSize, formatWeight } from "./format";
 
 /**
@@ -87,7 +88,7 @@ export function buildSpecSections({ product, variant }: CatalogItem): SpecSectio
     ]),
     section("Füüsilised omadused", [
       row("Kaal", weightKg ? formatWeight(weightKg) : null),
-      row("Klaviatuur", variant.keyboardLayout ?? d.keyboardRaw),
+      row("Klaviatuur", variant.keyboardLayout ? keyboardLabel(variant.keyboardLayout) : d.keyboardRaw),
       row("Klaviatuuri taustavalgus", yesNo(f.backlit)),
       row("Numbriklahvistik", yesNo(f.numpad)),
       row("TrackPoint (osutuskang)", d.pointingStick ? "Jah" : null),

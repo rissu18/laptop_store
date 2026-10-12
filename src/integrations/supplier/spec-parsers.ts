@@ -1,3 +1,4 @@
+import { normalizeKeyboard } from "@/domain/catalog/keyboard";
 import type { CpuFamily, KeyboardLayout } from "@/domain/catalog/types";
 
 /**
@@ -89,24 +90,12 @@ export function parseDisplay(raw: string): ParsedDisplay | null {
   };
 }
 
-const KEYBOARD_ALIASES: Record<string, KeyboardLayout> = {
-  SE: "SWE",
-  SWE: "SWE",
-  FI: "SWE", // Soome ja Rootsi paigutus on identsed
-  FIN: "SWE",
-  NORDIC: "SWE",
-  NO: "NOR",
-  NOR: "NOR",
-  EE: "EST",
-  EST: "EST",
-  US: "US",
-  UK: "UK",
-  GB: "UK",
-  DE: "DE",
-  GER: "DE",
-};
-
+/**
+ * Tarnija klaviatuuri tähis → registris olev kanooniline kood (domain/catalog/keyboard.ts). Tundmatu → null
+ * (Laptopid.ee/mock: toorkuju säilib details.keyboardRaw all). Foxway kasutab normalizeKeyboard'i otse (säilitab ka
+ * tundmatu koodi toorkujul).
+ */
 export function parseKeyboardLayout(raw: string | null | undefined): KeyboardLayout | null {
-  if (!raw) return null;
-  return KEYBOARD_ALIASES[raw.trim().toUpperCase()] ?? null;
+  const result = normalizeKeyboard(raw);
+  return result.known ? result.code : null;
 }
