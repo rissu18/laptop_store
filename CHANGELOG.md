@@ -5,6 +5,17 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 ---
 
+## 2026-10-13 — Konfiguratsioonide järjestus: "Poes kohapeal" ees
+
+**Miks:** tooteleht sorteeris konfiguratsioonid ainult hinna järgi ja valis vaikimisi odavaima — 282 € hulgilao (Foxway) variant tõusis salongis oleva 590 € variandi ette ja oli vaikimisi valitud.
+
+- `domain/catalog/configuration-order.ts`: 1) "Poes kohapeal" hind ↑, 2) ülejäänud hind ↑ sõltumata tarnijast ja tarneajast, võrdse hinna korral SKU → id. Kasutusel DB- ja mock-tootelehel.
+- Vaikimisi valitud konfiguratsioon = odavaim kohapeal variant; kui seda pole, odavaim saadaval variant. Metaandmete "hinnad alates" arvutatakse nüüd kõigi konfiguratsioonide miinimumist (esimene pole enam tingimata odavaim).
+- **Testid:** 739 → 752.
+- **Foxway Grade C ei müüda:** normaliseerija (`mapFoxwayAppearance`) annab C-le `quality_hold = BLOCKED` (klass säilib adminile). Uusi C pakkumisi poodi ei tule; olemasolevad C pakkumised peetakse järgmisel Foxway sync'il kinni (hold'i muutus = rea uuendus). C+ jääb müüki. Admini teadlik parandus (`manual_overrides.qualityHold`) kehtib edasi.
+
+---
+
 ## 2026-10-13 — Mudeli koondgalerii, kõik konfiguratsioonid nähtaval, täiseuro hinnad
 
 **Miks:** sama mudeli (nt Dell Latitude 7440) konfiguratsioonid näitasid eri pildikomplekte (iga Laptopid.ee pakkumine oma fotod, teistel Icecat), galeriis olid peaaegu tühjad kaadrid; tootelehel oli "Näita/Peida lisakonfiguratsioonid"; hinnad olid kohati sentidega (Foxway 150,52 €) ja erikorra kaubal teine KM tekst.

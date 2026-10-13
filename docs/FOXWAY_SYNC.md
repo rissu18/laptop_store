@@ -75,7 +75,7 @@ Foxway API (4 hinnakirja päringut: working/new × PC 12 / Mac 54, DimensionGrou
 | Grade A | `A` | A |
 | Grade B | `B` | B |
 | Grade C+ | `C+` (**uus eraldi klass**, mitte C) | C+ |
-| Grade C | `C` | C |
+| Grade C | `C` | **BLOCKED** (ei müüda, äriotsus 2026-10-13; klass säilib adminile) |
 | Grade D/E, NP, Incomplete … | — | BLOCKED (ei müüda) |
 | tundmatu | — | REVIEW |
 

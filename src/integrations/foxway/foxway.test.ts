@@ -152,7 +152,7 @@ describe("Seisukord (Appearance)", () => {
     expect(mapFoxwayAppearance("Brand New").grade).toBe("NEW");
     expect(gradeDisplay("NEW")).toBe("Uus");
     expect(mapFoxwayAppearance("Grade C+").grade).toBe("C+");
-    expect(mapFoxwayAppearance("Grade C").grade).toBe("C");
+    expect(mapFoxwayAppearance("Grade C+").hold).toBeNull();
     expect(mapFoxwayAppearance("Grade A+").grade).toBe("A+");
     expect(parseSupplierGrade("Grade C+")).toBe("C+");
     expect(GRADE_CODES.indexOf("C+")).toBeLessThan(GRADE_CODES.indexOf("C"));
@@ -163,6 +163,12 @@ describe("Seisukord (Appearance)", () => {
     for (const raw of ["Grade D", "Grade E", "NP", "Incomplete"]) expect(mapFoxwayAppearance(raw).hold).toBe("BLOCKED");
     expect(mapFoxwayAppearance("Refurbished Gold").hold).toBe("REVIEW");
     expect(offer({ dims: { Appearance: "Grade D" } }).hold).toBe("BLOCKED");
+  });
+
+  it("Foxway Grade C → BLOCKED (ei müüda); klass säilib adminile, C+ jääb müüki", () => {
+    for (const raw of ["Grade C", "grade c", "C"]) expect(mapFoxwayAppearance(raw)).toMatchObject({ grade: "C", hold: "BLOCKED" });
+    expect(offer({ dims: { Appearance: "Grade C" } }).hold).toBe("BLOCKED");
+    expect(offer({ dims: { Appearance: "Grade C+" } }).hold).toBeNull();
   });
 });
 

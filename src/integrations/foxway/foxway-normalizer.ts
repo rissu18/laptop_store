@@ -112,6 +112,8 @@ export function mapFoxwayAppearance(raw: string | null): { grade: GradeCode | nu
   if (!raw) return { grade: null, hold: "REVIEW", reason: "Appearance (seisukord) puudub" };
   if (/^brand\s*new$/i.test(raw.trim())) return { grade: "NEW", hold: null, reason: null };
   const grade = parseSupplierGrade(raw);
+  // Foxway Grade C ei müüda (äriotsus 2026-10-13); C+ on eraldi klass ja jääb müüki. Klass säilib adminile.
+  if (grade === "C") return { grade, hold: "BLOCKED", reason: `Seisukord "${raw}" — Foxway C klassi ei müüda` };
   if (grade && grade !== "NEW") return { grade, hold: null, reason: null };
   // Katkised/puudulikud klassid (D, E, NP, Incomplete …) — ei impordita poodi
   if (/grade\s*[d-z]\b|^[d-z]$|\bnp\b|incomplete|broken|scrap|parts/i.test(raw)) return { grade: null, hold: "BLOCKED", reason: `Seisukord "${raw}" — katkine/puudulik klass, ei müüda` };
