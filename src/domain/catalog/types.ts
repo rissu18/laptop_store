@@ -126,6 +126,8 @@ export interface CatalogProduct {
 export interface CatalogVariant {
   id: string;
   sku: string;
+  /** Tarnija kood (laptopid / tech / foxway …) — kataloogi "Tarnija" filter; kliendile ainult sildina (facets.ts) */
+  supplier: string;
   grade: GradeCode;
   cpu: {
     /** "Intel Core i5-1235U" */

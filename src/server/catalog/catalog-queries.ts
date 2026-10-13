@@ -1,7 +1,7 @@
 import "server-only";
 import { and, asc, eq, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
 import { sortConfigurations } from "@/domain/catalog/configuration-order";
-import { FACETS, MULTI_FACET_KEYS, type MultiFacetKey } from "@/domain/catalog/facets";
+import { FACETS, IN_STORE_DELIVERY, MULTI_FACET_KEYS, SUPPLIER_FILTER_LABELS, type MultiFacetKey } from "@/domain/catalog/facets";
 import { FEATURE_LABELS, FEATURE_ORDER } from "@/domain/catalog/features";
 import type { CatalogFacets, FacetOption } from "@/domain/catalog/filtering";
 import { PAGE_SIZE, type CatalogQuery, type FacetSelection, type SortKey } from "@/domain/catalog/query";
@@ -67,7 +67,7 @@ const normalize = (expr: string) =>
 const STOREFRONT_CTE = String.raw`
 storefront_base AS (
   SELECT
-    l.id, l.product_model_id AS model_id, l.sku, l.first_seen_at, m.featured,
+    l.id, l.product_model_id AS model_id, l.sku, l.first_seen_at, m.featured, lower(l.supplier) AS supplier,
     ${eff("m", "manufacturer", "manufacturer")} AS brand,
     ${eff("m", "family", "family")} AS family,
     ${eff("m", "model", "model")} AS model,
@@ -83,6 +83,8 @@ storefront_base AS (
     ${eff("l", "gpuDedicated", "gpu_dedicated", "boolean")} AS gpu_dedicated,
     ${eff("l", "stock", "stock", "numeric")} AS stock,
     l.available,
+    ${eff("l", "deliveryMinDays", "delivery_min_days", "int")} AS delivery_min,
+    ${eff("l", "deliveryMaxDays", "delivery_max_days", "int")} AS delivery_max,
     -- Kliendi hind täiseurodes (sama reegel mis money.ts → roundToEuro): filter, sortimine ja hinnavahemik = kuvatav hind
     ROUND((CASE WHEN l.price_source = 'SUPPLIER' AND l.manual_overrides ? 'salePriceCents'
       THEN (l.manual_overrides->>'salePriceCents')::numeric ELSE l.sale_price_cents::numeric END) / 100) * 100 AS price,
@@ -150,7 +152,12 @@ storefront_keys AS (
   FROM storefront_cpu e
 ),
 storefront AS (
-  SELECT e.id, e.model_id, e.sku, e.first_seen_at, e.featured, e.brand, e.family, e.display_model, e.screen, e.cpu,
+  SELECT e.id, e.model_id, e.sku, e.first_seen_at, e.featured, e.brand,
+    -- facets.ts → supplierFilterValue (tundmatu tarnija filtris ei osale)
+    CASE WHEN e.supplier IN (${literalList(Object.keys(SUPPLIER_FILTER_LABELS))}) THEN e.supplier END AS supplier_v,
+    -- facets.ts → deliveryFilterValue: tarnija tarneaeg "1-2"; muidu kogus teadmata (saadaval) = salongis "kohapeal"
+    CASE WHEN e.delivery_min IS NOT NULL AND e.delivery_max IS NOT NULL THEN e.delivery_min || '-' || e.delivery_max
+      WHEN e.stock IS NULL THEN ${literal(IN_STORE_DELIVERY)} END AS delivery_v, e.family, e.display_model, e.screen, e.cpu,
     e.cpu_family_db, e.ram, e.storage, e.grade, e.gpu, e.gpu_dedicated, e.stock, e.price, e.feat, e.cpu_family, e.cpu_gen, e.series,
     CASE WHEN e.series IN (${literalList(THINKPAD_PARENT_LINES)}) THEN 'thinkpad' END AS series_parent,
     ${GRADE_PARAM_SQL} AS grade_param,
@@ -187,6 +194,8 @@ const withStorefront = (body: SQL) => sql`WITH ${sql.raw(STOREFRONT_CTE)} ${body
 
 /** Filtri tahu SQL veerg (URL-i väärtuste kujul) — vt facets.ts → valuesOf. */
 const FACET_COLUMN: Record<MultiFacetKey, string> = {
+  delivery: "delivery_v",
+  supplier: "supplier_v",
   brand: "brand",
   series: "series",
   grade: "grade_param",

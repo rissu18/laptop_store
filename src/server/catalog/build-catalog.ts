@@ -58,6 +58,7 @@ function variantFromOffer(offer: NormalizedOffer, saleCents: number, options: Ca
   return {
     id: `${offer.supplierCode}-${offer.externalId}`.toLowerCase(),
     sku: `SP-${offer.externalId.replace(/^\D+-?/, "")}`,
+    supplier: offer.supplierCode,
     grade: offer.grade,
     cpu: { model: offer.cpuModel, family: offer.cpuFamily, generationKey: offer.cpuGenerationKey },
     ramGb: offer.ramGb,

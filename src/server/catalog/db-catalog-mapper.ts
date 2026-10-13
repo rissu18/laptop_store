@@ -216,6 +216,7 @@ export function mapCatalogRows(
       variant: {
         id: publicListingId(listing.supplier, listing.supplierProductId),
         sku: listing.sku,
+        supplier: listing.supplier,
         grade: listing.grade as GradeCode,
         cpu: { model: listing.cpu!, family: (listing.cpuFamily as CpuFamily | null) ?? null, generationKey: listing.cpuGeneration, maxGhz: performance.cpuMaxGhz, benchmark: performance.cpuBenchmark },
         ramGb: listing.ramGb!,

@@ -2,7 +2,7 @@
 
 import { ChevronDown } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { ADVANCED_FACETS, FACETS, PRIMARY_FACETS, type MultiFacetKey } from "@/domain/catalog/facets";
+import { ADVANCED_FACETS, FACETS, LEAD_FACETS, PRIMARY_FACETS, type MultiFacetKey } from "@/domain/catalog/facets";
 import type { CatalogFacets, FacetOption } from "@/domain/catalog/filtering";
 import { toggleFacetValue, toggleFeature, withPriceRange, type CatalogQuery } from "@/domain/catalog/query";
 import type { FeatureKey } from "@/domain/catalog/types";
@@ -96,22 +96,27 @@ export function FilterPanel({ query, facets, locked }: { query: CatalogQuery; fa
   const advancedFacets = ADVANCED_FACETS.filter(usable);
   const advancedActive = query.features.length > 0 || advancedFacets.some((key) => query.facets[key].length > 0);
 
+  const facetGroup = (key: MultiFacetKey) => (
+    <FilterGroup key={key} title={FACETS[key].label}>
+      <OptionList
+        name={FACETS[key].label}
+        options={facets.multi[key]}
+        onToggle={(value) => navigate(toggleFacetValue(query, key, value))}
+        limit={OPTION_LIMITS[key]}
+      />
+    </FilterGroup>
+  );
+
   return (
     <div>
+      {/* Tarne → Tarnija → Hind → Tootja … (sama järjekord desktopi külgribal ja mobiili drawer'is) */}
+      {LEAD_FACETS.filter(usable).map(facetGroup)}
+
       <FilterGroup title="Hind">
         <PriceFilter query={query} range={facets.price} />
       </FilterGroup>
 
-      {PRIMARY_FACETS.filter(usable).map((key) => (
-        <FilterGroup key={key} title={FACETS[key].label}>
-          <OptionList
-            name={FACETS[key].label}
-            options={facets.multi[key]}
-            onToggle={(value) => navigate(toggleFacetValue(query, key, value))}
-            limit={OPTION_LIMITS[key]}
-          />
-        </FilterGroup>
-      ))}
+      {PRIMARY_FACETS.filter(usable).map(facetGroup)}
 
       {(facets.features.length > 0 || advancedFacets.length > 0) && (
         <FilterGroup title="Täpsemad filtrid" defaultOpen={advancedActive}>

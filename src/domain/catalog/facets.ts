@@ -9,8 +9,9 @@ import {
   isCpuFamilyValue,
   isCpuGenerationValue,
 } from "./cpu-filter";
+import { isInStore } from "./configuration-order";
 import { KEYBOARD_FILTER_PATTERN, compareKeyboardFilterValues, keyboardFilterLabel, keyboardFilterValue } from "./keyboard";
-import { BRAND_CODES, BRAND_NAMES, type CatalogItem, type CatalogProduct } from "./types";
+import { BRAND_CODES, BRAND_NAMES, type CatalogItem, type CatalogProduct, type CatalogVariant } from "./types";
 
 export { cpuFamilyLabel, cpuGenerationLabel, cpuGenerationRank } from "./cpu-filter";
 
@@ -20,7 +21,7 @@ export { cpuFamilyLabel, cpuGenerationLabel, cpuGenerationRank } from "./cpu-fil
  * Filtripaneel, aktiivsete filtrite chip'id ja serveri filtreerimine kasutavad kõik seda.
  */
 
-export const MULTI_FACET_KEYS = ["brand", "series", "grade", "screen", "ram", "ssd", "cpu", "gen", "kb"] as const;
+export const MULTI_FACET_KEYS = ["delivery", "supplier", "brand", "series", "grade", "screen", "ram", "ssd", "cpu", "gen", "kb"] as const;
 export type MultiFacetKey = (typeof MULTI_FACET_KEYS)[number];
 
 export interface FacetDefinition {
@@ -88,6 +89,49 @@ export function seriesFilterValue(product: Pick<CatalogProduct, "brand" | "serie
   return THINKPAD_LINES.find(([pattern]) => pattern.test(model))?.[1] ?? slug;
 }
 
+/**
+ * Tarnija filter: andmebaasi kood (`supplier_listings.supplier`) → kliendile nähtav nimi. Sisemist koodi ("tech")
+ * kliendile ei näidata. Tundmatu tarnija (nt mock) filtris ei osale.
+ */
+export const SUPPLIER_FILTER_LABELS: Record<string, string> = { laptopid: "Laptopid.ee", tech: "Techvision", foxway: "Foxway" };
+const SUPPLIER_FILTER_CODES = Object.keys(SUPPLIER_FILTER_LABELS);
+
+export function supplierFilterValue(supplier: string): string | null {
+  const code = supplier.toLowerCase();
+  return SUPPLIER_FILTER_CODES.includes(code) ? code : null;
+}
+
+/**
+ * Tarne filter (sama reegel mis tootelehe tarneaja silt, configuration-line.ts): "kohapeal" = salongis olemas,
+ * tarnija tarneaeg → "1-2" / "2-4"; tarneaeg teadmata → filtris ei osale (väärtust ei leiutata).
+ */
+export const IN_STORE_DELIVERY = "kohapeal";
+const DELIVERY_RANGE = /^(\d{1,2})-(\d{1,2})$/;
+
+export function deliveryFilterValue(variant: Pick<CatalogVariant, "stock" | "delivery">): string | null {
+  if (isInStore(variant)) return IN_STORE_DELIVERY;
+  return variant.delivery ? `${variant.delivery.minDays}-${variant.delivery.maxDays}` : null;
+}
+
+function deliveryFilterLabel(value: string): string {
+  if (value === IN_STORE_DELIVERY) return "Poes kohapeal";
+  const [, min, max] = value.match(DELIVERY_RANGE) ?? [];
+  if (!min) return value;
+  return min === max ? `Tarne ${min} ${min === "1" ? "päev" : "päeva"}` : `Tarne ${min}–${max} päeva`;
+}
+
+/** Poes kohapeal ees, siis kiirem tarne enne */
+function compareDelivery(a: string, b: string): number {
+  const rank = (value: string) => {
+    if (value === IN_STORE_DELIVERY) return [-1, -1];
+    const [, min, max] = value.match(DELIVERY_RANGE) ?? [];
+    return min ? [Number(min), Number(max)] : [Number.MAX_SAFE_INTEGER, 0];
+  };
+  const [aMin, aMax] = rank(a);
+  const [bMin, bMax] = rank(b);
+  return aMin - bMin || aMax - bMax;
+}
+
 /** "thinkpad-t" jne vastab ka üldisele "thinkpad" väärtusele (avalehe seeria lingid, vanad URL-id) */
 const THINKPAD_PARENT_LINES = new Set(["thinkpad-t", "thinkpad-x", "thinkpad-x1", "thinkpad-x13", "thinkpad-l", "thinkpad-e"]);
 
@@ -106,6 +150,29 @@ const byList = (list: readonly string[]) => (a: string, b: string) => list.index
 // ---- Definitsioonid ---------------------------------------------------------
 
 export const FACETS: Record<MultiFacetKey, FacetDefinition> = {
+  delivery: {
+    key: "delivery",
+    label: "Tarne",
+    valuesOf: ({ variant }) => {
+      const value = deliveryFilterValue(variant);
+      return value ? [value] : [];
+    },
+    optionLabel: deliveryFilterLabel,
+    isValidValue: (v) => v === IN_STORE_DELIVERY || DELIVERY_RANGE.test(v),
+    compare: compareDelivery,
+  },
+  supplier: {
+    key: "supplier",
+    label: "Tarnija",
+    // Pakkumise (SupplierListing) tasemel: kaart = üks pakkumine, nii et filtreeritud kaardi link valib sama tarnija konfiguratsiooni
+    valuesOf: ({ variant }) => {
+      const value = supplierFilterValue(variant.supplier);
+      return value ? [value] : [];
+    },
+    optionLabel: (v) => SUPPLIER_FILTER_LABELS[v] ?? v,
+    isValidValue: (v) => SUPPLIER_FILTER_CODES.includes(v),
+    compare: byList(SUPPLIER_FILTER_CODES),
+  },
   brand: {
     key: "brand",
     label: "Tootja",
@@ -233,6 +300,8 @@ export function seriesLabel(slug: string): string {
   return SERIES_LABELS[slug] ?? slug;
 }
 
+/** Filtripaneelis kõige ees, enne hinda (Tarne → Tarnija → Hind → Tootja …) */
+export const LEAD_FACETS: MultiFacetKey[] = ["delivery", "supplier"];
 /** Basic filtrid on alati nähtaval; ülejäänud on "Täpsemad filtrid" all. */
 export const PRIMARY_FACETS: MultiFacetKey[] = ["brand", "series", "grade", "screen", "ram", "ssd", "cpu", "gen"];
 export const ADVANCED_FACETS: MultiFacetKey[] = ["kb"];

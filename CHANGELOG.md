@@ -5,6 +5,18 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 ---
 
+## 2026-10-13 — Kataloogi filtrid "Tarne" ja "Tarnija"
+
+**Miks:** klient tahab valida, kas arvuti on kohe poes või tuleb tarnega, ja millise tarnija pakkumisi ta näeb.
+
+- Uued multi-select SQL tahud (olemasolev facet-arhitektuur, ei mingit täiskataloogi laadimist): **Tarne** (Poes kohapeal / Tarne 1–2 päeva / Tarne 2–4 päeva) ja **Tarnija** (Laptopid.ee / Techvision / Foxway — sisemist koodi `tech` kliendile ei näidata). Filtripaneelis Tarne → Tarnija → Hind → Tootja … (desktop ja mobiil).
+- Filter on pakkumise tasemel; filtreeritud kaardi link valib sama tarnija konfiguratsiooni. Loendurid loevad ainult müüdavaid pakkumisi (mitteaktiivne, otsas, BLOCKED/REVIEW, Foxway C välja).
+- `CatalogVariant.supplier` (tarnija kood, mapper + mock).
+- **Probleem:** ülesandes oli "Tarne" filter kirjas olemasolevana, aga koodis seda polnud → tehti samas sprindis (Tarnija järjekord ja Tarne + Tarnija kombinatsioon sõltusid sellest).
+- **Testid:** `supplier-filter.db.test.ts` (9); `perf:bench -- --verify` päris andmetel 227 päringut, uusi erinevusi 0 (vana otsinguteksti erinevus 174 rida, eraldi ülesanne). Jõudlus enne/pärast: kataloog soe 118 → 115 ms, tarnija 103 ms, tarne + tarnija 110 ms.
+
+---
+
 ## 2026-10-13 — Konfiguratsioonide järjestus: "Poes kohapeal" ees
 
 **Miks:** tooteleht sorteeris konfiguratsioonid ainult hinna järgi ja valis vaikimisi odavaima — 282 € hulgilao (Foxway) variant tõusis salongis oleva 590 € variandi ette ja oli vaikimisi valitud.

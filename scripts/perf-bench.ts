@@ -79,6 +79,8 @@ async function verify() {
     { min: "500", brand: "lenovo", f: "touch" },
     { q: "t14 g4" }, { q: "T14 Gen 4" }, { q: "x1 carbon gen 10" }, { q: "x1 carbon g10" }, { q: "16gb 512" }, { q: "uus" }, { q: "i5-1235u" }, { q: "elitebook 840 g8" }, { q: "zzzz" },
     { page: "2" }, { page: "999" }, { brand: "lenovo", page: "3" },
+    { supplier: "laptopid,tech" }, { supplier: "foxway", delivery: "2-4" }, { supplier: "tech", brand: "dell", min: "300", max: "700" },
+    { delivery: "kohapeal", supplier: "laptopid,foxway", ram: "16" },
   );
   for (const sort of SORT_OPTIONS) params.push({ sort: sort.key }, { sort: sort.key, page: "2", brand: "lenovo" });
 
@@ -123,6 +125,8 @@ async function bench() {
     filter: { brand: "lenovo", ram: "16", screen: "14", grade: "a,b" },
     search: { q: "t14 g4" },
     page3: { sort: "price-asc", page: "3" },
+    supplier: { supplier: "foxway" },
+    deliverySupplier: { delivery: "1-2,2-4", supplier: "tech,foxway" },
   };
   for (const [name, raw] of Object.entries(queries)) {
     await series(`catalogPage:${name}`, () => queryCatalogPage(db, parseCatalogQuery(raw)), (page) => ({ items: page.items.length, total: page.total, itemsBytes: bytes(page.items), facetsBytes: bytes(page.facets) }));
