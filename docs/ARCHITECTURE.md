@@ -189,6 +189,14 @@ Icecati vaste on tihti üks konkreetne SKU (nt Saksa klaviatuur, puuteekraan, te
 - **Kontrollitud paralleelsus**: 3 mudelit × 2 pilti korraga; retry ainult 408/429/5xx/võrguvigadel, 404 kunagi.
 - **Saladused**: `ICECAT_API_TOKEN` / `ICECAT_CONTENT_TOKEN` ainult HTTP päistes; logger peidab kõik `token|password|secret|key` väljad.
 
+**Mudeli koondgalerii (2026-10-13)** — `domain/images/model-gallery.ts`, mapper `buildGalleries`:
+
+- Üks galerii **mudeli** kohta; kõik sama mudeli konfiguratsioonid (tooteleht, kaart, ostukorv, kassa) näevad sama tulemust (`product.images`; `variant.images` on tühi). Allikad liidetakse: `product_images` (MANUAL / LAPTOPID / SUPPLIER / ICECAT) + sama mudeli **kõigi müügis pakkumiste** `listing_images`.
+- **Prioriteet** (`GALLERY_GROUP_PRIORITY`): OWN (admin MANUAL, ACTUAL_UNIT) → LAPTOPID (Laptopid.ee fotod) → SUPPLIER → ICECAT → PLACEHOLDER. Grupi sees: mudeli pildid positsiooni järgi, siis pakkumised (rohkem fotosid → pakkumise ID) ja positsioon — deterministlik, ka kui päring laeb eri pakkumiste hulga (kassa laeb sama mudeli kõigi müügis pakkumiste pildid).
+- **Dedupe:** sama URL (päringuparameetriteta) või visuaalne räsi (dHash, ≤ 4 bitti 64-st). Laptopid.ee kasutab osaliselt samu Icecati stock-pilte (kaugus 0–2) → alles jääb kõrgema prioriteediga koopia; sama nurk teise ekraanipildiga (5+) jääb eraldi.
+- **Tühjad pildid** (`npm run images:analyze`, ka `enrich:catalog --images` lõpus; tulemus `visual_hash`, `image_quality`, `analyzed_at` — migratsioon 0008): BROKEN = HTTP 404/410 või mitte-pildifail (ei näidata kunagi); BLANK = valgel taustal < 2% nähtavaid piksleid (juuksepeenike külgprofiil) või heleduse standardhälve < 3; PLACEHOLDER tüüp. BLANK/PLACEHOLDER jäetakse välja, kui mudelil on sisukaid pilte, muidu viimaseks. Analüüsimata pilt (uus Laptopid.ee foto enne järgmist analüüsi) kuvatakse ja dedupe käib URL-i järgi.
+- Pildi arvu piirangut galeriis pole; tootekaart saab kuni 8 esimest (`CARD_MAX_IMAGES`).
+
 **Salvestusruum ja Vercel — praegune seis**
 
 | Küsimus | Vastus |
@@ -273,7 +281,7 @@ Google Sheet → XLSX eksport (mitte CSV: müüdud = Brand/Model lahtri taustav�
 - **Teada ostuhind:** `supplier_price_cents` = M − 20 €, KM režiim MARGIN → olemasolev sooduskoodi marginaalikaitse töötab Techi pakkumistel.
 - **Seerianumbrid ainult serveris/adminis** (`supplier_inventory_units`, `order_item_units`); poe kataloogipäring neid tabeleid ei loe.
 - **Mudeli vaste** on jagatud (`src/integrations/supplier/model-resolver.ts`, sama mis Laptopid.ee): täpne kanooniline slug, muidu uus mudel. Tech olemasolevat mudelit ei muuda.
-- **Mudeli piltide varu:** kui mudelil Icecati pilte pole, kasutab mapper sama mudeli teise müügis pakkumise tarnija pilte (nt Laptopid.ee fotod Techi pakkumisel), märgitud illustratiivseks.
+- **Mudeli pildid:** mudeli koondgalerii (vt "Tootepildid → Mudeli koondgalerii") — Techi pakkumine näitab sama mudeli Laptopid.ee fotosid + Icecati pilte, märgitud illustratiivseks.
 
 Täpsemalt: [TECH_SYNC.md](TECH_SYNC.md).
 

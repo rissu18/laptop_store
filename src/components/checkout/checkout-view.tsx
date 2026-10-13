@@ -73,7 +73,6 @@ function Summary({ quote }: { quote: CheckoutQuote }) {
             <span className="min-w-0 flex-1 text-sm">
               <span className="block font-medium">{line.title}</span>
               <span className="block text-xs text-muted">{line.specLine}</span>
-              {line.vatScheme === "MARGIN" && <span className="block text-xs text-muted">Kasutatud kauba erikord</span>}
               <span className="block text-xs text-muted">
                 {line.quantity} × {formatEur(line.unitPriceCents)}
               </span>
@@ -102,11 +101,7 @@ function Summary({ quote }: { quote: CheckoutQuote }) {
         <span className="font-semibold">Kokku</span>
         <span className="tabular text-2xl font-bold">{formatEur(quote.totalCents)}</span>
       </div>
-      <p className="mt-1 text-xs text-muted">Hinnad sisaldavad käibemaksu.</p>
-      {quote.lines.some((line) => line.vatScheme === "MARGIN") && (
-        // Erikorra kaubal on KM arvestatud marginaalilt: eraldi KM summat ei näidata ega väideta sisendkäibemaksuna mahaarvatavaks
-        <p className="mt-1 text-xs text-muted">Kasutatud kauba erikorra toodete käibemaksu arvel eraldi ei näidata ja seda ei saa sisendkäibemaksuna maha arvata.</p>
-      )}
+      <p className="mt-1 text-xs text-muted">Hind sisaldab käibemaksu</p>
     </div>
   );
 }

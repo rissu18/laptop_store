@@ -167,7 +167,7 @@ describe.skipIf(!hasTestDatabase)("sooduskoodid (andmebaas)", () => {
       const { resolveCart } = await import("@/server/cart/cart-actions");
       const result = await resolveCart(cart(), "dell10");
       expect(result.discount).toMatchObject({ valid: true, code: "Dell10", eligibleSubtotalCents: dellPrice });
-      expect(result.discountCents).toBe(Math.round(dellPrice * 0.1));
+      expect(result.discountCents).toBe(Math.round(dellPrice * 0.1 / 100) * 100); // täiseurodes
       expect(result.totalCents).toBe(dellPrice + lenovoPrice - result.discountCents);
       // Avalik vastus ei sisalda sisemist infot
       expect(Object.keys(result.discount!).sort()).toEqual(["code", "discountAmountCents", "eligibleSubtotalCents", "freeShipping", "message", "reason", "valid"]);

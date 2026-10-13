@@ -108,7 +108,7 @@ export function SettingsEditor({ settings }: { settings: Settings }) {
         {(e) => (
           <>
             <TextField name="standardShippingName" label="Tarneviisi nimi" defaultValue={delivery.standardShippingName} error={e.standardShippingName} />
-            <TextField name="standardShippingPrice" label="Tarne hind (€)" defaultValue={toInput(delivery.standardShippingCents, "euro")} error={e.standardShippingCents} hint="Kassas lisatav summa (0 = tasuta)" />
+            <TextField name="standardShippingPrice" label="Tarne hind (€)" defaultValue={toInput(delivery.standardShippingCents, "euro")} error={e.standardShippingCents} hint="Kassas lisatav summa, kliendile ümardatakse täiseuroni (0 = tasuta)" />
             <TextArea name="infoText" label="Tarneinfo tekst" defaultValue={delivery.infoText} error={e.infoText} />
             <TextField name="freeShippingThreshold" label="Tasuta tarne alates (€)" defaultValue={toInput(delivery.freeShippingThresholdCents, "euro")} error={e.freeShippingThresholdCents} hint="Tühi = tasuta tarnet pole" />
           </>

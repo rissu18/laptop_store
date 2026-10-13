@@ -24,7 +24,8 @@
     "foxway:sync": "tsx --conditions=react-server scripts/foxway-sync.ts",
     "catalog:archive-mock": "tsx --conditions=react-server scripts/catalog-archive-mock.ts",
     "perf:bench": "tsx --conditions=react-server scripts/perf-bench.ts",
-    "enrich:catalog": "tsx --conditions=react-server scripts/enrich-catalog.ts"
+    "enrich:catalog": "tsx --conditions=react-server scripts/enrich-catalog.ts",
+    "images:analyze": "tsx --conditions=react-server scripts/images-analyze.ts"
   },
   "engines": {
     "node": ">=22"

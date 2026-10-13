@@ -82,8 +82,9 @@ storefront_base AS (
     ${eff("l", "gpuDedicated", "gpu_dedicated", "boolean")} AS gpu_dedicated,
     ${eff("l", "stock", "stock", "numeric")} AS stock,
     l.available,
-    (CASE WHEN l.price_source = 'SUPPLIER' AND l.manual_overrides ? 'salePriceCents'
-      THEN (l.manual_overrides->>'salePriceCents')::numeric ELSE l.sale_price_cents::numeric END) AS price,
+    -- Kliendi hind täiseurodes (sama reegel mis money.ts → roundToEuro): filter, sortimine ja hinnavahemik = kuvatav hind
+    ROUND((CASE WHEN l.price_source = 'SUPPLIER' AND l.manual_overrides ? 'salePriceCents'
+      THEN (l.manual_overrides->>'salePriceCents')::numeric ELSE l.sale_price_cents::numeric END) / 100) * 100 AS price,
     l.features || jsonb_build_object('touch', ${eff("l", "touchscreen", "touchscreen", "boolean")}) AS feat
   FROM supplier_listings l
   JOIN product_models m ON m.id = l.product_model_id

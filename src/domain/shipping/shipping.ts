@@ -1,4 +1,5 @@
 import type { Settings } from "@/domain/settings/settings";
+import { roundToEuro } from "@/domain/money/money";
 
 /**
  * Tarneviisid. Praegu üks lihtne meetod seadetest (STANDARD); pakiautomaatide ja kullerite API-d
@@ -20,7 +21,8 @@ export function availableShippingMethods(delivery: Settings["delivery"]): Shippi
     {
       code: "STANDARD",
       name: delivery.standardShippingName,
-      priceCents: delivery.standardShippingCents,
+      // Kliendi hinnad on täisarvud (money.ts → roundToEuro): seadetes 6,99 € → poes ja kassas 7 €
+      priceCents: roundToEuro(delivery.standardShippingCents),
       freeFromCents: delivery.freeShippingThresholdCents,
       requiresPickupPoint: false,
     },

@@ -132,7 +132,7 @@ describe.skipIf(!hasTestDatabase)("kassa ja tellimused (andmebaas)", () => {
       expect(result.status).toBe("CREATED");
       if (result.status !== "CREATED") return;
       const order = await orderBy(result.orderNumber);
-      expect(order).toMatchObject({ isTest: true, status: "CREATED", paymentStatus: "NOT_STARTED", subtotalCents: dell.price, discountAmountCents: 0, shippingAmountCents: 699, totalCents: dell.price + 699, customerEmail: "mari@example.com" });
+      expect(order).toMatchObject({ isTest: true, status: "CREATED", paymentStatus: "NOT_STARTED", subtotalCents: dell.price, discountAmountCents: 0, shippingAmountCents: 700, totalCents: dell.price + 700, customerEmail: "mari@example.com" });
       expect(quote.mode).toBe("TEST");
       const history = await t.db.select().from(orderStatusHistory).where(eq(orderStatusHistory.orderId, order.id));
       expect(history.map((h) => [h.kind, h.fromStatus, h.toStatus, h.source])).toEqual([
@@ -255,10 +255,10 @@ describe.skipIf(!hasTestDatabase)("kassa ja tellimused (andmebaas)", () => {
       const { result } = await checkout([{ variantId: dell.ref, quantity: 1 }, { variantId: lenovo.ref, quantity: 1 }], "dell10");
       if (result.status !== "CREATED") throw new Error(result.status);
       const order = await orderBy(result.orderNumber);
-      expect(order).toMatchObject({ discountCode: "DELL10", discountType: "PERCENTAGE", discountValue: 1000, discountAmountCents: Math.round(dell.price * 0.1) });
+      expect(order).toMatchObject({ discountCode: "DELL10", discountType: "PERCENTAGE", discountValue: 1000, discountAmountCents: Math.round(dell.price * 0.1 / 100) * 100 });
       expect(order.totalCents).toBe(dell.price + lenovo.price - order.discountAmountCents + order.shippingAmountCents);
       const items = await t.db.select().from(orderItems).where(eq(orderItems.orderId, order.id)).orderBy(orderItems.position);
-      expect(items.map((i) => i.discountAmountCents)).toEqual([Math.round(dell.price * 0.1), 0]);
+      expect(items.map((i) => i.discountAmountCents)).toEqual([Math.round(dell.price * 0.1 / 100) * 100, 0]);
       expect(order.discountSnapshot).toMatchObject({ code: "DELL10", discountAmountApplied: order.discountAmountCents });
     });
 

@@ -1,4 +1,4 @@
-import { inArray, sql } from "drizzle-orm";
+import { and, eq, getTableColumns, inArray, isNull, or, sql } from "drizzle-orm";
 import { resolveCheckoutMode, type CheckoutMode } from "@/domain/checkout/checkout-mode";
 import { UNKNOWN_QUANTITY_LIMIT_MESSAGE, availableForOrder } from "@/domain/catalog/availability";
 import { formatSpecLine } from "@/domain/catalog/format";
@@ -93,12 +93,22 @@ async function loadItems(db: Pick<Database, "select">, variantIds: string[]) {
     .from(supplierListings)
     .where(inArray(sql`lower(${supplierListings.supplier} || '-' || ${supplierListings.supplierProductId})`, variantIds.map((id) => id.toLowerCase())));
   const modelIds = [...new Set(listings.map((l) => l.productModelId))];
-  const listingIds = listings.map((l) => l.id);
   const [models, images, unitImages] = modelIds.length
     ? await Promise.all([
         db.select().from(productModels).where(inArray(productModels.id, modelIds)),
         db.select().from(productImages).where(inArray(productImages.productModelId, modelIds)),
-        db.select().from(listingImages).where(inArray(listingImages.supplierListingId, listingIds)),
+        // Mudeli koondgalerii (sama mis tootelehel): sama mudeli kõigi müügis pakkumiste pildid
+        db
+          .select({ ...getTableColumns(listingImages), productModelId: supplierListings.productModelId, supplier: supplierListings.supplier })
+          .from(listingImages)
+          .innerJoin(supplierListings, eq(supplierListings.id, listingImages.supplierListingId))
+          .where(
+            and(
+              inArray(supplierListings.productModelId, modelIds),
+              eq(supplierListings.status, "ACTIVE"),
+              or(isNull(supplierListings.available), eq(supplierListings.available, true)),
+            ),
+          ),
       ])
     : [[], [], []];
   // Sama teisendus mis poes: ainult ACTIVE mudelid/pakkumised, saadaval, täielike andmetega

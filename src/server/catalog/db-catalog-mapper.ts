@@ -7,7 +7,9 @@ import { buildSearchText } from "@/domain/catalog/search";
 import type { SearchableItem } from "@/domain/catalog/filtering";
 import { MODEL_OVERRIDABLE_FIELDS, applyOverrides, listingOverridableFields } from "@/domain/catalog/overrides";
 import { GRADE_CODES, type GradeCode } from "@/domain/grade/grades";
+import { buildModelGallery, groupForListingImage, groupForModelImage, type GalleryCandidate } from "@/domain/images/model-gallery";
 import type { ProductImageView } from "@/domain/images/product-image";
+import { roundToEuro } from "@/domain/money/money";
 import { publicListingId } from "@/server/db/seed/seed-catalog";
 import type { listingImages, productImages, productModels, supplierListings } from "@/server/db/schema";
 
@@ -19,8 +21,9 @@ import type { listingImages, productImages, productModels, supplierListings } fr
  *   ja millel on kõik poe jaoks kohustuslikud andmed (CPU, RAM, SSD, seisukord, müügihind, ekraan).
  *   Puudulikud pakkumised ei kao andmebaasist — need on adminis Data Quality all parandamiseks.
  * - Puuduvaid väärtusi ei asendata võltsitud vaikeväärtustega.
- * - Pildid: pakkumise oma pildid (listing_images, nt Laptopid.ee) → variant.images; mudeli pildid
- *   (product_images, nt Icecat) → product.images. Kuvamisel eelistatakse pakkumise pilte.
+ * - Pildid: mudeli KOONDGALERII (domain/images/model-gallery.ts) — mudeli pildid (product_images) + sama mudeli kõigi
+ *   müügis pakkumiste pildid (listing_images) ühes deterministlikus järjekorras → product.images. Kõik sama mudeli
+ *   konfiguratsioonid näitavad sama galeriid (variant.images jääb tühjaks).
  */
 
 /**
@@ -43,16 +46,22 @@ export const STOREFRONT_LISTING_COLUMNS = [
   "enrichment",
 ] as const;
 export const STOREFRONT_IMAGE_COLUMNS = [
-  "productModelId", "position", "isHidden", "type", "thumbnailPath", "mediumPath", "largePath", "width", "height", "alt",
+  "productModelId", "position", "isHidden", "source", "type", "thumbnailPath", "mediumPath", "largePath", "width", "height", "alt",
+  "visualHash", "imageQuality",
 ] as const;
 export const STOREFRONT_LISTING_IMAGE_COLUMNS = [
   "supplierListingId", "position", "isHidden", "thumbnailUrl", "mediumUrl", "largeUrl", "width", "height", "alt",
+  "visualHash", "imageQuality",
 ] as const;
 
 type ModelRow = Pick<typeof productModels.$inferSelect, (typeof STOREFRONT_MODEL_COLUMNS)[number]>;
 type ListingRow = Pick<typeof supplierListings.$inferSelect, (typeof STOREFRONT_LISTING_COLUMNS)[number]>;
 type ImageRow = Pick<typeof productImages.$inferSelect, (typeof STOREFRONT_IMAGE_COLUMNS)[number]>;
-type ListingImageRow = Pick<typeof listingImages.$inferSelect, (typeof STOREFRONT_LISTING_IMAGE_COLUMNS)[number]>;
+type ListingImageRow = Pick<typeof listingImages.$inferSelect, (typeof STOREFRONT_LISTING_IMAGE_COLUMNS)[number]> & {
+  /** Kui pakkumist pole `listings` hulgas (nt kassa laeb ainult ostukorvi pakkumised): mudel ja tarnija päringust */
+  productModelId?: string;
+  supplier?: string;
+};
 
 export interface IncompleteListing {
   sku: string;
@@ -112,6 +121,42 @@ export function listingImageRowToView(image: ListingImageRow): ProductImageView 
   };
 }
 
+/**
+ * Mudeli koondgaleriid: product_images (kõik allikad) + sama mudeli müügis pakkumiste pildid. Pakkumiste järjekord on
+ * deterministlik ka siis, kui eri päringud laevad eri pakkumiste hulga (rohkem fotosid → pakkumise ID).
+ */
+function buildGalleries(listings: ListingRow[], images: ImageRow[], listingImageRows: ListingImageRow[]): Map<string, ProductImageView[]> {
+  const candidates = new Map<string, GalleryCandidate[]>();
+  const push = (modelId: string, candidate: GalleryCandidate) => candidates.set(modelId, [...(candidates.get(modelId) ?? []), candidate]);
+
+  for (const image of images) {
+    if (image.isHidden) continue;
+    const group = groupForModelImage(image.source, image.type);
+    // Laptopid.ee koopiad mudeli piltides (enrich:catalog) enne pakkumiste otse-fotosid
+    push(image.productModelId, { view: imageRowToView(image), group, order: [0, 0, image.position], visualHash: image.visualHash, quality: image.imageQuality });
+  }
+
+  const listingMeta = new Map(listings.map((l) => [l.id, { productModelId: l.productModelId, supplier: l.supplier, onSale: l.status === "ACTIVE" && l.available !== false }]));
+  const visible = listingImageRows.filter((image) => !image.isHidden);
+  const countByListing = new Map<string, number>();
+  for (const image of visible) countByListing.set(image.supplierListingId, (countByListing.get(image.supplierListingId) ?? 0) + 1);
+  const listingOrder = [...countByListing.keys()].sort((a, b) => countByListing.get(b)! - countByListing.get(a)! || a.localeCompare(b));
+  const rank = new Map(listingOrder.map((id, index) => [id, index]));
+  for (const image of visible) {
+    const meta = listingMeta.get(image.supplierListingId) ?? (image.productModelId && image.supplier ? { productModelId: image.productModelId, supplier: image.supplier, onSale: true } : null);
+    if (!meta?.onSale) continue;
+    push(meta.productModelId, {
+      view: listingImageRowToView(image),
+      group: groupForListingImage(meta.supplier),
+      order: [1, rank.get(image.supplierListingId)!, image.position],
+      visualHash: image.visualHash,
+      quality: image.imageQuality,
+    });
+  }
+
+  return new Map([...candidates].map(([modelId, list]) => [modelId, buildModelGallery(list)]));
+}
+
 export function mapCatalogRows(
   models: ModelRow[],
   listings: ListingRow[],
@@ -119,30 +164,7 @@ export function mapCatalogRows(
   listingImageRows: ListingImageRow[] = [],
 ): { items: SearchableItem[]; incomplete: IncompleteListing[] } {
   const modelById = new Map(models.map((m) => [m.id, effectiveModel(m)]));
-  const imagesByModel = new Map<string, ProductImageView[]>();
-  for (const image of [...images].sort((a, b) => a.position - b.position)) {
-    if (image.isHidden) continue;
-    const list = imagesByModel.get(image.productModelId) ?? [];
-    list.push(imageRowToView(image));
-    imagesByModel.set(image.productModelId, list);
-  }
-  const imagesByListing = new Map<string, ProductImageView[]>();
-  for (const image of [...listingImageRows].sort((a, b) => a.position - b.position)) {
-    if (image.isHidden) continue;
-    const list = imagesByListing.get(image.supplierListingId) ?? [];
-    list.push(listingImageRowToView(image));
-    imagesByListing.set(image.supplierListingId, list);
-  }
-
-  // Mudeli piltide varu: kui mudelil endal (Icecat) pilte pole, kasutatakse sama mudeli mõne teise müügis pakkumise
-  // tarnija pilte (nt Laptopid.ee fotod Techi sama mudeli pakkumisel). Need on MODEL_GENERIC → "illustratiivne" märge.
-  const siblingImagesByModel = new Map<string, ProductImageView[]>();
-  for (const listing of listings) {
-    if (siblingImagesByModel.has(listing.productModelId) || listing.status !== "ACTIVE" || listing.available === false || effectiveListing(listing).qualityHold) continue;
-    const own = imagesByListing.get(listing.id);
-    if (own?.length) siblingImagesByModel.set(listing.productModelId, own);
-  }
-
+  const galleries = buildGalleries(listings, images, listingImageRows);
   const products = new Map<string, CatalogItem["product"]>();
   const items: SearchableItem[] = [];
   const incomplete: IncompleteListing[] = [];
@@ -179,7 +201,7 @@ export function mapCatalogRows(
         ports: { usbA: model.usbAPorts, usbC: model.usbCPorts },
         wifi: model.wifi,
         bluetooth: model.bluetooth,
-        images: imagesByModel.get(model.id) ?? siblingImagesByModel.get(model.id) ?? [],
+        images: galleries.get(model.id) ?? [],
       };
       products.set(model.id, product);
     }
@@ -208,8 +230,9 @@ export function mapCatalogRows(
         chargerIncluded: listing.chargerIncluded,
         warrantyMonths: listing.warrantyMonths,
         price: {
-          saleCents: listing.salePriceCents!,
-          referenceCents: listing.referencePriceCents,
+          // Kliendi hind = täisarv eurodes (money.ts → roundToEuro); sama väärtus kaardil, tootelehel, ostukorvis ja kassas
+          saleCents: roundToEuro(listing.salePriceCents!),
+          referenceCents: listing.referencePriceCents === null ? null : roundToEuro(listing.referencePriceCents),
           vatScheme: VAT_SCHEMES.includes(listing.vatScheme as VatScheme) ? (listing.vatScheme as VatScheme) : "UNKNOWN",
         },
         stock,
@@ -223,7 +246,8 @@ export function mapCatalogRows(
         weightKg: listing.weightKg,
         conditionNotes: listing.conditionNotes,
         details: listing.details ?? {},
-        images: imagesByListing.get(listing.id) ?? [],
+        // Kõik konfiguratsioonid kasutavad mudeli koondgaleriid (product.images)
+        images: [],
       },
     };
     items.push({ ...item, searchText: buildSearchText(item) });

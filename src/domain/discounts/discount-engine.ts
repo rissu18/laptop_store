@@ -1,4 +1,4 @@
-import { formatEur } from "@/domain/money/money";
+import { floorToEuro, formatEur, roundToEuro } from "@/domain/money/money";
 
 /**
  * DiscountEngine — ainus koht, kus sooduskoodi kehtivust ja summat arvutatakse.
@@ -178,21 +178,22 @@ export function rawDiscountCents(rule: Pick<DiscountRule, "type" | "value" | "ma
   let amount: number;
   switch (rule.type) {
     case "PERCENTAGE":
-      amount = Math.round((eligibleSubtotalCents * rule.value) / 10_000);
+      amount = roundToEuro(Math.round((eligibleSubtotalCents * rule.value) / 10_000));
       break;
     case "FIXED_AMOUNT":
-      amount = rule.value;
+      amount = roundToEuro(rule.value);
       break;
     case "FREE_SHIPPING":
       return { amount: 0, capped: false };
   }
   let capped = false;
-  if (rule.maximumDiscountCents !== null && amount > rule.maximumDiscountCents) {
-    amount = rule.maximumDiscountCents;
+  if (rule.maximumDiscountCents !== null && amount > floorToEuro(rule.maximumDiscountCents)) {
+    amount = floorToEuro(rule.maximumDiscountCents);
     capped = true;
   }
-  // Soodustus ei ületa kunagi sobivate toodete summat → kokkusumma ei lähe negatiivseks
-  return { amount: Math.max(0, Math.min(amount, eligibleSubtotalCents)), capped };
+  // Soodustus ei ületa kunagi sobivate toodete summat → kokkusumma ei lähe negatiivseks.
+  // Kõik summad täiseurodes (money.ts → roundToEuro): kliendi hinnad on alati täisarvud.
+  return { amount: Math.max(0, Math.min(amount, floorToEuro(eligibleSubtotalCents))), capped };
 }
 
 /** Jagab summa ridadele proportsionaalselt (suurima jäägi meetod — sentide summa klapib täpselt). */
@@ -242,7 +243,8 @@ export function evaluateDiscount(rule: DiscountRule | null, lines: DiscountCartL
   const raw = rawDiscountCents(rule, eligibleSubtotalCents);
 
   // 8. Jaotus sobivatele ridadele (vajalik tellimuse ridade snapshot'iks ja marginaalikaitseks)
-  const shares = allocateProportionally(raw.amount, lineTotals.map((total, i) => (eligible[i] ? total : 0)));
+  // Jaotus täiseurodes (suurima jäägi meetod eurodel) → iga rea soodustus ja hind jäävad täisarvudeks
+  const shares = allocateProportionally(raw.amount / 100, lineTotals.map((total, i) => (eligible[i] ? total : 0))).map((euros) => euros * 100);
 
   // 9. Marginaalikaitse: hind ei tohi langeda alla madalaima lubatud hinna
   const allocations: DiscountLineAllocation[] = validLines.map((line, i) => {
@@ -250,7 +252,7 @@ export function evaluateDiscount(rule: DiscountRule | null, lines: DiscountCartL
     let marginLimited = false;
     const marginUnchecked = eligible[i] && rule.respectMinimumMargin && (line.minimumUnitPriceCents === null || line.minimumUnitPriceCents === undefined);
     if (eligible[i] && rule.respectMinimumMargin && typeof line.minimumUnitPriceCents === "number") {
-      const maxLineDiscount = Math.max(0, line.unitPriceCents - line.minimumUnitPriceCents) * line.quantity;
+      const maxLineDiscount = floorToEuro(Math.max(0, line.unitPriceCents - line.minimumUnitPriceCents) * line.quantity);
       if (discountCents > maxLineDiscount) {
         discountCents = maxLineDiscount;
         marginLimited = true;

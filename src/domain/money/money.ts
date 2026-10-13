@@ -32,3 +32,17 @@ export function eurosToCents(euros: number): Cents {
 export function percentOf(cents: Cents, basisPoints: number): Cents {
   return Math.round((cents * basisPoints) / 10_000);
 }
+
+/**
+ * Kliendile kuvatav ja küsitav hind on alati TÄISARV eurodes — üks reegel kogu klienditees (kaart, tooteleht,
+ * konfiguratsioonid, ostukorv, kassa, tellimus): tavaline ümardamine lähima euroni (x,50 → üles).
+ * 75812 → 75800 ("758 €"), 15052 → 15100 ("151 €"). Tarnija täpne hind jääb andmebaasi (backend).
+ */
+export function roundToEuro(cents: Cents): Cents {
+  return Math.round(cents / 100) * 100;
+}
+
+/** Ülempiir täiseurodes (soodustuse lagi, marginaalikaitse) — ei ületa kunagi antud summat */
+export function floorToEuro(cents: Cents): Cents {
+  return Math.floor(cents / 100) * 100;
+}

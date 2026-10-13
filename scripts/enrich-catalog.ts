@@ -26,6 +26,7 @@ import { icecatIndexConfigFromEnv, streamIcecatIndex } from "@/integrations/icec
 import { createDb } from "@/server/db/client";
 import { redactConnectionStrings, resolveDatabaseUrl } from "@/server/db/database-url";
 import { DbImageRepository } from "@/server/images/db-image-repository";
+import { analyzeCatalogImages } from "@/server/images/image-analysis";
 import { LocalImageStorageAdapter } from "@/server/images/storage/local-image-storage";
 import { runCatalogEnrichment, type GalleryBuckets, type IcecatIndexSource } from "@/server/enrichment/catalog-enrichment";
 import { writeSystemLog } from "@/server/logging/system-log";
@@ -54,6 +55,11 @@ async function main() {
     const limitArg = args.indexOf("--limit");
     const icecatLimit = limitArg >= 0 ? Number(args[limitArg + 1]) || undefined : undefined;
     const report = await runCatalogEnrichment(db, { images, specs, icecat, icecatIndex, icecatLimit, dryRun, log: (m) => console.log(`  ${m}`) });
+    if (images && !dryRun) {
+      // Uued pildid (Laptopid.ee sync, Icecat) → visuaalne räsi + tühja/katkise pildi tuvastus mudeli koondgalerii jaoks
+      const analysis = await analyzeCatalogImages(db, { log: (m) => console.log(`  ${m}`) });
+      console.log(`  Pildianalüüs: ${analysis.analyzed} (BLANK ${analysis.blank}, BROKEN ${analysis.broken}, vahele ${analysis.skipped})`);
+    }
     const reportArg = args.indexOf("--report");
     if (reportArg >= 0 && args[reportArg + 1]) await writeFile(args[reportArg + 1], JSON.stringify(report, null, 2));
     if (args.includes("--json")) {

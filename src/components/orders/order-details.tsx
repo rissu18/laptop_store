@@ -54,7 +54,6 @@ export function OrderDetails({ order }: { order: PublicOrderView }) {
                   {item.sku} · {item.quantity} × {formatEur(item.unitPriceCents)}
                   {item.discountCents > 0 && ` · soodustus −${formatEur(item.discountCents)}`}
                 </span>
-                {item.vatScheme === "MARGIN" && <span className="block text-xs text-muted">Kasutatud kauba erikord – käibemaksu arvel eraldi ei näidata</span>}
               </span>
               <span className="tabular shrink-0 font-semibold">{formatEur(item.lineTotalCents)}</span>
             </li>

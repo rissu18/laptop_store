@@ -30,12 +30,10 @@ export function PriceTag({ price, size = "md", className }: { price: CatalogVari
   );
 }
 
-/** Käibemaksu märge — ainult siis, kui käsitlus on teada (vt PROJECT_PLAN.md R1). */
-export function VatNote({ scheme, className }: { scheme: CatalogVariant["price"]["vatScheme"]; className?: string }) {
-  if (scheme === "UNKNOWN") return null;
-  return (
-    <p className={cx("text-xs text-muted", className)}>
-      {scheme === "STANDARD" ? "Hind sisaldab käibemaksu" : "Kasutatud kauba erikord – käibemaksu arvel eraldi ei näidata"}
-    </p>
-  );
+/**
+ * Käibemaksu märge hinna all — kõigil toodetel sama tekst. KM režiim (tavakord / kasutatud kauba erikord) on
+ * backendi ja raamatupidamise teema (tellimuse snapshot `vat_scheme`); kliendile seda eraldi ei kuvata.
+ */
+export function VatNote({ className }: { className?: string }) {
+  return <p className={cx("text-xs text-muted", className)}>Hind sisaldab käibemaksu</p>;
 }

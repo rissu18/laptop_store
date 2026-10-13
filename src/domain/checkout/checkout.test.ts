@@ -115,12 +115,12 @@ describe("tarne", () => {
   const [method] = availableShippingMethods({ ...DEFAULT_SETTINGS.delivery, freeShippingThresholdCents: 100_000 });
 
   it("standardtarne seadetest; tasuta tarne piir ja tasuta tarne kood", () => {
-    expect(method).toMatchObject({ code: "STANDARD", name: "Standardtarne", priceCents: 699, requiresPickupPoint: false });
-    expect(quoteShipping(method, 50_000, false)).toMatchObject({ amountCents: 699, freeReason: null });
+    expect(method).toMatchObject({ code: "STANDARD", name: "Standardtarne", priceCents: 700, requiresPickupPoint: false });
+    expect(quoteShipping(method, 50_000, false)).toMatchObject({ amountCents: 700, freeReason: null });
     expect(quoteShipping(method, 100_000, false)).toMatchObject({ amountCents: 0, freeReason: "THRESHOLD" });
     expect(quoteShipping(method, 1_000, true)).toMatchObject({ amountCents: 0, freeReason: "COUPON" });
     const [noThreshold] = availableShippingMethods(DEFAULT_SETTINGS.delivery);
-    expect(quoteShipping(noThreshold, 999_999, false).amountCents).toBe(699); // tasuta tarnet ei ole kõvakodeeritud
+    expect(quoteShipping(noThreshold, 999_999, false).amountCents).toBe(700); // tasuta tarnet ei ole kõvakodeeritud
   });
 });
 

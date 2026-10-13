@@ -133,3 +133,40 @@ export function hashDistance(a: bigint, b: bigint): number {
 }
 
 export const VISUAL_DUPLICATE_DISTANCE = 4;
+
+/** BLANK reegel: valgel taustal alla 2% nähtavaid (heledus < 200) piksleid või ühtlane pilt (standardhälve < 3) */
+export const BLANK_INK_RATIO = 0.02;
+export const BLANK_MIN_STDEV = 3;
+
+export interface ImageAnalysis {
+  /** dHash 16 hex-märgina; ühtlase pildi puhul null */
+  visualHash: string | null;
+  quality: "OK" | "BLANK";
+  inkRatio: number;
+  stdev: number;
+}
+
+/** Galerii jaoks: visuaalne räsi + "peaaegu tühi kaader" (läbipaistvus → valge, nagu brauser seda kuvab) */
+export async function analyzeImage(buffer: Buffer): Promise<ImageAnalysis> {
+  const flat = await sharp(buffer).rotate().flatten({ background: "#ffffff" }).resize(400, 400, { fit: "inside", withoutEnlargement: true }).png().toBuffer();
+  const { data, info } = await sharp(flat).greyscale().raw().toBuffer({ resolveWithObject: true });
+  let ink = 0;
+  let sum = 0;
+  let sumSq = 0;
+  for (const v of data) {
+    if (v < 200) ink++;
+    sum += v;
+    sumSq += v * v;
+  }
+  const n = info.width * info.height;
+  const mean = sum / n;
+  const stdev = Math.sqrt(Math.max(0, sumSq / n - mean * mean));
+  const inkRatio = ink / n;
+  const hash = await visualHash(flat);
+  return {
+    visualHash: hash === null ? null : hash.toString(16).padStart(16, "0"),
+    quality: inkRatio < BLANK_INK_RATIO || stdev < BLANK_MIN_STDEV ? "BLANK" : "OK",
+    inkRatio,
+    stdev,
+  };
+}

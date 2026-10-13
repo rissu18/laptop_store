@@ -59,7 +59,7 @@ export function PurchasePanel({ item, showSecurePayment }: { item: CatalogItem; 
     <section aria-label="Hind ja ostmine" className="space-y-4 rounded-xl border border-border bg-surface p-5 shadow-sm">
       <div>
         <PriceTag price={variant.price} size="xl" />
-        <VatNote scheme={variant.price.vatScheme} className="mt-1" />
+        <VatNote className="mt-1" />
       </div>
       <div className="space-y-1">
         <StockStatus variant={variant} />

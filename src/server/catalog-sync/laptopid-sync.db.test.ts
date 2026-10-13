@@ -184,8 +184,9 @@ describe.skipIf(!hasTestDatabase)("Laptopid.ee sync (andmebaas)", () => {
     expect(item.product.title).toBe("Lenovo ThinkPad X1 Carbon G10");
     expect(item.product.slug).toBe("lenovo-thinkpad-x1-carbon-gen-10");
     expect(item.variant.stock).toEqual({ available: true, quantity: null });
-    expect(item.variant.images).toHaveLength(2);
-    expect(item.variant.images[0].largeUrl).toBe("https://laptopid.ee/images/product/6678/30530/original.png");
+    // Mudeli koondgalerii: sama mudeli kõigi müügis pakkumiste fotod (dedupe), sh selle pakkumise omad
+    expect(item.product.images.map((i) => i.largeUrl)).toEqual(expect.arrayContaining(["https://laptopid.ee/images/product/6678/30530/original.png"]));
+    expect(new Set(item.product.images.map((i) => i.largeUrl)).size).toBe(item.product.images.length);
     const found = filterItems(items, { ...emptyQuery(), q: "x1 carbon 256" }).map((i) => i.variant.id);
     expect(found).toContain("laptopid-6678");
     // Laptopid.ee kirjapilt "G10" leiab kanoonilise "Gen 10"
@@ -257,7 +258,7 @@ describe.skipIf(!hasTestDatabase)("Laptopid.ee sync (andmebaas)", () => {
     const v330 = items.find((i) => i.variant.id === "laptopid-1670")!;
     expect(v330.product).toMatchObject({ title: "Lenovo V330-14IKB", brand: "lenovo", series: "V Series", model: "V330-14IKB", slug: "lenovo-v330-14ikb" });
     expect(v330.variant).toMatchObject({ grade: "B", ramGb: 8, storageGb: 256, stock: { available: true, quantity: null } });
-    expect(v330.variant.images).toHaveLength(2);
+    expect(v330.product.images).toHaveLength(2);
     for (const q of ["V330-14IKB", "V330", "lenovo v330"]) {
       expect(filterItems(items, { ...emptyQuery(), q }).map((i) => i.variant.id)).toContain("laptopid-1670");
     }
@@ -281,7 +282,7 @@ describe.skipIf(!hasTestDatabase)("Laptopid.ee sync (andmebaas)", () => {
     const { computeCheckout } = await import("@/server/checkout/checkout-service");
     const one = await computeCheckout(t.db, { items: [{ variantId: "laptopid-6675", quantity: 1 }], couponCode: null });
     expect(one.quote.issues).toEqual([]);
-    expect(one.quote.lines[0]).toMatchObject({ unitPriceCents: 129_900, quantity: 1, imageUrl: "https://laptopid.ee/images/product/6675/30400/small.png" });
+    expect(one.quote.lines[0]).toMatchObject({ unitPriceCents: 129_900, quantity: 1, imageUrl: expect.stringMatching(/^https:\/\/laptopid\.ee\/images\/product\/\d+\/\d+\/small\.png$/) });
     expect(one.items[0].listingId).toBe((await listing("6675")).id);
 
     const two = await computeCheckout(t.db, { items: [{ variantId: "laptopid-6675", quantity: 2 }], couponCode: null });
@@ -294,7 +295,7 @@ describe.skipIf(!hasTestDatabase)("Laptopid.ee sync (andmebaas)", () => {
     const { computeCheckout } = await import("@/server/checkout/checkout-service");
     const { quote } = await computeCheckout(t.db, { items: [{ variantId: "laptopid-6675", quantity: 1 }], couponCode: "lap10" });
     expect(quote.discountError).toBeNull();
-    expect(quote.discount?.amountCents).toBe(12_990);
+    expect(quote.discount?.amountCents).toBe(13_000); // 10% × 1299 € = 129,90 € → täiseuro
   });
 
   it("sync'i hinnamuutus → kassa tuvastab ja küsib kinnitust; vana tellimuse rida (snapshot) ei muutu", async () => {

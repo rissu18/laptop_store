@@ -110,7 +110,7 @@ describe.skipIf(!hasTestDatabase)("admin", () => {
       const item = mapCatalogRows(models, listings, images).items.find((i) => i.variant.sku === "SP-10280");
       expect(item?.variant.ramGb).toBe(16);
       expect(item?.variant.keyboardLayout).toBe("EST");
-      expect(item?.variant.price.saleCents).toBe(24950);
+      expect(item?.variant.price.saleCents).toBe(25000); // admini 249,50 € → kliendile täiseuro (roundToEuro)
     });
 
     it("tarnija väärtusega võrdne sisestus eemaldab paranduse; 'Taasta' eemaldab ühe paranduse", async () => {

@@ -74,9 +74,47 @@ describe("mapCatalogRows", () => {
     const { items } = mapCatalogRows(
       [model()],
       [listing()],
-      [image({ id: "b", position: 1, mediumPath: "/b.webp" }), image({ id: "a", position: 0, mediumPath: "/a.webp" }), image({ id: "h", position: 2, isHidden: true })],
+      [image({ id: "b", position: 1, mediumPath: "/b.webp", largePath: "/b-large.webp" }), image({ id: "a", position: 0, mediumPath: "/a.webp", largePath: "/a-large.webp" }), image({ id: "h", position: 2, isHidden: true })],
     );
     expect(items[0].product.images.map((i) => i.mediumUrl)).toEqual(["/a.webp", "/b.webp"]);
+  });
+
+  it("koondgalerii: sama mudeli kõik konfiguratsioonid näevad sama galeriid (Laptopid.ee fotod eri pakkumistelt + Icecat, dedupe, tühjad välja)", () => {
+    const listingImage = (supplierListingId: string, n: number, over: Record<string, unknown> = {}) => ({
+      supplierListingId, position: n, isHidden: false, thumbnailUrl: `https://laptopid.ee/${supplierListingId}/${n}/small.png`, mediumUrl: `https://laptopid.ee/${supplierListingId}/${n}/medium.png`,
+      largeUrl: `https://laptopid.ee/${supplierListingId}/${n}/original.png`, width: 1600, height: 1200, alt: "x", visualHash: null, imageQuality: "OK" as const, ...over,
+    });
+    const { items } = mapCatalogRows(
+      [model()],
+      [listing({ id: "lp1", supplier: "laptopid", supplierProductId: "1", sku: "LP-1" }), listing({ id: "lp2", supplier: "laptopid", supplierProductId: "2", sku: "LP-2" }), listing({ id: "fx", supplier: "foxway", supplierProductId: "F1", sku: "FX-1" })],
+      [image({ id: "ic", largePath: "/icecat-1.webp", position: 0 }), image({ id: "ph", source: "PLACEHOLDER", type: "PLACEHOLDER", largePath: "/placeholder.webp", position: 1 })],
+      [
+        listingImage("lp1", 0),
+        listingImage("lp2", 0),
+        listingImage("lp2", 1),
+        listingImage("lp2", 2, { visualHash: "00000000000000ff" }),
+        listingImage("lp1", 1, { visualHash: "00000000000000fe" }), // visuaalselt sama mis lp2/2
+        listingImage("lp1", 2, { imageQuality: "BLANK" }),
+      ],
+    );
+    const galleries = items.map((i) => i.product.images.map((img) => img.largeUrl));
+    expect(items).toHaveLength(3);
+    // Laptopid.ee pakkumised: rohkem fotosid → pakkumise ID (võrdne arv → lp1 enne lp2); lp2/2 = lp1/1 (räsi), lp1/2 tühi
+    expect(galleries[0]).toEqual([
+      "https://laptopid.ee/lp1/0/original.png",
+      "https://laptopid.ee/lp1/1/original.png",
+      "https://laptopid.ee/lp2/0/original.png",
+      "https://laptopid.ee/lp2/1/original.png",
+      "/icecat-1.webp",
+    ]);
+    expect(galleries[1]).toEqual(galleries[0]);
+    expect(galleries[2]).toEqual(galleries[0]); // Foxway konfiguratsioonil sama galerii
+    expect(items.every((i) => i.variant.images.length === 0)).toBe(true);
+  });
+
+  it("kliendi hind on täisarv eurodes (tavaline ümardamine)", () => {
+    const { items } = mapCatalogRows([model()], [listing({ salePriceCents: 75812, referencePriceCents: 99950 })], []);
+    expect(items[0].variant.price).toMatchObject({ saleCents: 75800, referenceCents: 100000 });
   });
 
   it("esiletõstmine tuleb mudelilt", () => {

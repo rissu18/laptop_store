@@ -279,6 +279,9 @@ export const supplierListings = pgTable(
  * Eraldi tabel, sest product_images on MUDELI pildid (Icecat), mida admin järjestab mudeli kaupa.
  * Pildid on kaugel (HTTPS); Git'i neid ei laeta.
  */
+/** Pildianalüüsi tulemus (domain/images/model-gallery.ts) */
+export const IMAGE_QUALITIES = ["OK", "BLANK", "BROKEN"] as const;
+
 export const listingImages = pgTable(
   "listing_images",
   {
@@ -300,6 +303,11 @@ export const listingImages = pgTable(
     width: integer("width").notNull(),
     height: integer("height").notNull(),
     alt: text("alt").notNull(),
+    /** Pildianalüüs (`npm run images:analyze`): visuaalne räsi (dHash, 16 hex) duplikaatide jaoks — NULL = analüüsimata */
+    visualHash: text("visual_hash"),
+    /** OK / BLANK (peaaegu tühi kaader) / BROKEN (ei lae) — mudeli galerii jätab BLANK/BROKEN välja, kui paremaid pilte on */
+    imageQuality: text("image_quality", { enum: IMAGE_QUALITIES }),
+    analyzedAt: timestamp("analyzed_at", { withTimezone: true }),
     ...timestamps,
   },
   (t) => [
@@ -414,6 +422,11 @@ export const productImages = pgTable(
     contentHash: text("content_hash"),
     storageKeys: jsonb("storage_keys").$type<string[]>().notNull().default([]),
     downloadedAt: timestamp("downloaded_at", { withTimezone: true }),
+    /** Pildianalüüs (`npm run images:analyze`): visuaalne räsi (dHash, 16 hex) duplikaatide jaoks — NULL = analüüsimata */
+    visualHash: text("visual_hash"),
+    /** OK / BLANK (peaaegu tühi kaader) / BROKEN (ei lae) — mudeli galerii jätab BLANK/BROKEN välja, kui paremaid pilte on */
+    imageQuality: text("image_quality", { enum: IMAGE_QUALITIES }),
+    analyzedAt: timestamp("analyzed_at", { withTimezone: true }),
     ...timestamps,
   },
   (t) => [

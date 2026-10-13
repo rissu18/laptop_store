@@ -5,6 +5,19 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 ---
 
+## 2026-10-13 — Mudeli koondgalerii, kõik konfiguratsioonid nähtaval, täiseuro hinnad
+
+**Miks:** sama mudeli (nt Dell Latitude 7440) konfiguratsioonid näitasid eri pildikomplekte (iga Laptopid.ee pakkumine oma fotod, teistel Icecat), galeriis olid peaaegu tühjad kaadrid; tootelehel oli "Näita/Peida lisakonfiguratsioonid"; hinnad olid kohati sentidega (Foxway 150,52 €) ja erikorra kaubal teine KM tekst.
+
+- **Mudeli koondgalerii** (`domain/images/model-gallery.ts`, mapper): mudeli pildid + sama mudeli kõigi müügis pakkumiste fotod üheks deterministlikuks galeriiks; prioriteet oma → Laptopid.ee → tarnijad → Icecat → placeholder; dedupe URL + visuaalne räsi (≤ 4 bitti); galerii võib olla üle 10 pildi (kaardil kuni 8). Kõik konfiguratsioonid, kaart, ostukorv ja kassa kasutavad sama tulemust.
+- **Tühjad/katkised pildid reeglitega:** `npm run images:analyze` (migratsioon **0008**, lisav: `visual_hash`, `image_quality`, `analyzed_at`): BROKEN = HTTP 404/410 / mitte pilt; BLANK = < 2% nähtavaid piksleid valgel taustal või ühtlane pilt. Tootmises 3659 pilti → OK 3639, BLANK 20, BROKEN 0.
+- **Tulemus (485 poes olevat mudelit):** enne näitasid eri konfiguratsioonid erinevaid komplekte 105 mudelil → nüüd 0; mitmest allikast koondatud galerii 157 mudelil; galerii kasvas 56-l (nt Latitude 7440: 10/3/2 → 14, ThinkPad T14 Gen 3: 12/6 → 16); 32 mudelil väiksem, sest Laptopid.ee fotod olid samad Icecati pildid või tühjad kaadrid; 20 mudelil üle 10 pildi; tühje kaadreid eemaldati 15 mudelilt.
+- **Konfiguratsioonid:** alati kõik nähtaval; alarida "Seisukord A · klaviatuur · 14" · WUXGA · Tarne 2–4 päeva" (Laptopid.ee → "Poes kohapeal", Tech 1–2, Foxway 2–4 päeva); seisukorra pikk selgitus ainult ülaosa märgil. Lingid ilma eellaadimiseta (palju konfiguratsioone).
+- **Hinnad:** kliendile alati täisarv (`roundToEuro`, tavaline ümardamine) — kaart, tooteleht, konfiguratsioonid, kataloogi filter/sort, ostukorv, kassa, soodustus (summa ja ridade jaotus täiseurodes), tarne (6,99 € → 7 €), tellimus. Hinna all alati "Hind sisaldab käibemaksu"; erikorra tekst kliendivaadetest eemaldatud.
+- **Testid:** 725 → 739.
+
+---
+
 ## 2026-10-12 — Icecati pildid tootja + mudeli identiteedi järgi (Image Enrichment Phase 2)
 
 **Miks:** eelmine Icecati samm nõudis GTIN/MPN-i — 450 rikastust vajavast müügis mudelist oli see 6-l, automaatne vaste tekkis 1-le (ThinkPad E495). Tootepildi jaoks piisab tootjast + õigest mudeli identiteedist (CPU/RAM/SSD/klaviatuur ei pea klappima).
