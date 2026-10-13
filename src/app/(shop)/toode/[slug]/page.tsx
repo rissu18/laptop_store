@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { storeConfig } from "@/config/store";
 import { arePaymentsLive, getSettings, visibleTrustItems } from "@/server/settings/settings-service";
+import { defaultConfiguration } from "@/domain/catalog/configuration-order";
 import { CONFIGURATION_PARAM, productHref, productPath } from "@/domain/catalog/urls";
 import { BRAND_NAMES, type CatalogItem } from "@/domain/catalog/types";
 import { imagesForDisplay } from "@/domain/images/product-image";
@@ -25,10 +26,11 @@ export async function generateMetadata({ params }: PageProps<"/toode/[slug]">): 
   const { slug } = await params;
   const data = await getProductPage(slug);
   if (!data) return { title: "Toodet ei leitud" };
-  const cheapest = data.variants[0];
+  // Esimene konfiguratsioon ei pruugi olla odavaim (poes kohapeal variandid on ees)
+  const fromCents = Math.min(...data.variants.map((v) => v.price.saleCents));
   return {
     title: `${data.product.title} – kasutatud`,
-    description: `Kasutatud ${data.product.title}: ${data.variants.length} konfiguratsiooni, hinnad alates ${(cheapest.price.saleCents / 100).toFixed(0)} €. Vaata seisukorda, tehnilisi andmeid ja tarneaega.`,
+    description: `Kasutatud ${data.product.title}: ${data.variants.length} konfiguratsiooni, hinnad alates ${(fromCents / 100).toFixed(0)} €. Vaata seisukorda, tehnilisi andmeid ja tarneaega.`,
     // Canonical on alati mudelileht ilma konfiguratsiooni parameetrita
     alternates: { canonical: productPath(slug) },
   };
@@ -64,8 +66,8 @@ async function ProductDetail({ params, searchParams }: PageProps<"/toode/[slug]"
   if (!data) notFound();
 
   const requested = search[CONFIGURATION_PARAM];
-  const variant =
-    data.variants.find((v) => v.id === requested) ?? data.variants.find((v) => v.stock.available) ?? data.variants[0];
+  // Vaikimisi odavaim "Poes kohapeal" variant, selle puudumisel odavaim saadaval variant (configuration-order.ts)
+  const variant = data.variants.find((v) => v.id === requested) ?? defaultConfiguration(data.variants)!;
   const item: CatalogItem = { product: data.product, variant };
   const settings = await getSettings();
   // "Turvaline maksmine" ainult siis, kui päris maksed on avatud (mitte prototüübis)

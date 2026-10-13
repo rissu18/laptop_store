@@ -2,6 +2,7 @@ import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 import { pricingConfig } from "@/config/pricing";
 import { computeFacets, filterItems, sortItems, type CatalogFacets, type SearchableItem } from "@/domain/catalog/filtering";
+import { sortConfigurations } from "@/domain/catalog/configuration-order";
 import { groupBusinessSeries, seriesStatsKey, summarizeBusinessSeries, type BusinessSeriesGroup, type SeriesStats } from "@/domain/catalog/business-series";
 import { isImmediatelyAvailable } from "@/domain/storefront/showroom";
 import { PAGE_SIZE, emptyQuery, type CatalogQuery, type FacetSelection } from "@/domain/catalog/query";
@@ -133,14 +134,14 @@ async function cachedProductPage(slug: string): Promise<ProductPageData | null> 
   return queryProductDetail(getDb(), slug);
 }
 
-/** Üks mudel slug'i järgi koos konfiguratsioonidega (odavam enne) — ei loe ülejäänud kataloogi. */
+/** Üks mudel slug'i järgi koos konfiguratsioonidega (poes kohapeal enne, grupi sees odavam enne) — ei loe ülejäänud kataloogi. */
 export async function getProductPage(slug: string): Promise<ProductPageData | null> {
   if (hasDb()) return cachedProductPage(slug);
   const matches = (await getMockItems()).filter((item) => item.product.slug === slug);
   if (matches.length === 0) return null;
   return {
     product: matches[0].product,
-    variants: sortItems(matches, "price-asc").map((item) => item.variant),
+    variants: sortConfigurations(matches.map((item) => item.variant)),
   };
 }
 

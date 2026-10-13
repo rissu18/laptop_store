@@ -1,4 +1,5 @@
 import { GRADES, type GradeCode } from "@/domain/grade/grades";
+import { isInStore } from "./configuration-order";
 import { formatScreenSize, formatStorage } from "./format";
 import { keyboardLabel } from "./keyboard";
 import type { CatalogProduct, CatalogVariant } from "./types";
@@ -27,7 +28,7 @@ export function deliveryShortLabel(variant: Pick<CatalogVariant, "stock" | "deli
     const { minDays, maxDays } = variant.delivery;
     return minDays === maxDays ? `Tarne ${minDays} ${minDays === 1 ? "päev" : "päeva"}` : `Tarne ${minDays}–${maxDays} päeva`;
   }
-  if (variant.stock.available && variant.stock.quantity === null) return "Poes kohapeal";
+  if (isInStore(variant)) return "Poes kohapeal";
   return "Tarne 1–10 päeva";
 }
 

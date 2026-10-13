@@ -1,5 +1,6 @@
 import "server-only";
 import { and, asc, eq, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
+import { sortConfigurations } from "@/domain/catalog/configuration-order";
 import { FACETS, MULTI_FACET_KEYS, type MultiFacetKey } from "@/domain/catalog/facets";
 import { FEATURE_LABELS, FEATURE_ORDER } from "@/domain/catalog/features";
 import type { CatalogFacets, FacetOption } from "@/domain/catalog/filtering";
@@ -401,7 +402,8 @@ async function hydrateModels(db: Db, modelWhere: SQL): Promise<{ listingId: stri
 export async function queryProductDetail(db: Db, slug: string): Promise<{ product: CatalogItem["product"]; variants: CatalogItem["variant"][] } | null> {
   const items = (await hydrateModels(db, eq(productModels.slug, slug))).map(({ item }) => item);
   if (items.length === 0) return null;
-  const variants = items.map((item) => item.variant).sort((a, b) => a.price.saleCents - b.price.saleCents || a.sku.localeCompare(b.sku));
+  // Poes kohapeal → hind; seejärel ülejäänud → hind (domain/catalog/configuration-order.ts)
+  const variants = sortConfigurations(items.map((item) => item.variant));
   return { product: items[0].product, variants };
 }
 

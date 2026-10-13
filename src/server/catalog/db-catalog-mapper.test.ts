@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { productImages, productModels, supplierListings } from "@/server/db/schema";
+import { defaultConfiguration, sortConfigurations } from "@/domain/catalog/configuration-order";
 import { mapCatalogRows } from "./db-catalog-mapper";
 
 type ModelRow = typeof productModels.$inferSelect;
@@ -120,5 +121,26 @@ describe("mapCatalogRows", () => {
   it("esiletõstmine tuleb mudelilt", () => {
     const { items } = mapCatalogRows([model({ featured: true })], [listing(), listing({ id: "l2", supplierProductId: "MS-2", sku: "SP-2" })], []);
     expect(items.every((i) => i.variant.isFeatured)).toBe(true);
+  });
+
+  it("konfiguratsioonide järjestus: mitteaktiivne / BLOCKED / REVIEW / otsas pakkumine ei osale järjestuses ega vaikevalikus", () => {
+    const row = (n: number, euros: number, over: Partial<ListingRow>) =>
+      listing({ id: `l${n}`, supplierProductId: `MS-${n}`, sku: `SP-${n}`, salePriceCents: euros * 100, ...over });
+    // Salongi variant: kogus teadmata, tarneaega pole
+    const local = { stock: null, available: true, deliveryMinDays: null, deliveryMaxDays: null };
+    const rows = [
+      row(1, 282, {}),
+      row(2, 438, { deliveryMinDays: 1, deliveryMaxDays: 2 }),
+      row(3, 620, local),
+      row(4, 590, local),
+      row(5, 100, { ...local, status: "ARCHIVED" }),
+      row(6, 150, { ...local, qualityHold: "BLOCKED" }),
+      row(7, 160, { qualityHold: "REVIEW" }),
+      row(8, 170, { ...local, available: false }),
+      row(9, 180, { stock: 0 }),
+    ];
+    const variants = mapCatalogRows([model()], rows, []).items.map((i) => i.variant);
+    expect(sortConfigurations(variants).map((v) => v.sku)).toEqual(["SP-4", "SP-3", "SP-1", "SP-2"]);
+    expect(defaultConfiguration(variants)?.sku).toBe("SP-4");
   });
 });
