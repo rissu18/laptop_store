@@ -5,6 +5,21 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 ---
 
+## 2026-10-12 — Icecati pildid tootja + mudeli identiteedi järgi (Image Enrichment Phase 2)
+
+**Miks:** eelmine Icecati samm nõudis GTIN/MPN-i — 450 rikastust vajavast müügis mudelist oli see 6-l, automaatne vaste tekkis 1-le (ThinkPad E495). Tootepildi jaoks piisab tootjast + õigest mudeli identiteedist (CPU/RAM/SSD/klaviatuur ei pea klappima).
+
+- **Icecati otsing nime järgi:** JSON API seda ei toeta, seega kasutatakse Icecati **ametlikku toodete indeksit** (`files.index.xml.gz`, ~300 MB, 7,8 M toodet; `ICECAT_PASSWORD`). Indeks loetakse **voona**: ainult sülearvutid (Catid 151) + meie tootjad (~1 M rida), võrdlus kandidaatmudelitega toimub kohe voos — **indeksit ei salvestata** (ei Neoni ega kettale).
+- **Vaste:** normaliseeritud identiteet (`domain/images/model-identity.ts`): müra välja, `Gen 3` = `G3` = `(3rd Gen)`; T14 ≠ T14s, G7 ≠ G8, 840 ≠ 845, x360/Yoga/Rugged/Carbon/Chromebook, P14 ≠ P14s. Seejärel **JSON andmelehe pealkirja kontroll** (kohustuslik): identiteet järjestikuste sõnadena, ekraani diagonaal, protsessori ajastu (Dell XPS 15 9530 2014 vs 2023). Dellil annab indeks ainult numbri → seeria tuleb pealkirjast (Latitude 5490 ≠ Precision 5490). Ebakindel → REVIEW (pilte ei lisata), Apple → REVIEW (Icecati nimi on ainult "MacBook Air/Pro").
+- **Galerii:** müügis mudelid, mille galeriis < 5 pilti; Icecati pildid lisatakse olemasolevate (admin, Laptopid.ee) järele, kokku **max 10**; mitmest SKU-st valitakse suurim kontrollitud galerii; dedupe Icecati ID/URL, SHA-256 ja **visuaalne räsi** (dHash, sama foto eri suuruses); < 400 px pisipildid välja. Suur variant 2000 → **1600 px** (q84), sest failid on Git-is.
+- **Dry-run** (`npm run enrich:catalog -- --images --icecat --dry-run`) teeb indeksi + andmelehed ilma allalaadimise ja kirjutamiseta; `--limit N`, `--report fail.json`.
+- **Tulemus tootmises** (521 mudelit): 0 pildiga **343 → 190**, 1–4 pildiga 110 → 67, 5–10 pildiga **50 → 246**, 10+ 18 → 18; poes illustratsiooniga mudeleid 343 → 190. Icecat: kandidaate 411, automaatseid vasteid **237** (mudelinimi 169, number + pealkirja seeria 66, GTIN/MPN 2), ülevaatus 48 (sh Apple 22), vasteta 126 (sh 21 mudelit tootjatelt, keda Open Icecati sülearvutite kategoorias pole), JSON-päringuid 720, salvestatud **1668 pilti** (keskm. 7,0 Icecati pilti mudeli kohta, koos teiste allikatega 8,1), duplikaate välja 38; 5+ pildiga 198 mudelit, täpselt 10 pildiga 137. Uusi faile ~123 MB (`public/media/products`).
+- **Testid:** 694 → 725 (identiteedi reeglid, indeksi voog, otsing, 12→10 / 7 / 3 pilti, variandid, visuaalne duplikaat, admini pilt säilib ja jääb esimeseks, korduv käivitus, REVIEW ilma piltideta, poe tee ei impordi Icecatit).
+
+**Probleemid ja lahendused:** (1) Dell 5430 SKU osutus Chromebookiks → vormitegur kontrollitakse kogu pealkirjast. (2) Yoga/Flex pealkirjas "Hybrid (2-in-1)" → konverteeritavatel lubatud. (3) "ThinkPad X13" ilma põlvkonnata sobis Gen 2 SKU-ga → põlvkonnata nimi + Icecatis mitu põlvkonda = REVIEW. (4) HP SUPPLIER-kvaliteediga andmelehtedel on sageli 1 pilt → proovitakse kuni 5 SKU-d ja võetakse suurim kontrollitud galerii.
+
+---
+
 ## 2026-10-12 — Kiirusindeks (3DMark), CPU maks. sagedus ja selgem "Tehnilised andmed"
 
 - **Laptopid.ee API** andis uued väljad `cpu_3dmark06` ja `gpu_3dmark11` (live: CPU 291/301, GPU 269/301; Apple null) → sync salvestab need `details` alla (lõplik positiivne arv, muidu NULL). Maks. sagedus oli juba Laptopid.ee CPU tekstis ("i5-8350U 3600Mhz" = maksimaalne turbo; kontrollitud Inteli/AMD andmetega) — nüüd valideeritud ja poes kuvatud.

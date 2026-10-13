@@ -128,7 +128,7 @@ ProductModel (+ tarnija GTIN/MPN + data/icecat/model-identifiers.json)
   → pealkirja kontroll Icecati Title peab sisaldama meie bränd + mudelinime (tervete sõnadena)
   → IcecatImageResolver põhipilt (Image) + galerii (Gallery), duplikaadid ja mitte-tootefotod välja
   → allalaadimine      timeout, piiratud retry, Content-Type + faili sisu (magic bytes) kontroll
-  → ImageProcessor     sharp: thumbnail 300×300 (contain), medium ≤700, large ≤2000 — WebP, ei suurenda
+  → ImageProcessor     sharp: thumbnail 300×300 (contain), medium ≤700, large ≤1600 (q84) — WebP, ei suurenda
   → ImageStorageAdapter LocalImageStorageAdapter (arendus) / S3-ühilduv (tootmine, valimata)
   → ProductImageRepository JSON fail (Phase 2: PostgreSQL)
   → frontend           ainult meie URL-id, <img srcset>; pilte pole → placeholder
@@ -157,14 +157,14 @@ Icecati vaste on tihti üks konkreetne SKU (nt Saksa klaviatuur, puuteekraan, te
 
 **Staatused**: `MATCHED`, `NEEDS_REVIEW`, `NOT_FOUND`, `ERROR` (+ `REJECTED` admini otsusega) ning täpsustus `reason`: `NO_IDENTIFIERS`, `NOT_IN_ICECAT`, `TITLE_MISMATCH`, `LOW_CONFIDENCE`, `ICECAT_UNAVAILABLE`, `DOWNLOAD_FAILED`.
 
-**Kindlus**: GTIN 1,0 · MPN + tootja 0,95 · teadaolev Icecat ID 0,90 · mudelinimi 0,70 (ei lähe kunagi automaatselt live'i) · admini käsitsi vaste 1,0 (kõrgeim prioriteet).
+**Kindlus**: GTIN 1,0 · MPN + tootja 0,95 · teadaolev Icecat ID 0,90 · mudelinimi 0,70 (vana tee, ainult käsitsi) · **mudeli identiteet 0,90–0,92** (indeksi nimi + kontrollitud pealkiri, vt allpool) · admini käsitsi vaste 1,0 (kõrgeim prioriteet).
 
 **Pealkirja kontroll** võrdleb Icecati `Title` välja meie bränd + mudelinimega tervete sõnadena (T14 ≠ T14s, 840 G8 ≠ 840 Aero G8). Teadaolevad erikujud: HP lisab ekraani suuruse ("EliteBook 860 **16** G10"), Dell kirjutab "Latitude 9420 … Hybrid (**2-in-1**)". Kogu kataloogi impordil püüdis see kontroll kinni vale vaste: L14 Gen 2 jaoks leitud Icecat ID osutus ThinkPad **E14** Gen 2-ks → `NEEDS_REVIEW`, pilti live'i ei pandud.
 
 **Galerii kvaliteet**
 - Duplikaadid eemaldatakse Icecati pildi ID, URL-i ja **faili sisu (SHA-256)** järgi.
 - Mitte-tootefotod (nt 500×49 logoriba) jäetakse mõõtude järgi välja.
-- Max 12 pilti mudeli kohta; tootelehel kuni 6 pisipilti + "+N" (ülejäänud täisekraani galeriis); mobiilis punktid kuni 8 pildi korral.
+- Max **10** pilti mudeli kohta (siht 5–10; vähem, kui Icecatil vähem erinevaid häid pilte — kunstlikult ei korrata); dedupe ka visuaalse räsiga (dHash pärast valge ääre kärpimist: sama foto eri suuruses); < 400 px pisipildid välja; tootelehel kuni 6 pisipilti + "+N" (ülejäänud täisekraani galeriis); mobiilis punktid kuni 8 pildi korral.
 - Admin saab üksiku pildi peita (`isHidden`, nt eksitav klaviatuuri lähivõte). Peitmine säilib ka uuesti allalaadimisel; põhipilt on esimene nähtav pilt.
 
 **Põhipildi valik**: Icecati ametlik HighPic → esimene hea resolutsiooniga (≥ 500 px) galeriipilt → Pic500x500 → LowPic → placeholder.
@@ -182,7 +182,7 @@ Icecati vaste on tihti üks konkreetne SKU (nt Saksa klaviatuur, puuteekraan, te
 **Põhimõtted**
 
 - **Vale pilt on hullem kui placeholder.** Automaatselt läheb live'i ainult vaste kindlusega ≥ 0,9 *ja* kontrollitud pealkirjaga. Muu → `NEEDS_REVIEW`.
-- **Icecati JSON API ei toeta nimepõhist otsingut** (ainult GTIN, Brand + ProductCode, icecat_id). Seetõttu on GTIN/MPN tarnija feed'ist kriitilise tähtsusega. Kuni neid pole, kasutatakse käsitsi kogutud koode failis `data/icecat/model-identifiers.json`.
+- **Icecati JSON API ei toeta nimepõhist otsingut** (ainult GTIN, Brand + ProductCode, icecat_id). Nime järgi otsimiseks kasutatakse Icecati **ametlikku toodete indeksit** (vt allpool "Icecat: tootja + mudeli identiteet"); GTIN/MPN on endiselt esimene ja tugevaim tee.
 - **Ei hotlinkita.** Icecat nõuab, et pood laeks pildid alla ja hostiks ise; Icecati lingid võivad olla IP-piiratud.
 - **Muutumata pilte uuesti alla ei laadita**: võrreldakse Icecati pildi ID-d ja `Updated` aega. Kadunud pildid kustutatakse; teise pildi kasutuses olevat faili üle ei kirjutata.
 - **Icecat maas → olemasolevad pildid jäävad alles.** Ajutine viga ei eemalda midagi live'ist.
@@ -213,7 +213,23 @@ tarnija sync / npm run enrich:catalog / admin "Rikasta kataloogi"
 ```
 
 - **"Laptopid.ee andmed"** = Laptopid.ee pakkumised ja nende fotod meie andmebaasis (sync'itud `products.php`/`images.php`, ka müüdud pakkumiste pildid jäävad alles). Eraldi Laptopid.ee andmebaasi ega API päringut rikastus ei tee.
-- **Pildid (mudeli tasemel):** (1) mudelil on juba nähtavad pildid (Icecat, admin, varasem rikastus) → ei puututa; admini peidetud Laptopid.ee pilte tagasi ei lisata. (2) Sama mudeli Laptopid.ee fotod (parim galerii: müügis → enim pilte; < 500 px pisipildid ja duplikaadid välja, max 12) või **kindel vaste** teise Laptopid.ee mudeliga → `product_images` allikaga `LAPTOPID` (kaug-URL, Next/Image nagu pakkumise fotod). (3) Ainult vasteta + müügis + GTIN/MPN-iga mudel → Icecat (olemasolev pipeline: pealkirja kontroll, allalaadimine `public/media/products` alla — ainult lokaalselt, failid commit'itakse). Identifikaatorita mudelile Icecati päringut ei tehta.
+- **Pildid (mudeli tasemel):** (1) mudelil on juba nähtavad pildid (Icecat, admin, varasem rikastus) → ei puututa; admini peidetud Laptopid.ee pilte tagasi ei lisata. (2) Sama mudeli Laptopid.ee fotod (parim galerii: müügis → enim pilte; < 500 px pisipildid ja duplikaadid välja, max 12) või **kindel vaste** teise Laptopid.ee mudeliga → `product_images` allikaga `LAPTOPID` (kaug-URL, Next/Image nagu pakkumise fotod). (3) Müügis mudel, mille galeriis on **alla 5 nähtava pildi** → Icecat: GTIN/MPN, muidu **tootja + mudeli identiteet** (Icecati indeks + pealkirja kontroll); Icecati pildid lisatakse olemasolevate (admin, Laptopid.ee) järele, kokku max 10 (olemasolev pipeline, allalaadimine `public/media/products` alla — ainult lokaalselt, failid commit'itakse). 5+ pildiga mudeleid ei puututa.
+
+**Icecat: tootja + mudeli identiteet (2026-10-12)**
+
+```
+Open Icecati indeks files.index.xml.gz (~300 MB, 7,8 M toodet; ICECAT_USERNAME + ICECAT_PASSWORD, HTTP Basic)
+  → voog (gunzip + readline), salvestamata: ainult Catid 151 (Notebooks) + meie tootjate Supplier_id (~1 M rida)
+  → iga rida võrreldakse KOHE kandidaatmudelitega (compareModelName); mudeli kohta hoitakse ≤ 8 parimat rida
+  → JSON andmeleht icecat_id järgi (≤ 5 SKU-d): pealkiri peab sisaldama identiteeti (titleHasIdentity)
+  → suurima kontrollitud galeriiga SKU → olemasolev pildi-pipeline (importIcecatProduct)
+```
+
+- Moodulid: `domain/images/model-identity.ts` (reeglid), `integrations/icecat/icecat-index.ts` (voog, tootja ID-d), `server/images/icecat-model-search.ts` (kandidaadid + kontroll), `server/enrichment/catalog-enrichment.ts` (samm 3).
+- **Identiteet:** seeria + mudel, müra välja (Notebook PC, Laptop, (Intel)/(AMD), Windows, tollid/cm, Lenovo masinatüüp 21BR); `Gen 3` = `G3` = `(3rd Gen)`. Erinev mudel → REJECT: T14 ≠ T14s, Gen/G erinev, 840 ≠ 845, x360/Yoga/Flip/2-in-1/Rugged/Carbon/Chromebook lisaks või puudu, P14 ≠ P14s, X13 ≠ X13 Yoga.
+- **Pealkirja kontroll (kohustuslik):** identiteet järjestikuste sõnadena; kõrval ei tohi olla teine põlvkond/number/vormitegur; ekraani diagonaal pealkirjas peab klappima (±0,75"); protsessor ei tohi olla ≥ 3 põlvkonda teisest ajastust kui meie pakkumistel (Dell XPS 15 9530 2014 vs 2023). Dellil on indeksis ainult number ("5430") → seeria (Latitude/Precision/Vostro) tuleb pealkirjast.
+- **REVIEW (pilte ei lisata, `icecat_metadata` NEEDS_REVIEW + põhjus):** Icecatis puudub põlvkond, meie nimes puudub põlvkond kuid Icecatis on mitu, pealkiri ei kinnita mudelit, Apple (Icecati nimi on ainult "MacBook Air/Pro" — vaja GTIN/MPN-i).
+- **Idempotentne:** varasem MODEL_IDENTITY vaste → 1 päring sama icecat_id-ga, muutumata pilte alla ei laadita; admini tagasi lükatud vasteid ei pakuta.
 - **Vaste (`domain/catalog/model-match.ts`):** sama tootja + normaliseeritud seeria/mudeli sõnade hulk (`Gen 6` = `(6th Gen)` = `G6`; "Touch", "(Intel)", aasta, ekraani tollid välja) + ekraan ±0,7". **Apple:** rida (MacBook/Air/Pro) + suurus + aasta + kiip (M1/M2…/Intel) tarnija algsest tootenimest ja CPU-st (Foxway "Apple MacBook Pro (16" 2023, M2)" → mudel "M2 Pro 2023" ei kaota suurust). Täpselt üks kandidaat → MATCH (0,95); mitu või üks sõna erineb ("7310" vs "7310 Carbon", "L15" vs "L15 Gen 1") → **REVIEW, pilte ei lisata**; muu → UNRESOLVED. Fuzzy-vastet ei tehta.
 - **GPU:** tarnija ütles "Integrated" (NULL + `gpu_dedicated = false`) → integreeritud GPU nimi **sama CPU** järgi (iGPU sõltub ainult protsessorist), Laptopid.ee pakkumiste väärtus eelistatud, muidu meie muude pakkumiste oma; ainult üksmeelne väärtus. Täpset tarnija GPU-d ega admini parandust ei asendata. Kui täpsemat pole → kuvatakse "Integreeritud graafika".
 - **Resolutsioon:** tarnija andis ainult nime (Apple "Retina") → sama mudeli + sama ekraani pakkumiste üksmeelne resolutsioon (kui on).
