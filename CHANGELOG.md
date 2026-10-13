@@ -5,6 +5,16 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 ---
 
+## 2026-10-13 — Piltide katte diagnostika (ainult lugemine)
+
+- `npm run images:diagnose [-- --json fail.json]`: poe efektiivse galerii järgi katte grupid, 0-pildiga mudelite peamine põhjus,
+  tarnijate/tootjate jaotus, Icecati REVIEW põhjused, 1–4 pildi põhjused, kasutamata pildid ja orvud. Andmebaasi ega faile ei muuda.
+- Tulemus (397 müügis mudelit): 0 pilti 116 (29 %), 1–4 59, 5–10 202, 10+ 20. Kõik pildita mudelid on Tech/Foxway-only
+  (Foxway-only 100 / 143). Põhjused: Icecati indeksist ei leitud 55, Apple 26, tootja pole Open Icecatis 17, REVIEW 12, uued 6.
+  DB-s pildid olemas, aga pood ei kasuta: 0. Raport ja TOP 3: [docs/reports/image-coverage-2026-10-13.md](docs/reports/image-coverage-2026-10-13.md).
+
+---
+
 ## 2026-10-13 — Kataloogi filtrid "Tarne" ja "Tarnija"
 
 **Miks:** klient tahab valida, kas arvuti on kohe poes või tuleb tarnega, ja millise tarnija pakkumisi ta näeb.
