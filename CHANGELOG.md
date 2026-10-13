@@ -5,6 +5,21 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 ---
 
+## 2026-10-13 — Piltide rikastus: madala riskiga parandused
+
+**Miks:** diagnostika näitas, et 114 / 394 müügis mudelit on pildita ja 59 on 1–4 pildiga; põhjused olid kitsad ja parandatavad.
+
+- **Kandidaadi viga:** rikastus luges pildiridu (Laptopid.ee sama foto koopiad) → 3 mudelit jäi ekslikult vahele. Nüüd < 5 UNIKAALSET kasutatavat pilti poe galerii reegliga.
+- **Ohutud vastereeglid** (kitsad, testidega): müra "Configurable Material" / "Copilot+", korduv sõna, "Book4" = "Book 4", MSI "Gaming", Dell Latitude "Carbon"/"Magnesium", ASUS "OLED" (koodiga), Rugged sõnajärg, Lenovo FIRST_GEN (täpse CPU ajastuga), ThinkPadi põlvkond protsessoritest (ainult üheselt).
+- **Tarbijamudelid tootekoodi järgi** (Acer, ASUS, MSI, Samsung, HP): 35 vastet.
+- **Parem SKU** sama identiteediga, kui varasem vaste andis < 5 pilti: 6.
+- **Tulemus tootmises:** 0 pilti 114 → **63**, 1–4 59 → **49**, 5+ 221 → **281**; 72 uut/paremat vastet, 601 pilti; REVIEW 34 (Apple 26), UNRESOLVED 41. Apple jäi teadlikult välja (raportis 10–12 käsitsi kinnitust).
+- **Probleem:** testi võltspildid (ühevärvilised JPEG-id järjestikuste toonidega) andsid pakkimise järel identsed baidid → importija lugesid need õigesti duplikaatideks; testis hajutati toonid.
+- `--index-cache` kuivkäivitusteks (indeks loetakse lokaalsest tööfailist, mitte 300 MB voona iga kord).
+- Raport: [docs/reports/image-enrichment-2026-10-13.md](docs/reports/image-enrichment-2026-10-13.md). **Testid:** 761 → 780.
+
+---
+
 ## 2026-10-13 — Piltide katte diagnostika (ainult lugemine)
 
 - `npm run images:diagnose [-- --json fail.json]`: poe efektiivse galerii järgi katte grupid, 0-pildiga mudelite peamine põhjus,
