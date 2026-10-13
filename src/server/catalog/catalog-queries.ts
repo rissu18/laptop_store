@@ -1,6 +1,7 @@
 import "server-only";
 import { and, asc, eq, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
 import { sortConfigurations } from "@/domain/catalog/configuration-order";
+import { GENERIC_INTEGRATED_GPU } from "@/domain/catalog/enrichment";
 import { FACETS, IN_STORE_DELIVERY, MULTI_FACET_KEYS, SUPPLIER_FILTER_LABELS, type MultiFacetKey } from "@/domain/catalog/facets";
 import { FEATURE_LABELS, FEATURE_ORDER } from "@/domain/catalog/features";
 import type { CatalogFacets, FacetOption } from "@/domain/catalog/filtering";
@@ -182,7 +183,9 @@ storefront AS (
       CASE WHEN e.storage >= 1024 THEN trim_scale(e.storage / 1024)::text || 'tb' ELSE trim_scale(e.storage)::text || 'gb' END,
       trim_scale(e.storage)::text || 'gb ssd',
       trim_scale(e.screen)::text || '"',
-      COALESCE(e.gpu, ''), e.sku, 'grade ' || e.grade,
+      -- enrichment.ts → displayGpu: tühi GPU + gpu_dedicated = false → "Integreeritud graafika"
+      CASE WHEN btrim(COALESCE(e.gpu, '')) <> '' THEN e.gpu WHEN e.gpu_dedicated IS FALSE THEN ${literal(GENERIC_INTEGRATED_GPU)} ELSE '' END,
+      e.sku, 'grade ' || e.grade,
       CASE WHEN e.grade = 'NEW' THEN 'uus' ELSE '' END)`)} AS search_doc
   FROM storefront_keys e
 )`;
