@@ -17,6 +17,8 @@ export function gradeShortLabel(code: GradeCode): string {
   return info.showCode ? `Seisukord ${info.code}` : info.label;
 }
 
+export const IN_STORE_LABEL = "Poes kohapeal";
+
 /**
  * Tarneaeg inimkeeles (olemasolevast laoseisu/tarnija loogikast):
  *   - täpne kogus teadmata ja tarneaega pole (Laptopid.ee — sama ettevõtte salong) → "Poes kohapeal"
@@ -28,7 +30,7 @@ export function deliveryShortLabel(variant: Pick<CatalogVariant, "stock" | "deli
     const { minDays, maxDays } = variant.delivery;
     return minDays === maxDays ? `Tarne ${minDays} ${minDays === 1 ? "päev" : "päeva"}` : `Tarne ${minDays}–${maxDays} päeva`;
   }
-  if (isInStore(variant)) return "Poes kohapeal";
+  if (isInStore(variant)) return IN_STORE_LABEL;
   return "Tarne 1–10 päeva";
 }
 

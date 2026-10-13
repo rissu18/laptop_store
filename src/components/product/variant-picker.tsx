@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { configurationDetails, configurationSpecLine } from "@/domain/catalog/configuration-line";
+import { Fragment } from "react";
+import { IN_STORE_LABEL, configurationDetails, configurationSpecLine } from "@/domain/catalog/configuration-line";
 import { productHref } from "@/domain/catalog/urls";
 import { formatEur } from "@/domain/money/money";
 import type { CatalogProduct, CatalogVariant } from "@/domain/catalog/types";
@@ -22,7 +23,15 @@ function VariantOption({ product, variant, selected }: { product: CatalogProduct
       >
         <span className="min-w-0">
           <span className="block font-medium">{configurationSpecLine(variant)}</span>
-          <span className="block text-xs text-muted">{configurationDetails(product, variant).join(" · ")}</span>
+          <span className="block text-xs text-muted">
+            {configurationDetails(product, variant).map((part, index) => (
+              <Fragment key={index}>
+                {index > 0 && " · "}
+                {/* Salongis olemas → rõhutatud (need konfiguratsioonid on ka nimekirjas eespool) */}
+                {part === IN_STORE_LABEL ? <strong className="font-semibold text-text">{part}</strong> : part}
+              </Fragment>
+            ))}
+          </span>
         </span>
         <span className="tabular shrink-0 font-bold">{formatEur(variant.price.saleCents)}</span>
       </Link>
