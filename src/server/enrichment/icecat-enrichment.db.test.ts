@@ -30,12 +30,14 @@ describe.skipIf(!hasTestDatabase)("Icecati rikastus mudeli identiteedi järgi (a
   const products: Record<string, IcecatProduct> = {
     "1001": icecatProduct({ icecatId: "1001", title: "HP EliteBook 840 G7 Notebook PC Intel Core i5-10210U 35.6 cm (14\")", gallery: Array.from({ length: 12 }, (_, i) => galleryItem(String(700 + i), i + 1)) }),
     "2001": icecatProduct({ icecatId: "2001", title: "Lenovo ThinkPad T14 Gen 3 Intel Core i5 35.6 cm (14\")" }),
+    "4001": icecatProduct({ icecatId: "4001", title: "HP ProBook 450 G9 Notebook PC Intel Core i5-1235U 39.6 cm (15.6\")", gallery: Array.from({ length: 12 }, (_, i) => galleryItem(String(800 + i), i + 1)) }),
   };
   const index: IcecatIndexRow[] = [
     row("1001", "1", "EliteBook 840 G7 Notebook PC"),
     row("1002", "1", "EliteBook 840 G8 Notebook PC"),
     row("2001", "728", "ThinkPad T14s Gen 3 (Intel)"),
     row("3001", "292", "5430"),
+    row("4001", "1", "ProBook 450 G9"),
   ];
 
   const storage: ImageStorageAdapter = {
@@ -102,6 +104,12 @@ describe.skipIf(!hasTestDatabase)("Icecati rikastus mudeli identiteedi järgi (a
     // Galerii juba täis (5 pilti) → ei puututa
     const full = await model("dell-latitude-5430", "dell", "Latitude", "5430");
     for (let i = 0; i < 5; i++) await t.db.insert(productImages).values(image(full, "ICECAT", `old-${i}`, i));
+    // Regressioon: 10 pildirida, aga need on 2 foto koopiad (Laptopid.ee sama foto eri pakkumistel) → 2 unikaalset → kandidaat
+    const copies = await model("hp-probook-450-g9", "hp", "ProBook", "450 G9");
+    await t.db.update(productModels).set({ screenSizeIn: 15.6 }).where(eq(productModels.id, copies));
+    for (let i = 0; i < 10; i++) {
+      await t.db.insert(productImages).values({ ...image(copies, "MANUAL", `copy-${i}`, i), source: "LAPTOPID", visualHash: i % 2 ? "ffffffffffffffff" : "0000000000000000", imageQuality: "OK" });
+    }
   }, 120_000);
 
   afterAll(async () => {
@@ -111,7 +119,9 @@ describe.skipIf(!hasTestDatabase)("Icecati rikastus mudeli identiteedi järgi (a
   it("dry-run: indeks + andmelehed, aga faile ega andmebaasi ei muudeta", async () => {
     const { runCatalogEnrichment } = await import("./catalog-enrichment");
     const report = await runCatalogEnrichment(t.db, { ...(await options()), dryRun: true });
-    expect(report.images!.icecat).toMatchObject({ candidates: 2, nameExact: 1, review: 1 });
+    expect(report.images!.icecat).toMatchObject({ candidates: 3, nameExact: 2, review: 1 });
+    // 10 rida, 2 unikaalset pilti → kandidaat; Icecati ülempiir = 10 − 2 unikaalset muud pilti
+    expect(report.images!.icecat!.results.find((r) => r.model === "hp-probook-450-g9")).toMatchObject({ outcome: "NAME_EXACT", imagesBefore: 2, icecatImages: 8 });
     expect(downloads).toHaveLength(0);
     expect(await t.db.select().from(icecatMetadata)).toHaveLength(0);
     jsonCalls.length = 0;
@@ -121,7 +131,10 @@ describe.skipIf(!hasTestDatabase)("Icecati rikastus mudeli identiteedi järgi (a
     const { runCatalogEnrichment } = await import("./catalog-enrichment");
     const report = await runCatalogEnrichment(t.db, await options());
     const ic = report.images!.icecat!;
-    expect(ic).toMatchObject({ candidates: 2, nameExact: 1, review: 1, identifierMatches: 0 });
+    expect(ic).toMatchObject({ candidates: 3, nameExact: 2, review: 1, identifierMatches: 0 });
+    const probook = await t.db.select().from(productImages).where(eq(productImages.productModelId, ids["hp-probook-450-g9"]));
+    expect(probook.filter((r) => r.source === "ICECAT")).toHaveLength(8);
+    expect(probook.filter((r) => r.source === "LAPTOPID")).toHaveLength(10); // olemasolevad read jäävad
     expect(jsonCalls).not.toContain("3001"); // täis galeriiga mudelit ei küsita
 
     const hpImages = await t.db.select().from(productImages).where(eq(productImages.productModelId, ids["hp-elitebook-840-g7"]));
@@ -152,5 +165,29 @@ describe.skipIf(!hasTestDatabase)("Icecati rikastus mudeli identiteedi järgi (a
     expect(after.map((r) => r.id).sort()).toEqual(before.map((r) => r.id).sort());
     const [manual] = after.filter((r) => r.source === "MANUAL");
     expect(manual).toMatchObject({ sourceId: "admin-1", isMain: true, position: 0 });
+  });
+
+  it("ühe pildiga varasem vaste → sama mudeli identiteediga parema galeriiga SKU; teise mudeli suurem galerii ei loe", async () => {
+    const { runCatalogEnrichment } = await import("./catalog-enrichment");
+    const title = (name: string) => `HP EliteBook ${name} Notebook PC Intel Core i5-10210U`;
+    products["5001"] = icecatProduct({ icecatId: "5001", title: title("850 G7"), gallery: [galleryItem("901", 1)] });
+    products["5002"] = icecatProduct({ icecatId: "5002", title: title("850 G7"), gallery: Array.from({ length: 8 }, (_, i) => galleryItem(String(910 + i * 20), i + 1)) });
+    products["5003"] = icecatProduct({ icecatId: "5003", title: title("850 G8"), gallery: Array.from({ length: 12 }, (_, i) => galleryItem(String(930 + i), i + 1)) });
+    await model("hp-elitebook-850-g7", "hp", "EliteBook", "850 G7");
+    index.push(row("5001", "1", "EliteBook 850 G7 Notebook PC"));
+    await runCatalogEnrichment(t.db, await options());
+    const [first] = await t.db.select().from(icecatMetadata).where(eq(icecatMetadata.productModelId, ids["hp-elitebook-850-g7"]));
+    expect(first).toMatchObject({ status: "MATCHED", icecatId: "5001", imageCount: 1 });
+
+    // Indeksis on nüüd sama mudeli teine SKU (8 pilti) ja teine mudel (850 G8, 12 pilti)
+    index.push(row("5002", "1", "EliteBook 850 G7"), row("5003", "1", "EliteBook 850 G8"));
+    const report = await runCatalogEnrichment(t.db, await options());
+    expect(report.images!.icecat).toMatchObject({ upgraded: 1 });
+    expect(report.images!.icecat!.results.find((r) => r.model === "hp-elitebook-850-g7")).toMatchObject({ outcome: "UPGRADED", icecatId: "5002" });
+    const [after] = await t.db.select().from(icecatMetadata).where(eq(icecatMetadata.productModelId, ids["hp-elitebook-850-g7"]));
+    expect(after).toMatchObject({ status: "MATCHED", icecatId: "5002", imageCount: 8 });
+    expect(after.matchedBy).toContain("asendas #5001 (1 pilti)");
+    const images = await t.db.select().from(productImages).where(eq(productImages.productModelId, ids["hp-elitebook-850-g7"]));
+    expect(images.filter((r) => r.source === "ICECAT")).toHaveLength(8); // vana 1 pilt asendati, mitte lisati
   });
 }, 120_000);

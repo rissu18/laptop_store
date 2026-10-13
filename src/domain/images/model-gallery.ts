@@ -90,6 +90,18 @@ function compareOrder(a: number[], b: number[]): number {
 
 /** Koondgalerii: deterministlik (sama sisend → sama järjekord), prioriteet → dedupe → tühjade eemaldus */
 export function buildModelGallery(candidates: GalleryCandidate[]): ProductImageView[] {
+  return galleryCandidates(candidates).map((c) => c.view);
+}
+
+/**
+ * Mitu UNIKAALSET kasutatavat pilti galeriis on (sama dedupe mis poes; PLACEHOLDER ja BLANK ei loe). Rikastus kasutab
+ * seda, et otsustada, kas galeriid on vaja täiendada — mitte ridade arvu (sama foto koopiad pole uued pildid).
+ */
+export function usableGalleryCount(candidates: GalleryCandidate[]): number {
+  return galleryCandidates(candidates).filter((c) => c.group !== "PLACEHOLDER" && c.quality !== "BLANK").length;
+}
+
+function galleryCandidates(candidates: GalleryCandidate[]): GalleryCandidate[] {
   const groupRank = (g: GalleryGroup) => GALLERY_GROUP_PRIORITY.indexOf(g);
   const sorted = candidates
     .filter((c) => c.quality !== "BROKEN")
@@ -111,6 +123,5 @@ export function buildModelGallery(candidates: GalleryCandidate[]): ProductImageV
   const weak = (c: GalleryCandidate) => c.group === "PLACEHOLDER" || c.quality === "BLANK";
   const hasContent = kept.some((c) => !weak(c));
   // Sisukad pildid ees; tühjad/varupildid ainult siis, kui muud pole (ja siis viimasena)
-  const result = hasContent ? kept.filter((c) => !weak(c)) : [...kept.filter((c) => c.group !== "PLACEHOLDER"), ...kept.filter((c) => c.group === "PLACEHOLDER")];
-  return result.map((c) => c.view);
+  return hasContent ? kept.filter((c) => !weak(c)) : [...kept.filter((c) => c.group !== "PLACEHOLDER"), ...kept.filter((c) => c.group === "PLACEHOLDER")];
 }

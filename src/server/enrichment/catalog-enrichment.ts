@@ -18,7 +18,9 @@ import { stableStringify } from "@/integrations/supplier/stable-stringify";
 import type { Database } from "@/server/db/client";
 import { listingImages, productIdentifiers, productImages, productModels, supplierListings } from "@/server/db/schema";
 import { loadModelIdentifiers, normalizeImageOrder } from "@/server/images/db-image-repository";
-import { buildModelIdentity, requiresStrictIdentifier, titleHasIdentity } from "@/domain/images/model-identity";
+import { buildModelIdentity, cpuEraMatch, requiresStrictIdentifier, titleHasIdentity } from "@/domain/images/model-identity";
+import { titleHasProductCode } from "@/domain/images/product-code";
+import { inferThinkPadGeneration } from "@/domain/images/thinkpad-generation";
 import { resolveIcecatImages } from "@/integrations/icecat/icecat-image-resolver";
 import { ICECAT_SUPPLIER_IDS, type IcecatIndexRow, type IndexStreamStats } from "@/integrations/icecat/icecat-index";
 import { mapWithConcurrency } from "@/server/concurrency/map-with-concurrency";
@@ -31,6 +33,8 @@ import {
   type ModelToImport,
 } from "@/server/images/icecat-image-import";
 import { IcecatIndexCandidates, MODEL_IDENTITY_MATCH_TYPE, resolveByIdentity } from "@/server/images/icecat-model-search";
+import { usableGalleryCount } from "@/domain/images/model-gallery";
+import { galleryCandidatesByModel } from "@/server/catalog/db-catalog-mapper";
 
 /**
  * Kataloogi rikastus — LOCAL-FIRST (vt domain/catalog/enrichment.ts):
@@ -215,8 +219,17 @@ function modelTitle(m: ModelRow): string {
 }
 
 async function enrichImages(db: Database, models: ModelRow[], listings: ListingRow[], options: EnrichmentOptions, now: Date): Promise<NonNullable<EnrichmentReport["images"]>> {
-  const imageRows = await db.select({ productModelId: productImages.productModelId, source: productImages.source, isHidden: productImages.isHidden }).from(productImages);
+  const imageRows = await db.select().from(productImages);
   const listingImageRows = await db.select().from(listingImages);
+  // Galerii täiendamise vajadus: UNIKAALSED kasutatavad pildid poe galerii reegliga (dedupe, BLANK/PLACEHOLDER välja),
+  // mitte ridade arv — Laptopid.ee sama foto koopiad eri pakkumistel ei ole uued pildid
+  const candidatesByModel = galleryCandidatesByModel(listings, imageRows, listingImageRows);
+  const uniqueBefore = new Map(
+    models.map((m) => {
+      const list = candidatesByModel.get(m.id) ?? [];
+      return [m.id, { total: usableGalleryCount(list), nonIcecat: usableGalleryCount(list.filter((c) => c.group !== "ICECAT")) }];
+    }),
+  );
 
   const imagesByListing = new Map<string, GalleryImage[]>();
   for (const img of listingImageRows) imagesByListing.set(img.supplierListingId, [...(imagesByListing.get(img.supplierListingId) ?? []), img]);
@@ -355,7 +368,7 @@ async function enrichImages(db: Database, models: ModelRow[], listings: ListingR
   //    GTIN/MPN → täpne päring; muidu tootja + mudeli identiteet Icecati indeksist (+ pealkirja kontroll).
   const visibleBefore = new Map(effModels.map((m) => [m.id, (productImagesByModel.get(m.id) ?? []).filter((r) => !r.isHidden).length]));
   if (options.icecat) {
-    const icecatAdded = await enrichIcecatImages(db, effModels, listingsByModel, productImagesByModel, decisions, added, report, options, now);
+    const icecatAdded = await enrichIcecatImages(db, effModels, listingsByModel, productImagesByModel, uniqueBefore, decisions, added, report, options, now);
     for (const [id, count] of icecatAdded) added.set(id, (added.get(id) ?? 0) + count);
   }
 
@@ -425,6 +438,14 @@ export interface IcecatImageReport {
   identifierMatches: number;
   nameExact: number;
   nameFamily: number;
+  /** Lenovo "Gen 1" ↔ põlvkonnata Icecati nimi (protsessori ajastu kinnitab) */
+  firstGen: number;
+  /** Tarbijamudel tootekoodi järgi ("SF314-52" ↔ "SF314-52-567W") */
+  productCode: number;
+  /** ThinkPadi põlvkond tuletati protsessoritest (ainult otsinguks; vaste vajab ikka nime + pealkirja kontrolli) */
+  generationInferred: number;
+  /** Varasem vaste andis alla 5 pildi → sama mudeli identiteediga Icecati toode, millel on rohkem pilte */
+  upgraded: number;
   reused: number;
   review: number;
   unresolved: number;
@@ -444,6 +465,7 @@ async function enrichIcecatImages(
   models: ModelRow[],
   listingsByModel: Map<string, ListingRow[]>,
   productImagesByModel: Map<string, { source: string; isHidden: boolean }[]>,
+  uniqueBefore: Map<string, { total: number; nonIcecat: number }>,
   decisions: Map<string, ModelImageEnrichment>,
   added: Map<string, number>,
   report: NonNullable<EnrichmentReport["images"]>,
@@ -453,22 +475,37 @@ async function enrichIcecatImages(
   const log = options.log ?? (() => {});
   const deps = options.icecat!;
   const result: IcecatImageReport = {
-    candidates: 0, index: null, identifierMatches: 0, nameExact: 0, nameFamily: 0, reused: 0, review: 0, unresolved: 0,
+    candidates: 0, index: null, identifierMatches: 0, nameExact: 0, nameFamily: 0, firstGen: 0, productCode: 0, generationInferred: 0, upgraded: 0, reused: 0, review: 0, unresolved: 0,
     unsupportedBrand: 0, apple: 0, rejectedByAdmin: 0, errors: 0, jsonRequests: 0, imagesExpected: 0, downloaded: 0, duplicates: 0, results: [],
   };
   report.icecat = result;
   const delta = new Map<string, number>();
 
-  // Kandidaadid: poes müügis, alla 5 nähtava mudelipildi (pärast Laptopid.ee sammu)
+  // Kandidaadid: poes müügis, galeriis alla 5 UNIKAALSE kasutatava pildi (pärast Laptopid.ee sammu). Laptopid.ee sammu
+  // pildid on sama mudeli või sobitatud mudeli fotode koopiad → arvestatakse suurimana, mitte lisaks.
   const rowsOf = (m: ModelRow) => productImagesByModel.get(m.id) ?? [];
-  const visibleOf = (m: ModelRow) => rowsOf(m).filter((r) => !r.isHidden).length + (added.get(m.id) ?? 0);
-  let candidates = models.filter((m) => (listingsByModel.get(m.id) ?? []).some(onSale) && visibleOf(m) < GALLERY_COMPLETE);
+  const uniqueOf = (m: ModelRow) => Math.max(uniqueBefore.get(m.id)?.total ?? 0, added.get(m.id) ?? 0);
+  const uniqueNonIcecatOf = (m: ModelRow) => Math.max(uniqueBefore.get(m.id)?.nonIcecat ?? 0, added.get(m.id) ?? 0);
+  let candidates = models.filter((m) => (listingsByModel.get(m.id) ?? []).some(onSale) && uniqueOf(m) < GALLERY_COMPLETE);
   if (options.icecatLimit) candidates = candidates.slice(0, options.icecatLimit);
   result.candidates = candidates.length;
 
   // Indeks: üks voog, võrdlus kohe voos (Icecati indeksit ei salvestata)
   const searchable = candidates.filter((m) => !requiresStrictIdentifier(m.manufacturer));
-  const index = new IcecatIndexCandidates(searchable.map((m) => ({ id: m.slug, manufacturer: m.manufacturer, family: m.family, model: m.model, screenSizeIn: m.screenSizeIn })));
+  const cpusOf = (m: ModelRow) => [...new Set((listingsByModel.get(m.id) ?? []).filter(onSale).map((l) => effective(l).cpu).filter((c): c is string => Boolean(c)))];
+  // ThinkPad ilma põlvkonnata ("X13", "L15") → põlvkond protsessorite järgi, kui see on üheselt tuletatav (lisatõend otsinguks)
+  const generationNotes = new Map<string, string>();
+  const index = new IcecatIndexCandidates(
+    searchable.map((m) => {
+      const inferred = inferThinkPadGeneration(m, cpusOf(m));
+      if (inferred.generation !== null) {
+        result.generationInferred++;
+        generationNotes.set(m.slug, inferred.reason);
+      } else if (inferred.reason.startsWith("protsessorist") || inferred.reason.startsWith("pakkumised")) generationNotes.set(m.slug, `põlvkonda ei tuletatud: ${inferred.reason}`);
+      const model = inferred.generation !== null ? `${m.model} Gen ${inferred.generation}` : m.model;
+      return { id: m.slug, manufacturer: m.manufacturer, family: m.family, model, screenSizeIn: m.screenSizeIn };
+    }),
+  );
   if (options.icecatIndex && index.supplierIds.size) {
     log(`Icecati indeks: voog algab (${searchable.length} mudelit, tootjad ${[...index.supplierIds].join(",")})`);
     result.index = await options.icecatIndex(index.supplierIds, (row) => index.consider(row));
@@ -486,13 +523,13 @@ async function enrichIcecatImages(
   await mapWithConcurrency(candidates, ICECAT_MODEL_CONCURRENCY, async (model) => {
     const rows = rowsOf(model);
     const icecatVisible = rows.filter((r) => r.source === "ICECAT" && !r.isHidden).length;
-    const otherVisible = visibleOf(model) - icecatVisible;
+    const otherVisible = uniqueNonIcecatOf(model);
     const maxImages = Math.max(0, 10 - otherVisible);
     // Teiste allikate pildid (ka peidetud) jäävad galeriis ette
     const positionOffset = rows.filter((r) => r.source !== "ICECAT").length + (added.get(model.id) ?? 0);
     const brandName = BRAND_NAMES[model.manufacturer as BrandCode] ?? model.manufacturer;
     const importModel: ModelToImport = { id: model.slug, title: modelTitle(model), brandName, modelName: modelTitle(model).slice(brandName.length + 1) };
-    const entry: IcecatModelResult = { model: model.slug, outcome: "UNRESOLVED", icecatId: null, icecatName: null, icecatTitle: null, reason: null, imagesBefore: visibleOf(model), icecatImages: icecatVisible, downloaded: 0 };
+    const entry: IcecatModelResult = { model: model.slug, outcome: "UNRESOLVED", icecatId: null, icecatName: null, icecatTitle: null, reason: null, imagesBefore: uniqueOf(model), icecatImages: icecatVisible, downloaded: 0 };
     result.results.push(entry);
     const decision = decisions.get(model.id)!;
     const importOptions = { maxImages, positionOffset };
@@ -536,9 +573,43 @@ async function enrichIcecatImages(
 
       // a) Varasem mudeli identiteedi vaste → sama Icecati toode (1 päring), pealkiri kontrollitakse uuesti
       const identity = index.identity(model.slug) ?? buildModelIdentity(model);
+      const productCode = index.productCode(model.slug);
+      const ourCpus = cpusOf(model);
+      const searchOptions = {
+        rejectedIcecatIds: new Set(merged.rejectedIcecatIds ?? []),
+        targetImages: maxImages,
+        ourCpus,
+        ambiguousGeneration: index.hasGenerationVariants(model.slug),
+        productCode,
+      };
+      const titleVerified = (title: string) =>
+        titleHasIdentity(identity, title) ||
+        (titleHasIdentity(identity, title, { firstGenUnnamed: true }) && cpuEraMatch(title, ourCpus)) ||
+        Boolean(productCode && titleHasProductCode(productCode, identity, title));
       if (previous?.status === "MATCHED" && previous.matchType === MODEL_IDENTITY_MATCH_TYPE && previous.icecatId && !merged.confirmedIcecatId) {
         const found = await counting.getProduct({ kind: "ICECAT_ID", icecatId: previous.icecatId });
-        if (found.status === "FOUND" && titleHasIdentity(identity, `${found.product.GeneralInfo.Brand} ${found.product.GeneralInfo.Title}`)) {
+        if (found.status === "FOUND" && titleVerified(`${found.product.GeneralInfo.Brand} ${found.product.GeneralInfo.Title}`)) {
+          // 6) Varasem vaste andis alla 5 pildi → otsi SAMA mudeli identiteediga teist Icecati toodet (SKU), millel on rohkem
+          //    pilte. Iga kandidaat läbib sama nime + pealkirja + protsessori kontrolli; lihtsalt suurim galerii ei loe.
+          const previousImages = resolveIcecatImages(found.product).length;
+          if (previousImages < GALLERY_COMPLETE && index.has(model.slug)) {
+            const others = index.candidatesFor(model.slug).filter((c) => c.row.productId !== previous.icecatId);
+            const better = others.length ? await resolveByIdentity(identity, others, counting, { ...searchOptions, maxLookups: others.length }) : null;
+            if (better?.status === "MATCHED" && better.imageCount > previousImages) {
+              result.upgraded++;
+              const matchedBy = `${better.matchedBy}; asendas #${previous.icecatId} (${previousImages} pilti)`;
+              if (options.dryRun) {
+                Object.assign(entry, { outcome: "UPGRADED", icecatId: better.product.GeneralInfo.IcecatId, icecatTitle: better.product.GeneralInfo.Title });
+                expect(better.imageCount);
+              } else {
+                const match = { product: better.product, matchType: MODEL_IDENTITY_MATCH_TYPE, confidence: better.confidence, matchedBy, titleVerified: true };
+                applied(await importIcecatProduct(importModel, match, countingDeps, importOptions), "UPGRADED");
+              }
+              entry.icecatName = better.candidate.row.modelName;
+              entry.reason = matchedBy;
+              return;
+            }
+          }
           result.reused++;
           if (options.dryRun) {
             entry.outcome = "REUSED";
@@ -589,15 +660,14 @@ async function enrichIcecatImages(
         result.unresolved++;
         return;
       }
-      const found = await resolveByIdentity(identity, index.candidatesFor(model.slug), counting, {
-        rejectedIcecatIds: new Set(merged.rejectedIcecatIds ?? []),
-        targetImages: maxImages,
-        ourCpus: [...new Set(own.map((l) => effective(l).cpu).filter((c): c is string => Boolean(c)))],
-        ambiguousGeneration: index.hasGenerationVariants(model.slug),
-      });
+      const found = await resolveByIdentity(identity, index.candidatesFor(model.slug), counting, searchOptions);
+      const note = generationNotes.get(model.slug);
       if (found.status === "MATCHED") {
-        const outcome = found.candidate.verdict === "EXACT" ? "NAME_EXACT" : "NAME_FAMILY";
-        if (found.candidate.verdict === "EXACT") result.nameExact++;
+        const verdict = found.candidate.verdict;
+        const outcome = { EXACT: "NAME_EXACT", FAMILY_MISSING: "NAME_FAMILY", FIRST_GEN: "NAME_FIRST_GEN", PRODUCT_CODE: "PRODUCT_CODE", REVIEW: "NAME_FAMILY" }[verdict];
+        if (verdict === "EXACT") result.nameExact++;
+        else if (verdict === "FIRST_GEN") result.firstGen++;
+        else if (verdict === "PRODUCT_CODE") result.productCode++;
         else result.nameFamily++;
         if (options.dryRun) {
           Object.assign(entry, { outcome, icecatId: found.product.GeneralInfo.IcecatId, icecatTitle: found.product.GeneralInfo.Title });
@@ -607,7 +677,7 @@ async function enrichIcecatImages(
           applied(await importIcecatProduct(importModel, match, countingDeps, importOptions), outcome);
         }
         entry.icecatName = found.candidate.row.modelName;
-        entry.reason = found.matchedBy;
+        entry.reason = note ? `${found.matchedBy}; ${note}` : found.matchedBy;
         return;
       }
       if (found.status === "ERROR") {
@@ -618,7 +688,7 @@ async function enrichIcecatImages(
       }
       const review = found.status === "NEEDS_REVIEW";
       entry.outcome = review ? "REVIEW" : "UNRESOLVED";
-      entry.reason = found.reason;
+      entry.reason = note ? `${found.reason}; ${note}` : found.reason;
       if (review) {
         entry.icecatId = found.candidate.row.productId;
         entry.icecatName = found.candidate.row.modelName;
@@ -651,7 +721,7 @@ async function enrichIcecatImages(
 
   result.results.sort((a, b) => a.model.localeCompare(b.model));
   report.icecatAttempted = result.candidates;
-  report.icecatMatched = result.identifierMatches + result.nameExact + result.nameFamily + result.reused;
+  report.icecatMatched = result.identifierMatches + result.nameExact + result.nameFamily + result.firstGen + result.productCode + result.upgraded + result.reused;
   return delta;
 }
 

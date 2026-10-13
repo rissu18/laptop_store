@@ -2,12 +2,14 @@ import {
   buildModelIdentity,
   compareModelName,
   cpuEraConflict,
+  cpuEraMatch,
   identityWords,
   titleHasIdentity,
   type IdentityVerdict,
   type ModelIdentity,
   type ModelIdentityInput,
 } from "@/domain/images/model-identity";
+import { codeMatchesIcecatName, consumerProductCode, titleHasProductCode, type ProductCode } from "@/domain/images/product-code";
 import { resolveIcecatImages } from "@/integrations/icecat/icecat-image-resolver";
 import { ICECAT_SUPPLIER_IDS, type IcecatIndexRow } from "@/integrations/icecat/icecat-index";
 import type { IcecatMatchType } from "@/domain/images/icecat-match";
@@ -23,6 +25,12 @@ import type { IcecatProduct } from "@/integrations/icecat/icecat-types";
  *      ja seal ei tohi olla teist korpust (Chromebook, Rugged, x360 …).
  *   3. Kontrollitud kandidaatidest valitakse suurima kasutatava galeriiga (sama mudeli SKU-de galeriid erinevad).
  *
+ * Lisaks nimele (domain/images/model-identity.ts):
+ *   - PRODUCT_CODE: tarbijamudelid tootekoodi järgi (domain/images/product-code.ts: "SF314-52" ↔ "SF314-52-567W"),
+ *     pealkirja kontroll titleHasProductCode;
+ *   - FIRST_GEN: Lenovo "Gen 1" ↔ Icecati nimi ilma põlvkonnata — ainult pealkirjas põlvkonda pole JA protsessori ajastu
+ *     on täpselt sama (cpuEraMatch); muidu NEEDS_REVIEW.
+ *
  * Ebakindel → NEEDS_REVIEW (pilte ei lisata). Parem 0 pilti kui vale mudeli 10 pilti.
  */
 
@@ -36,18 +44,23 @@ export interface SearchableModel extends ModelIdentityInput {
   id: string;
 }
 
+export type CandidateVerdict = Exclude<IdentityVerdict, "REJECT"> | "PRODUCT_CODE";
+
 export interface IndexCandidate {
   row: IcecatIndexRow;
-  verdict: Extract<IdentityVerdict, "EXACT" | "FAMILY_MISSING" | "REVIEW">;
+  verdict: CandidateVerdict;
   reason: string;
 }
+
+// Tootekood on tarbijamudelil tugevam tunnus kui turundusnimi ("Galaxy Book2 Pro" on 13" ja 15", NP950XED ainult 15")
+const VERDICT_RANK: Record<CandidateVerdict, number> = { PRODUCT_CODE: 4, EXACT: 3, FAMILY_MISSING: 2, FIRST_GEN: 1, REVIEW: 0 };
 
 const QUALITY_RANK: Record<string, number> = { ICECAT: 3, SUPPLIER: 2 };
 
 /** Järjestus: täpne nimi → toimetatud (ICECAT) andmeleht → suur pilt → turul → uuem */
 export function candidateRank(c: IndexCandidate): number[] {
   return [
-    c.verdict === "EXACT" ? 2 : c.verdict === "FAMILY_MISSING" ? 1 : 0,
+    VERDICT_RANK[c.verdict],
     QUALITY_RANK[c.row.quality] ?? 0,
     c.row.limited ? 0 : 1,
     c.row.hasHighPic ? 1 : 0,
@@ -72,6 +85,9 @@ export class IcecatIndexCandidates {
   private readonly distinctNames = new Map<string, Set<string>>();
   /** Mudelid, mille põlvkonnata nimel on Icecatis põlvkonnaga variandid ("X13" vs "X13 Gen 2") */
   private readonly generationVariants = new Set<string>();
+  /** Tarbijamudelite tootekood (mudel → kood) ja tootja → koodiga mudelid */
+  private readonly productCodes = new Map<string, ProductCode>();
+  private readonly codeModels = new Map<string, string[]>();
   readonly supplierIds = new Set<string>();
 
   constructor(models: SearchableModel[]) {
@@ -83,6 +99,11 @@ export class IcecatIndexCandidates {
       if (!anchorTokens.length) continue; // ilma numbrita mudelinimi ("Surface Laptop") on liiga üldine
       this.identities.set(model.id, identity);
       this.supplierIds.add(supplierId);
+      const code = consumerProductCode(model);
+      if (code) {
+        this.productCodes.set(model.id, code);
+        this.codeModels.set(supplierId, [...(this.codeModels.get(supplierId) ?? []), model.id]);
+      }
       for (const token of anchorTokens) {
         const key = `${supplierId}:${token}`;
         this.anchors.set(key, [...(this.anchors.get(key) ?? []), model.id]);
@@ -98,8 +119,13 @@ export class IcecatIndexCandidates {
     return this.identities.get(modelId) ?? null;
   }
 
+  productCode(modelId: string): ProductCode | null {
+    return this.productCodes.get(modelId) ?? null;
+  }
+
   consider(row: IcecatIndexRow): void {
     const seen = new Set<string>();
+    const added = new Set<string>();
     for (const word of new Set(identityWords(row.modelName))) {
       for (const modelId of this.anchors.get(`${row.supplierId}:${word}`) ?? []) {
         if (seen.has(modelId)) continue;
@@ -107,17 +133,29 @@ export class IcecatIndexCandidates {
         const result = compareModelName(this.identities.get(modelId)!, row.modelName);
         if (result.generationVariant) this.generationVariants.add(modelId);
         if (result.verdict === "REJECT") continue;
-        const candidate: IndexCandidate = { row, verdict: result.verdict, reason: result.reason };
-        const list = this.candidates.get(modelId) ?? [];
-        list.push(candidate);
-        list.sort(compareRank);
-        if (list.length > KEEP_PER_MODEL) list.length = KEEP_PER_MODEL;
-        this.candidates.set(modelId, list);
-        const names = this.distinctNames.get(modelId) ?? new Set();
-        if (names.size < 20) names.add(row.modelName);
-        this.distinctNames.set(modelId, names);
+        this.add(modelId, { row, verdict: result.verdict, reason: result.reason });
+        added.add(modelId);
       }
     }
+    // Tarbijamudelid: SKU järelliitega Icecati nimi ("SF314-52-567W") — nimevõrdlus loeks järelliite teiseks mudeliks
+    for (const modelId of this.codeModels.get(row.supplierId) ?? []) {
+      if (added.has(modelId)) continue;
+      const code = this.productCodes.get(modelId)!;
+      if (codeMatchesIcecatName(code, this.identities.get(modelId)!, row.modelName, row.prodId)) {
+        this.add(modelId, { row, verdict: "PRODUCT_CODE", reason: `tootekood ${code.code.toUpperCase()}` });
+      }
+    }
+  }
+
+  private add(modelId: string, candidate: IndexCandidate): void {
+    const list = this.candidates.get(modelId) ?? [];
+    list.push(candidate);
+    list.sort(compareRank);
+    if (list.length > KEEP_PER_MODEL) list.length = KEEP_PER_MODEL;
+    this.candidates.set(modelId, list);
+    const names = this.distinctNames.get(modelId) ?? new Set();
+    if (names.size < 20) names.add(candidate.row.modelName);
+    this.distinctNames.set(modelId, names);
   }
 
   candidatesFor(modelId: string): IndexCandidate[] {
@@ -169,6 +207,8 @@ export async function resolveByIdentity(
     ourCpus?: string[];
     /** Põlvkonnata mudelinimi, Icecatis mitu põlvkonda → ülevaatus */
     ambiguousGeneration?: boolean;
+    /** Tarbijamudeli tootekood (PRODUCT_CODE kandidaatide pealkirja kontroll) */
+    productCode?: ProductCode | null;
   } = {},
 ): Promise<IdentitySearchResult> {
   const usable = candidates.filter((c) => c.verdict !== "REVIEW" && !options.rejectedIcecatIds?.has(c.row.productId));
@@ -197,8 +237,17 @@ export async function resolveByIdentity(
     }
     if (result.status !== "FOUND") continue;
     const title = `${result.product.GeneralInfo.Brand} ${result.product.GeneralInfo.Title || result.product.GeneralInfo.ProductName}`;
-    if (!titleHasIdentity(identity, title)) {
+    const titleOk =
+      candidate.verdict === "PRODUCT_CODE"
+        ? Boolean(options.productCode) && titleHasProductCode(options.productCode!, identity, title)
+        : titleHasIdentity(identity, title, { firstGenUnnamed: candidate.verdict === "FIRST_GEN" });
+    if (!titleOk) {
       firstMismatch ??= { candidate, title };
+      continue;
+    }
+    // FIRST_GEN: põlvkonnata Icecati nimi on lubatud ainult TÄPSELT sama protsessori ajastuga (lisatõend)
+    if (candidate.verdict === "FIRST_GEN" && !(options.ourCpus?.length && cpuEraMatch(title, options.ourCpus))) {
+      firstMismatch ??= { candidate, title: `${title} (protsessori ajastu ei kinnita 1. põlvkonda)` };
       continue;
     }
     if (options.ourCpus?.length && cpuEraConflict(title, options.ourCpus)) {
@@ -211,7 +260,7 @@ export async function resolveByIdentity(
   }
 
   if (best && best.imageCount > 0) {
-    const how = best.candidate.verdict === "EXACT" ? "mudelinimi" : "number + pealkirja seeria";
+    const how = { EXACT: "mudelinimi", FAMILY_MISSING: "number + pealkirja seeria", FIRST_GEN: "1. põlvkond + protsessori ajastu", PRODUCT_CODE: "tootekood + pealkiri", REVIEW: "" }[best.candidate.verdict];
     return {
       status: "MATCHED",
       product: best.product,
@@ -219,7 +268,7 @@ export async function resolveByIdentity(
       imageCount: best.imageCount,
       lookups,
       matchedBy: `Icecat ${how}: "${best.candidate.row.modelName}" (#${best.candidate.row.productId}, ${best.candidate.row.quality})`,
-      confidence: best.candidate.verdict === "EXACT" ? 0.92 : 0.9,
+      confidence: best.candidate.verdict === "EXACT" ? 0.92 : best.candidate.verdict === "FAMILY_MISSING" ? 0.9 : 0.85,
     };
   }
   if (firstMismatch) {

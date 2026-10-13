@@ -13,6 +13,8 @@
  *                                                    allalaadimise ja andmebaasi kirjutamiseta
  *   lisaks: --limit N (ainult N esimest Icecati kandidaati), --report fail.json (täisraport faili)
  *   lisaks: --json (täisraport JSON-ina)
+ *   lisaks: --index-cache fail.jsonl (Icecati indeksi sülearvutite read lokaalsesse tööfaili; korduv kuivkäivitus ei lae
+ *           ~300 MB indeksit uuesti — fail on scratch, mitte repo osa)
  *
  * Idempotentne ja taaskäivitatav: muutmata andmeid üle ei kirjutata, admini parandusi ega peidetud pilte ei puututa.
  * CPU põlvkonna täidab tarnija sync (keskne parser); siin on see ainult aruandes.
@@ -22,7 +24,7 @@
 import "./lib/load-env";
 import { writeFile } from "node:fs/promises";
 import { createIcecatClientFromEnv } from "@/integrations/icecat/icecat-client";
-import { icecatIndexConfigFromEnv, streamIcecatIndex } from "@/integrations/icecat/icecat-index";
+import { cachedIcecatIndex, icecatIndexConfigFromEnv, streamIcecatIndex } from "@/integrations/icecat/icecat-index";
 import { createDb } from "@/server/db/client";
 import { redactConnectionStrings, resolveDatabaseUrl } from "@/server/db/database-url";
 import { DbImageRepository } from "@/server/images/db-image-repository";
@@ -49,7 +51,10 @@ async function main() {
       if (!client) throw new Error("ICECAT_USERNAME puudub (.env.local)");
       icecat = { icecat: client, storage: new LocalImageStorageAdapter(), repository: new DbImageRepository(db) };
       const indexConfig = icecatIndexConfigFromEnv();
-      if (indexConfig) icecatIndex = (supplierIds, onRow) => streamIcecatIndex(indexConfig, supplierIds, onRow);
+      const cacheArg = args.indexOf("--index-cache");
+      const cacheFile = cacheArg >= 0 ? args[cacheArg + 1] : undefined;
+      if (indexConfig && cacheFile) icecatIndex = (supplierIds, onRow) => cachedIcecatIndex(indexConfig, cacheFile, supplierIds, onRow);
+      else if (indexConfig) icecatIndex = (supplierIds, onRow) => streamIcecatIndex(indexConfig, supplierIds, onRow);
       else console.log("  ICECAT_PASSWORD puudub — mudelinime järgi ei otsita (ainult GTIN/MPN)");
     }
     const limitArg = args.indexOf("--limit");

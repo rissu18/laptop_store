@@ -139,6 +139,35 @@ export function streamIcecatIndex(config: IcecatIndexConfig, supplierIds: Set<st
   });
 }
 
+/**
+ * Indeksi lokaalne vahemälu iteratiivseks kuivkäivituseks (CLI `--index-cache fail.jsonl`): esimene käivitus voogedastab
+ * indeksi ja salvestab ainult sülearvutite read KÕIGILT toetatud tootjatelt (JSONL, ~kümned MB), järgmised loevad faili.
+ * Fail on tööfail (scratch), mitte repo osa. Pood seda kunagi ei loe.
+ */
+export async function cachedIcecatIndex(config: IcecatIndexConfig, file: string, supplierIds: Set<string>, onRow: (row: IcecatIndexRow) => void): Promise<IndexStreamStats> {
+  const { createReadStream, createWriteStream, existsSync } = await import("node:fs");
+  if (!existsSync(file)) {
+    const out = createWriteStream(`${file}.partial`);
+    const all = new Set(Object.values(ICECAT_SUPPLIER_IDS));
+    const stats = await streamIcecatIndex(config, all, (row) => out.write(`${JSON.stringify(row)}\n`));
+    await new Promise<void>((resolve, reject) => out.end((error?: Error | null) => (error ? reject(error) : resolve())));
+    const { rename } = await import("node:fs/promises");
+    await rename(`${file}.partial`, file);
+    console.log(`  Icecati indeks salvestatud vahemällu: ${stats.kept} sülearvutit (${stats.products} toodet)`);
+  }
+  const stats: IndexStreamStats = { products: 0, kept: 0 };
+  const lines = readline.createInterface({ input: createReadStream(file), crlfDelay: Infinity });
+  for await (const line of lines) {
+    if (!line) continue;
+    stats.products++;
+    const row = JSON.parse(line) as IcecatIndexRow;
+    if (!supplierIds.has(row.supplierId)) continue;
+    stats.kept++;
+    onRow(row);
+  }
+  return stats;
+}
+
 export function icecatIndexConfigFromEnv(env: NodeJS.ProcessEnv = process.env): IcecatIndexConfig | null {
   const username = env.ICECAT_USERNAME?.trim();
   const password = env.ICECAT_PASSWORD?.trim();

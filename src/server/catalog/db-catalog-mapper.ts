@@ -56,8 +56,8 @@ export const STOREFRONT_LISTING_IMAGE_COLUMNS = [
 
 type ModelRow = Pick<typeof productModels.$inferSelect, (typeof STOREFRONT_MODEL_COLUMNS)[number]>;
 type ListingRow = Pick<typeof supplierListings.$inferSelect, (typeof STOREFRONT_LISTING_COLUMNS)[number]>;
-type ImageRow = Pick<typeof productImages.$inferSelect, (typeof STOREFRONT_IMAGE_COLUMNS)[number]>;
-type ListingImageRow = Pick<typeof listingImages.$inferSelect, (typeof STOREFRONT_LISTING_IMAGE_COLUMNS)[number]> & {
+export type GalleryImageRow = Pick<typeof productImages.$inferSelect, (typeof STOREFRONT_IMAGE_COLUMNS)[number]>;
+export type GalleryListingImageRow = Pick<typeof listingImages.$inferSelect, (typeof STOREFRONT_LISTING_IMAGE_COLUMNS)[number]> & {
   /** Kui pakkumist pole `listings` hulgas (nt kassa laeb ainult ostukorvi pakkumised): mudel ja tarnija päringust */
   productModelId?: string;
   supplier?: string;
@@ -93,7 +93,7 @@ export function missingStorefrontFields(model: ModelRow, listing: ListingRow): s
   return missing;
 }
 
-export function imageRowToView(image: ImageRow): ProductImageView {
+export function imageRowToView(image: GalleryImageRow): ProductImageView {
   return {
     thumbnailUrl: image.thumbnailPath,
     mediumUrl: image.mediumPath,
@@ -109,7 +109,7 @@ export function imageRowToView(image: ImageRow): ProductImageView {
  * Tarnija pildid konkreetsest pakkumisest. Tüüp MODEL_GENERIC (mitte ACTUAL_UNIT): pole kinnitatud, et foto on
  * täpselt müüdavast eksemplarist — seega kuvatakse "illustratiivne" märge (ei väida rohkem, kui teame).
  */
-export function listingImageRowToView(image: ListingImageRow): ProductImageView {
+export function listingImageRowToView(image: GalleryListingImageRow): ProductImageView {
   return {
     thumbnailUrl: image.thumbnailUrl,
     mediumUrl: image.mediumUrl,
@@ -125,7 +125,19 @@ export function listingImageRowToView(image: ListingImageRow): ProductImageView 
  * Mudeli koondgaleriid: product_images (kõik allikad) + sama mudeli müügis pakkumiste pildid. Pakkumiste järjekord on
  * deterministlik ka siis, kui eri päringud laevad eri pakkumiste hulga (rohkem fotosid → pakkumise ID).
  */
-function buildGalleries(listings: ListingRow[], images: ImageRow[], listingImageRows: ListingImageRow[]): Map<string, ProductImageView[]> {
+function buildGalleries(listings: ListingRow[], images: GalleryImageRow[], listingImageRows: GalleryListingImageRow[]): Map<string, ProductImageView[]> {
+  return new Map([...galleryCandidatesByModel(listings, images, listingImageRows)].map(([modelId, list]) => [modelId, buildModelGallery(list)]));
+}
+
+/**
+ * Mudeli koondgalerii kandidaadid (enne dedupe't) mudeli ID kaupa — pood (buildModelGallery) ja rikastus
+ * (usableGalleryCount: kas galeriid on vaja täiendada) kasutavad sama sisendit.
+ */
+export function galleryCandidatesByModel(
+  listings: { id: string; productModelId: string; supplier: string; status: string; available: boolean | null }[],
+  images: GalleryImageRow[],
+  listingImageRows: GalleryListingImageRow[],
+): Map<string, GalleryCandidate[]> {
   const candidates = new Map<string, GalleryCandidate[]>();
   const push = (modelId: string, candidate: GalleryCandidate) => candidates.set(modelId, [...(candidates.get(modelId) ?? []), candidate]);
 
@@ -154,14 +166,14 @@ function buildGalleries(listings: ListingRow[], images: ImageRow[], listingImage
     });
   }
 
-  return new Map([...candidates].map(([modelId, list]) => [modelId, buildModelGallery(list)]));
+  return candidates;
 }
 
 export function mapCatalogRows(
   models: ModelRow[],
   listings: ListingRow[],
-  images: ImageRow[],
-  listingImageRows: ListingImageRow[] = [],
+  images: GalleryImageRow[],
+  listingImageRows: GalleryListingImageRow[] = [],
 ): { items: SearchableItem[]; incomplete: IncompleteListing[] } {
   const modelById = new Map(models.map((m) => [m.id, effectiveModel(m)]));
   const galleries = buildGalleries(listings, images, listingImageRows);
