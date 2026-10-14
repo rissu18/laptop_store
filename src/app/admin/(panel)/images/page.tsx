@@ -5,6 +5,7 @@ import { DataTable, type Column } from "@/components/admin/data-table";
 import { FilterForm, SelectFilter } from "@/components/admin/filters";
 import { Pagination } from "@/components/admin/pagination";
 import { Badge, Missing, PageHeader, StatusBadge } from "@/components/admin/ui";
+import { adminModelTitle } from "@/domain/admin/display";
 import { listModelImageSummaries } from "@/server/admin/images/queries";
 import { oneOf, pageNumber } from "@/server/admin/search-params";
 
@@ -35,7 +36,7 @@ const columns: Column<Row>[] = [
     mobile: "title",
     cell: (row) => (
       <Link href={`/admin/images/${row.model.id}`} className="font-medium text-primary hover:underline">
-        {row.model.family} {row.model.model}
+        {adminModelTitle(row.model)}
       </Link>
     ),
   },
@@ -59,7 +60,7 @@ export default async function ImagesPage({ searchParams }: PageProps<"/admin/ima
       <PageHeader
         title="Pildid"
         breadcrumbs={[{ label: "Kataloog" }, { label: "Pildid" }]}
-        description="Pildid on mudeli tasemel (Icecat). Siin saab valida põhipildi, muuta järjekorda ning peita eksitavaid pilte."
+        description="Mudeli pildid (Icecat, Laptopid.ee koopiad, admin). Poes kuvatakse mudeli koondgalerii: need pildid + müügis Laptopid.ee pakkumiste fotod (duplikaadid eemaldatakse). Siin saab valida põhipildi, muuta järjekorda ja peita eksitavaid pilte."
       />
       <div className="mb-4 rounded-md border border-border bg-surface px-4 py-3 text-sm">
         <p className="font-medium">

@@ -2,7 +2,11 @@ import "server-only";
 import { and, count, desc, eq, gte, ilike, or, sql, type SQL } from "drizzle-orm";
 import { requireAdmin } from "@/server/auth/auth";
 import { getDb } from "@/server/db/client";
-import { adminSessions, adminUsers, auditLogs, icecatMetadata, productImages, productModels, supplierListings, systemLogs } from "@/server/db/schema";
+import { formatTallinnDateTime } from "@/domain/time/tallinn";
+import { adminSessions, adminUsers, auditLogs, catalogSyncRuns, icecatMetadata, productImages, productModels, supplierListings, systemLogs } from "@/server/db/schema";
+
+/** Tarnija sync'i allikad (catalog_sync_runs.source) → nimi */
+const SYNC_SOURCES: [string, string][] = [["LAPTOPID", "Laptopid.ee"], ["TECH", "Techvision"], ["FOXWAY", "Foxway"]];
 
 
 const LOG_PAGE_SIZE = 50;
@@ -111,11 +115,17 @@ export async function getSystemHealth(): Promise<{ checks: HealthCheck[]; facts:
     detail: process.env.VERCEL ? "Vercel: failisüsteem pole püsiv — pildid tulevad Git'ist, allalaadimine ainult lokaalselt" : "Kohalik (public/media/products)",
   });
 
-  const [[models], [listings], [images]] = await Promise.all([
+  const [[models], [listings], [images], lastSyncs] = await Promise.all([
     db.select({ n: count() }).from(productModels),
     db.select({ n: count() }).from(supplierListings),
     db.select({ n: count() }).from(productImages),
+    db
+      .select({ source: catalogSyncRuns.source, at: sql<Date | null>`max(${catalogSyncRuns.finishedAt})` })
+      .from(catalogSyncRuns)
+      .where(eq(catalogSyncRuns.status, "SUCCESS"))
+      .groupBy(catalogSyncRuns.source),
   ]);
+  const lastSyncBySource = new Map(lastSyncs.map((row) => [row.source, row.at ? new Date(row.at) : null]));
   const lastIcecatAt = lastIcecat.at ? new Date(lastIcecat.at) : null;
 
   return {
@@ -127,7 +137,13 @@ export async function getSystemHealth(): Promise<{ checks: HealthCheck[]; facts:
       { label: "Mudeleid / konfiguratsioone / pilte", value: `${models.n} / ${listings.n} / ${images.n}` },
       { label: "Aktiivseid admine / sessioone", value: `${admins.n} / ${activeSessions.n}` },
       { label: "Viimane Icecati kontroll", value: lastIcecatAt ? lastIcecatAt.toISOString() : null },
-      { label: "Tarnija sync", value: "Pole veel ühendatud (mock-andmed)" },
+      {
+        label: "Viimane edukas tarnija sync",
+        value: SYNC_SOURCES.map(([source, name]) => {
+          const at = lastSyncBySource.get(source);
+          return `${name}: ${at ? formatTallinnDateTime(at) : "pole"}`;
+        }).join(" · "),
+      },
     ],
   };
 }

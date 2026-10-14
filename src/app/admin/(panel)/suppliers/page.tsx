@@ -71,7 +71,7 @@ export default async function SuppliersPage() {
               </p>
             </div>
           )}
-          <Card title="Sync'i seis">
+          <Card title="Laptopid.ee sync'i seis">
             <DefinitionList
               items={[
                 {
@@ -103,12 +103,12 @@ export default async function SuppliersPage() {
                 { label: "Maha võetud (pole enam saadaval)", value: last ? num(last.stats, "madeUnavailable") : null },
                 { label: "Vigased / vahele jäetud", value: last ? num(last.stats, "rejected") : null },
                 { label: "Pakkumisi andmebaasis", value: `${data.listings.total} (saadaval ${data.listings.available}, mitte saadaval ${data.listings.unavailable})` },
-                { label: "Teiste tarnijate aktiivseid pakkumisi", value: data.otherActiveListings },
+                { label: "Poes nähtavaid (sama reegel mis pood)", value: data.sellable },
                 {
                   label: "Automaatne sync",
                   value: data.cronConfigured
-                    ? "Cron-otspunkt valmis (CRON_SECRET seadistatud): /api/cron/laptopid-sync — 5-min sagedus vajab välist ajastajat, vt docs/LAPTOPID_SYNC.md"
-                    : "Pole seadistatud (CRON_SECRET puudub) — kasuta „Sync now“",
+                    ? "Upstash QStash (Eesti aeg): 08–23 iga 30 min, 00–06 iga 2 h → /api/cron/laptopid-sync; Verceli igapäevane cron on varuvõrk. Vt docs/LAPTOPID_SYNC.md"
+                    : "CRON_SECRET pole selles keskkonnas seadistatud — ajastatud sync jookseb productionis; siin kasuta „Sync now“",
                 },
               ]}
             />

@@ -4,6 +4,7 @@ import { syncHealth } from "@/domain/catalog/sync-health";
 import { isLaptopidConfigured } from "@/integrations/laptopid/laptopid-client";
 import { LAPTOPID_SOURCE, LAPTOPID_SUPPLIER_CODE } from "@/integrations/laptopid/laptopid-normalizer";
 import { requireAdmin } from "@/server/auth/auth";
+import { getSellableSnapshot } from "../sellable";
 import { lastSuccessfulSyncRun, listSyncRuns } from "@/server/catalog-sync/sync-runs";
 import { isCronConfigured } from "@/server/catalog-sync/cron-auth";
 import { getDb } from "@/server/db/client";
@@ -17,7 +18,7 @@ import { FOXWAY_SOURCE, FOXWAY_SUPPLIER_CODE } from "@/integrations/foxway/foxwa
 export async function getSupplierOverview() {
   await requireAdmin();
   const db = getDb();
-  const [runs, lastSuccess, laptopid, mockActive] = await Promise.all([
+  const [runs, lastSuccess, laptopid, snapshot] = await Promise.all([
     listSyncRuns(db, LAPTOPID_SOURCE, 10),
     lastSuccessfulSyncRun(db, LAPTOPID_SOURCE),
     db
@@ -28,10 +29,7 @@ export async function getSupplierOverview() {
       })
       .from(supplierListings)
       .where(eq(supplierListings.supplier, LAPTOPID_SUPPLIER_CODE)),
-    db
-      .select({ n: count() })
-      .from(supplierListings)
-      .where(and(ne(supplierListings.supplier, LAPTOPID_SUPPLIER_CODE), eq(supplierListings.status, "ACTIVE"))),
+    getSellableSnapshot(),
   ]);
   // Viimane lõppenud käivitus (edukas või mitte) — RUNNING rida pole veel tulemus
   const lastFinished = runs.find((run) => run.status !== "RUNNING") ?? null;
@@ -43,7 +41,8 @@ export async function getSupplierOverview() {
     runs,
     lastSuccess,
     listings: laptopid[0],
-    otherActiveListings: mockActive[0].n,
+    /** Poes nähtavad Laptopid.ee pakkumised (sama reegel mis pood) */
+    sellable: snapshot.bySupplier[LAPTOPID_SUPPLIER_CODE] ?? 0,
   };
 }
 

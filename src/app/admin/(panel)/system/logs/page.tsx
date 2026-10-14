@@ -13,7 +13,7 @@ export const instant = false;
 
 export const metadata: Metadata = { title: "Logid" };
 
-const SOURCE_LABELS: Record<string, string> = { APPLICATION: "Rakendus", DATABASE: "Andmebaas", ADMIN: "Admin", AUTH: "Autentimine", ICECAT: "Icecat", LAPTOPID: "Laptopid.ee", TECH: "Tech", FOXWAY: "Foxway" };
+const SOURCE_LABELS: Record<string, string> = { APPLICATION: "Rakendus", DATABASE: "Andmebaas", ADMIN: "Admin", AUTH: "Autentimine", ICECAT: "Icecat", LAPTOPID: "Laptopid.ee", TECH: "Techvision", FOXWAY: "Foxway" };
 
 export default async function LogsPage({ searchParams }: PageProps<"/admin/system/logs">) {
   const sp = await searchParams;
@@ -31,7 +31,7 @@ export default async function LogsPage({ searchParams }: PageProps<"/admin/syste
       <PageHeader
         title="Logid"
         breadcrumbs={[{ label: "Süsteem" }, { label: "Logid" }]}
-        description="Rakenduse, andmebaasi, admini, autentimise ja Icecati sündmused. Saladusi (paroolid, tokenid, ühendusstringid) ei logita. Tarnija sünkroniseerimise logid lisanduvad koos tarnija ühendamisega."
+        description="Rakenduse, andmebaasi, admini, autentimise, Icecati ja tarnijate sync'i (Laptopid.ee, Techvision, Foxway) sündmused. Edukas sync on INFO; WARN = uus või tähelepanu vajav probleem; ERROR = ebaõnnestumine. Saladusi (paroolid, tokenid, ühendusstringid) ei logita."
       />
       <FilterForm action="/admin/system/logs" resetHref="/admin/system/logs">
         <SearchField defaultValue={filters.q} placeholder="Sõnum või vea ID…" />

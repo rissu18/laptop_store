@@ -28,7 +28,7 @@ export default async function PricingPage({ searchParams }: PageProps<"/admin/pr
       <PageHeader
         title="Hinnastamine"
         breadcrumbs={[{ label: "Pood" }, { label: "Hinnastamine" }]}
-        description="Müügihind = ostuhind + transport + garantiireserv + juurdehindlus + käibemaks + makseteenuse tasu, ümardatuna. Kui kasum jääb alla miinimumi, tõstetakse hinda."
+        description="Hinnamootor ostuhinnast hinnastatavatele pakkumistele: müügihind = ostuhind + transport + garantiireserv + juurdehindlus + käibemaks + makseteenuse tasu, ümardatuna. NB: praegused tarnijad (Laptopid.ee, Techvision, Foxway) annavad müügihinna ise (hinna allikas „tarnija“) — neid hindu see leht ei muuda. Reeglid rakenduvad alles siis, kui lisandub ostuhinnast hinnastatav tarnija."
       />
       <div className="flex flex-col gap-6">
         <PricingRulesForm
