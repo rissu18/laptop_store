@@ -15,7 +15,8 @@ import { ConfirmDialog } from "./confirm-dialog";
 import { fmtDateTime } from "./format";
 import { inputClass } from "./entity-form";
 import { useToast } from "./toast";
-import { Card, DefinitionList, StatusBadge } from "./ui";
+import { IMAGE_STATES, type ImageState } from "@/domain/admin/image-state";
+import { Badge, Card, DefinitionList } from "./ui";
 
 interface IcecatInfo {
   status: string;
@@ -40,7 +41,7 @@ const REASONS: Record<string, string> = {
 };
 
 /** Icecati vaste info ja toimingud mudeli lehel. Madala kindlusega vaste ei lähe kunagi automaatselt live'i. */
-export function IcecatPanel({ modelId, icecat, downloadEnabled }: { modelId: string; icecat: IcecatInfo | null; downloadEnabled: boolean }) {
+export function IcecatPanel({ modelId, icecat, downloadEnabled, state }: { modelId: string; icecat: IcecatInfo | null; downloadEnabled: boolean; state: ImageState }) {
   const toast = useToast();
   const [pending, startTransition] = useTransition();
   const [icecatId, setIcecatId] = useState("");
@@ -64,7 +65,7 @@ export function IcecatPanel({ modelId, icecat, downloadEnabled }: { modelId: str
     });
 
   return (
-    <Card title="Icecat" actions={<StatusBadge status={icecat?.status ?? null} />}>
+    <Card title="Icecat" actions={<Badge tone={IMAGE_STATES[state].tone}>{IMAGE_STATES[state].label}</Badge>}>
       {icecat ? (
         <DefinitionList
           items={[
@@ -93,7 +94,7 @@ export function IcecatPanel({ modelId, icecat, downloadEnabled }: { modelId: str
           title={downloadEnabled ? undefined : "Töötab ainult lokaalselt (Vercelis pole püsivat pildisalvestust)"}
           onClick={() => run(() => refreshIcecatImagesAction(modelId))}
         >
-          Värskenda pilte
+          Laadi pildid alla
         </Button>
         {icecat?.status === "NEEDS_REVIEW" && icecat.icecatId && (
           <Button size="sm" variant="outline" disabled={pending} onClick={() => loadPreview(icecat.icecatId!)}>

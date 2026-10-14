@@ -1,12 +1,12 @@
 "use server";
 
 import { and, asc, eq } from "drizzle-orm";
-import { updateTag } from "next/cache";
+import { refresh, updateTag } from "next/cache";
 import { z } from "zod";
 import { BRAND_NAMES, type BrandCode } from "@/domain/catalog/types";
 import { titleMatchesModel } from "@/domain/images/icecat-match";
 import { createIcecatClientFromEnv } from "@/integrations/icecat/icecat-client";
-import { resolveIcecatImages } from "@/integrations/icecat/icecat-image-resolver";
+import { icecatPreviewThumbnails, resolveIcecatImages } from "@/integrations/icecat/icecat-image-resolver";
 import { matchModel, productTextForVerification } from "@/integrations/icecat/icecat-matcher";
 import { CATALOG_CACHE_TAG } from "@/server/cache-tags";
 import { effectiveModel } from "@/server/catalog/db-catalog-mapper";
@@ -197,7 +197,7 @@ export async function refreshIcecatImagesAction(modelId: string): Promise<Action
 }
 
 export type IcecatPreviewResult =
-  | { ok: true; icecatId: string; title: string; brand: string | null; imageCount: number; titleMatches: boolean }
+  | { ok: true; icecatId: string; title: string; brand: string | null; imageCount: number; titleMatches: boolean; thumbnails: string[]; rejected: boolean }
   | { ok: false; error: string };
 
 /** Käsitsi vaste 1. samm: näita Icecati toote nime ENNE kinnitamist (midagi ei salvestata). */
@@ -223,6 +223,8 @@ export async function previewIcecatMatchAction(modelId: string, icecatId: string
     brand: lookup.product.GeneralInfo.Brand ?? null,
     imageCount: resolveIcecatImages(lookup.product).length,
     titleMatches: titleMatchesModel(productTextForVerification(lookup.product), importModel.brandName, importModel.modelName),
+    thumbnails: icecatPreviewThumbnails(lookup.product, 6),
+    rejected: (await loadModelIdentifiers(getDb(), modelId)).rejectedIcecatIds?.includes(lookup.product.GeneralInfo.IcecatId) ?? false,
   };
 }
 
@@ -248,8 +250,10 @@ export async function confirmIcecatMatchAction(modelId: string, icecatId: string
         changes: { icecatId: { from: previous?.icecatId ?? null, to: icecatId }, icecatStatus: { from: previous?.status ?? null, to: "MATCHED" } },
       });
     });
-    const note = (await canDownloadImages()) ? " Vajuta „Värskenda pilte“, et pildid alla laadida." : " Pildid tuleb alla laadida lokaalses keskkonnas.";
-    return ok(`Icecati vaste kinnitatud.${note}`);
+    updateTag(CATALOG_CACHE_TAG);
+    refresh();
+    // Ei teeskle importi: pildid tulevad alles allalaadimisega (Vercelis püsivat pildisalvestust pole)
+    return ok((await canDownloadImages()) ? "Vaste kinnitatud, pildid pole veel alla laaditud — vajuta „Laadi pildid alla“." : "Vaste kinnitatud, pildid pole veel alla laaditud (allalaadimine töötab ainult lokaalselt — püsiv pildisalvestus puudub).");
   });
 }
 
@@ -286,6 +290,94 @@ export async function clearManualMatchAction(modelId: string): Promise<ActionRes
       return ok(`Käsitsi vaste eemaldatud; ${hidden.length} pilti peideti. Otsi vastet uuesti.`);
     });
     if (result.ok) updateTag(CATALOG_CACHE_TAG);
+    return result;
+  });
+}
+
+const icecatIdSchema = z.string().trim().regex(/^\d{1,12}$/);
+
+/**
+ * "Lükka tagasi": konkreetne Icecati toode EI ole see mudel. Salvestab REJECTED_ICECAT_ID (matchModel ja
+ * nimepõhine otsing jätavad selle edaspidi vahele), staatus → REJECTED. Kui see toode oli mudeli vaste, selle
+ * pildid PEIDETAKSE (mitte ei kustutata). Teist Icecat ID-d saab käsitsi sisestada; "Taasta kandidaat" pöörab tagasi.
+ */
+export async function rejectIcecatCandidateAction(modelId: string, icecatId: string): Promise<ActionResult> {
+  return runAdminAction("icecat.reject", async (admin) => {
+    const id = icecatIdSchema.safeParse(icecatId);
+    if (!uuid.safeParse(modelId).success || !id.success) return fail("Vigane päring");
+    const model = await loadModel(modelId);
+    if (!model) return fail("Mudelit ei leitud");
+    const result = await getDb().transaction(async (tx) => {
+      await tx.insert(productIdentifiers).values({ productModelId: modelId, kind: "REJECTED_ICECAT_ID", value: id.data, source: "ADMIN" }).onConflictDoNothing();
+      const removedConfirmed = await tx
+        .delete(productIdentifiers)
+        .where(and(eq(productIdentifiers.productModelId, modelId), eq(productIdentifiers.kind, "CONFIRMED_ICECAT_ID"), eq(productIdentifiers.value, id.data)))
+        .returning({ id: productIdentifiers.id });
+      const [meta] = await tx.select().from(icecatMetadata).where(eq(icecatMetadata.productModelId, modelId));
+      const wasMatch = meta?.icecatId === id.data && meta.status === "MATCHED";
+      // Selle vaste pildid peitu (vale pilt poes on halvem kui placeholder); muude allikate pilte ei puudutata
+      const hidden = wasMatch
+        ? await tx
+            .update(productImages)
+            .set({ isHidden: true })
+            .where(and(eq(productImages.productModelId, modelId), eq(productImages.source, "ICECAT"), eq(productImages.isHidden, false)))
+            .returning({ id: productImages.id })
+        : [];
+      const values = { status: "REJECTED" as const, reason: "ADMIN_REJECTED", matchType: null, confidence: null, icecatId: id.data, icecatTitle: meta?.icecatId === id.data ? meta.icecatTitle : null, matchedBy: `Admin ${admin.email}`, imageCount: 0, checkedAt: new Date() };
+      await tx.insert(icecatMetadata).values({ productModelId: modelId, ...values }).onConflictDoUpdate({ target: icecatMetadata.productModelId, set: values });
+      if (hidden.length) await normalizeImageOrder(tx, modelId);
+      await writeAudit(tx, admin, {
+        action: "icecat.reject",
+        entityType: "ProductModel",
+        entityId: modelId,
+        entityLabel: `${model.family} ${model.model}`,
+        changes: {
+          rejectedIcecatId: { from: null, to: id.data },
+          icecatStatus: { from: meta?.status ?? null, to: "REJECTED" },
+          ...(removedConfirmed.length ? { confirmedIcecatId: { from: id.data, to: null } } : {}),
+          ...(hidden.length ? { hiddenImages: { from: 0, to: hidden.length } } : {}),
+        },
+      });
+      return ok(`Icecat ${id.data} lükati tagasi${hidden.length ? `; ${hidden.length} pilti peideti` : ""}. Seda kandidaati enam ei pakuta.`);
+    });
+    if (result.ok) {
+      updateTag(CATALOG_CACHE_TAG);
+      refresh();
+    }
+    return result;
+  });
+}
+
+/** "Taasta kandidaat": eemaldab tagasilükkamise (üks klikk, seega kinnitusdialoogi pole). Peidetud pilte ei näidata automaatselt. */
+export async function restoreIcecatCandidateAction(modelId: string, icecatId: string): Promise<ActionResult> {
+  return runAdminAction("icecat.reject_undone", async (admin) => {
+    const id = icecatIdSchema.safeParse(icecatId);
+    if (!uuid.safeParse(modelId).success || !id.success) return fail("Vigane päring");
+    const model = await loadModel(modelId);
+    if (!model) return fail("Mudelit ei leitud");
+    const result = await getDb().transaction(async (tx) => {
+      const removed = await tx
+        .delete(productIdentifiers)
+        .where(and(eq(productIdentifiers.productModelId, modelId), eq(productIdentifiers.kind, "REJECTED_ICECAT_ID"), eq(productIdentifiers.value, id.data)))
+        .returning({ id: productIdentifiers.id });
+      if (!removed.length) return ok("Seda kandidaati polnud tagasi lükatud.");
+      const [meta] = await tx.select().from(icecatMetadata).where(eq(icecatMetadata.productModelId, modelId));
+      if (meta?.status === "REJECTED" && meta.icecatId === id.data) {
+        await tx.update(icecatMetadata).set({ status: "NEEDS_REVIEW", reason: null, checkedAt: new Date() }).where(eq(icecatMetadata.productModelId, modelId));
+      }
+      await writeAudit(tx, admin, {
+        action: "icecat.reject_undone",
+        entityType: "ProductModel",
+        entityId: modelId,
+        entityLabel: `${model.family} ${model.model}`,
+        changes: { rejectedIcecatId: { from: id.data, to: null }, ...(meta?.status === "REJECTED" && meta.icecatId === id.data ? { icecatStatus: { from: "REJECTED", to: "NEEDS_REVIEW" } } : {}) },
+      });
+      return ok(`Icecat ${id.data} on jälle kandidaat (ülevaatusel).`);
+    });
+    if (result.ok) {
+      updateTag(CATALOG_CACHE_TAG);
+      refresh();
+    }
     return result;
   });
 }

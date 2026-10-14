@@ -4,8 +4,9 @@ import Link from "next/link";
 import { DataTable, type Column } from "@/components/admin/data-table";
 import { FilterForm, SelectFilter } from "@/components/admin/filters";
 import { Pagination } from "@/components/admin/pagination";
-import { Badge, Missing, PageHeader, StatusBadge } from "@/components/admin/ui";
+import { Badge, Missing, PageHeader } from "@/components/admin/ui";
 import { adminModelTitle } from "@/domain/admin/display";
+import { IMAGE_STATES } from "@/domain/admin/image-state";
 import { listModelImageSummaries } from "@/server/admin/images/queries";
 import { oneOf, pageNumber } from "@/server/admin/search-params";
 
@@ -42,7 +43,7 @@ const columns: Column<Row>[] = [
   },
   { key: "visible", header: "Nähtavaid pilte", align: "right", cell: (row) => (row.visible > 0 ? row.visible : <Badge tone="warning">0</Badge>) },
   { key: "hidden", header: "Peidetud", align: "right", cell: (row) => row.hidden },
-  { key: "icecat", header: "Icecat", cell: (row) => <StatusBadge status={row.icecatStatus} /> },
+  { key: "state", header: "Olek", cell: (row) => <Badge tone={IMAGE_STATES[row.state].tone}>{IMAGE_STATES[row.state].label}</Badge> },
   { key: "icecatId", header: "Icecat ID", cell: (row) => row.icecatId ?? <Missing /> },
 ];
 
@@ -61,6 +62,11 @@ export default async function ImagesPage({ searchParams }: PageProps<"/admin/ima
         title="Pildid"
         breadcrumbs={[{ label: "Kataloog" }, { label: "Pildid" }]}
         description="Mudeli pildid (Icecat, Laptopid.ee koopiad, admin). Poes kuvatakse mudeli koondgalerii: need pildid + müügis Laptopid.ee pakkumiste fotod (duplikaadid eemaldatakse). Siin saab valida põhipildi, muuta järjekorda ja peita eksitavaid pilte."
+        actions={
+          <Link href="/admin/images/review" className="inline-flex h-9 items-center rounded-md bg-primary px-3 text-sm font-semibold text-on-primary hover:bg-primary-hover">
+            Icecati ülevaatus →
+          </Link>
+        }
       />
       <div className="mb-4 rounded-md border border-border bg-surface px-4 py-3 text-sm">
         <p className="font-medium">

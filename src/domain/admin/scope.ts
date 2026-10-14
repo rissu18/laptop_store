@@ -15,6 +15,8 @@ export function parseDataQualityScope(value: unknown): DataQualityScope {
  * (sama reegel mis pood); "Kõik" → ilma skoobita.
  */
 export function issueHref(issue: string, scope: DataQualityScope): string {
+  // Icecati ülevaatusel on oma töövoog (pisipildid, kinnita / lükka tagasi)
+  if (issue === "icecat-needs-review") return scope === "sellable" ? "/admin/images/review" : "/admin/images/review?scope=all";
   const base = isModelIssue(issue) ? "/admin/products/models" : "/admin/products/listings";
   return `${base}?issue=${encodeURIComponent(issue)}${scope === "sellable" ? "&scope=sellable" : ""}`;
 }

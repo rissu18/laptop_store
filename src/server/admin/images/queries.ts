@@ -1,5 +1,6 @@
 import "server-only";
 import { and, asc, count, eq, sql, type SQL } from "drizzle-orm";
+import { imageState } from "@/domain/admin/image-state";
 import { requireAdmin } from "@/server/auth/auth";
 import { effectiveModel } from "@/server/catalog/db-catalog-mapper";
 import { getDb } from "@/server/db/client";
@@ -18,6 +19,7 @@ export async function listModelImageSummaries(filters: ImageListFilters) {
   const db = getDb();
   const visible = sql<number>`(SELECT count(*)::int FROM ${productImages} WHERE ${productImages.productModelId} = ${productModels.id} AND NOT ${productImages.isHidden})`;
   const hidden = sql<number>`(SELECT count(*)::int FROM ${productImages} WHERE ${productImages.productModelId} = ${productModels.id} AND ${productImages.isHidden})`;
+  const icecatVisible = sql<number>`(SELECT count(*)::int FROM ${productImages} WHERE ${productImages.productModelId} = ${productModels.id} AND NOT ${productImages.isHidden} AND ${productImages.source} = 'ICECAT')`;
   const mainThumb = sql<string | null>`(SELECT ${productImages.thumbnailPath} FROM ${productImages} WHERE ${productImages.productModelId} = ${productModels.id} AND NOT ${productImages.isHidden} ORDER BY ${productImages.isMain} DESC, ${productImages.position} ASC LIMIT 1)`;
   const conditions: SQL[] = [];
   if (filters.coverage === "with") conditions.push(sql`${visible} > 0`);
@@ -28,7 +30,7 @@ export async function listModelImageSummaries(filters: ImageListFilters) {
 
   const [rows, [{ total }]] = await Promise.all([
     db
-      .select({ model: productModels, visible, hidden, mainThumb, icecatStatus: icecatMetadata.status, icecatId: icecatMetadata.icecatId })
+      .select({ model: productModels, visible, hidden, icecatVisible, mainThumb, icecatStatus: icecatMetadata.status, icecatId: icecatMetadata.icecatId })
       .from(productModels)
       .leftJoin(icecatMetadata, eq(icecatMetadata.productModelId, productModels.id))
       .where(where)
@@ -37,7 +39,12 @@ export async function listModelImageSummaries(filters: ImageListFilters) {
       .offset((filters.page - 1) * ADMIN_PAGE_SIZE),
     db.select({ total: count() }).from(productModels).leftJoin(icecatMetadata, eq(icecatMetadata.productModelId, productModels.id)).where(where),
   ]);
-  return { rows: rows.map((row) => ({ ...row, model: effectiveModel(row.model) })), total, pageCount: Math.max(1, Math.ceil(total / ADMIN_PAGE_SIZE)) };
+  return {
+    rows: rows.map((row) => ({
+      ...row,
+      model: effectiveModel(row.model),
+      state: imageState({ icecatStatus: row.icecatStatus, icecatImages: row.icecatVisible, otherImages: row.visible - row.icecatVisible }),
+    })), total, pageCount: Math.max(1, Math.ceil(total / ADMIN_PAGE_SIZE)) };
 }
 
 export async function getModelImages(modelId: string) {

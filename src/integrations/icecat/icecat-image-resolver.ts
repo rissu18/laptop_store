@@ -150,3 +150,13 @@ export function selectSource(candidates: ImageSourceCandidate[], variant: ImageV
   if (bigEnough) return bigEnough;
   return [...candidates].sort((a, b) => (b.width ?? 0) - (a.width ?? 0))[0];
 }
+
+/**
+ * Admini eelvaate pisipildid (Icecati kaug-URL-id, ainult adminis — pood ei hotlingi Icecati): samad pildid, mida
+ * import kasutaks, väikseim sobiv variant.
+ */
+export function icecatPreviewThumbnails(product: IcecatProduct, max = 6): string[] {
+  return resolveIcecatImages(product, max)
+    .map((image) => image.candidates.thumbnail[0]?.url ?? image.candidates.medium[0]?.url ?? image.candidates.large[0]?.url)
+    .filter((url): url is string => Boolean(url));
+}

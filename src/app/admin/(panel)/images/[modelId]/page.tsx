@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { IcecatPanel } from "@/components/admin/icecat-panel";
+import { imageState } from "@/domain/admin/image-state";
 import { ImageManager } from "@/components/admin/image-manager";
 import { EmptyState, PageHeader } from "@/components/admin/ui";
 import { adminModelTitle } from "@/domain/admin/display";
@@ -57,7 +58,12 @@ export default async function ModelImagesPage({ params }: PageProps<"/admin/imag
           />
         )}
         <aside>
-          <IcecatPanel modelId={model.id} icecat={icecat} downloadEnabled={!process.env.VERCEL} />
+          <IcecatPanel
+            modelId={model.id}
+            icecat={icecat}
+            downloadEnabled={!process.env.VERCEL}
+            state={imageState({ icecatStatus: icecat?.status ?? null, icecatImages: images.filter((i) => !i.isHidden && i.source === "ICECAT").length, otherImages: images.filter((i) => !i.isHidden && i.source !== "ICECAT").length })}
+          />
         </aside>
       </div>
     </>

@@ -6,6 +6,7 @@ import { DataTable } from "@/components/admin/data-table";
 import { EntityEditForm, type FormSection } from "@/components/admin/entity-form";
 import { fmtCustomerPrice, fmtDateTime, fmtGb, toDisplay, toInput } from "@/components/admin/format";
 import { IcecatPanel } from "@/components/admin/icecat-panel";
+import { imageState } from "@/domain/admin/image-state";
 import { Badge, Card, DefinitionList, Missing, PageHeader, StatusBadge } from "@/components/admin/ui";
 import { LISTING_ISSUES, listingIssuesOf } from "@/domain/admin/data-quality-rules";
 import { adminModelTitle, supplierLabel } from "@/domain/admin/display";
@@ -191,7 +192,12 @@ export default async function ModelDetailPage({ params }: PageProps<"/admin/prod
             />
           </Card>
 
-          <IcecatPanel modelId={model.id} icecat={icecat} downloadEnabled={!process.env.VERCEL} />
+          <IcecatPanel
+            modelId={model.id}
+            icecat={icecat}
+            downloadEnabled={!process.env.VERCEL}
+            state={imageState({ icecatStatus: icecat?.status ?? null, icecatImages: images.filter((i) => !i.isHidden && i.source === "ICECAT").length, otherImages: images.filter((i) => !i.isHidden && i.source !== "ICECAT").length })}
+          />
 
           <Card title="Identifikaatorid">
             {identifiers.length === 0 ? (

@@ -38,7 +38,9 @@ describe("andmekvaliteedi drill-down säilitab skoobi", () => {
   it("mudeli ja konfiguratsiooni kategooriad → õige nimekiri + skoop", () => {
     expect(issueHref("no-images", "sellable")).toBe("/admin/products/models?issue=no-images&scope=sellable");
     expect(issueHref("few-images", "sellable")).toBe("/admin/products/models?issue=few-images&scope=sellable");
-    expect(issueHref("icecat-needs-review", "all")).toBe("/admin/products/models?issue=icecat-needs-review");
+    expect(issueHref("icecat-needs-review", "all")).toBe("/admin/images/review?scope=all");
+    expect(issueHref("icecat-needs-review", "sellable")).toBe("/admin/images/review");
+    expect(issueHref("icecat-not-found", "all")).toBe("/admin/products/models?issue=icecat-not-found");
     expect(issueHref("unknown-keyboard", "sellable")).toBe("/admin/products/listings?issue=unknown-keyboard&scope=sellable");
     expect(issueHref("missing-cpu-benchmark", "all")).toBe("/admin/products/listings?issue=missing-cpu-benchmark");
   });
