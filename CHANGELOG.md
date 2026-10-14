@@ -5,6 +5,18 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 ---
 
+## 2026-10-14 — Launch consistency: arvud, hinnad, seisukorrad, avalehe valik
+
+- **Terminoloogia** (`domain/storefront/count-labels.ts`): kõik kliendipoolsed loendurid loevad **konfiguratsioone** (müügis pakkumine = kaart) samast poe skoobist — kataloogi tulemus ("835 sülearvutit" → "835 konfiguratsiooni"), tootja/seeria kaardid, avalehe arvud, salong, leidja. Füüsilisi seadmeid ("tk") ainult täpse kogusega. Ladu ega sync'i ei muudetud.
+- **Salongi arv:** "200+ sülearvutit kohapeal" (ümardatud allapoole) → täpne "296 konfiguratsiooni kohapeal" — sama arv mis kataloogi filtris "Poes kohapeal".
+- **Hinnavahemik:** avaleht "Hinnad alates 131 €" ja kataloogi liugur "130 €" — liugur näitas 10 € sammuni ümardatud piiri. Nüüd kuvatakse piiril tegelik min/max (`displayRange`); samm ja filtri semantika samad.
+- **Seisukorra klassid:** näidistekstid ja "näidiskriteerium" asendatud Sülearvutid OÜ avaldatud klassimääratlusega (laptopid.ee "Sülearvutite Grade klassid"); C+ (ainult Foxway) konservatiivselt; /seisukorrad prototüübi märkus eemaldatud, lisatud liideste ja partnerlao selgitus.
+- **Seisukord vs märkus** (admin → Andmekvaliteet): deterministlik kontroll määratluse järgi (A+ "tükk puudu", A "mõlk"/"mõra"/ekraani laik, B "mõlk"); liidese rike ei ole vastuolu. Müügis 9 tabamust. Tarnija andmeid ei muudeta.
+- **Avalehe "Viimati lisatud":** seisukord ≥ B, äriklassi seeria (sama nimekiri mis "Populaarsed äriklassi seeriad"), protsessor ≥ Intel 8. / Ryzen 2000 (Windows 11 tugi), üks mudeli kohta. Kataloogist ei eemaldata midagi; "Kõik uued" näitab endiselt kõiki.
+- **Testid:** 833 → 844.
+
+---
+
 ## 2026-10-14 — Admin Sprint 2: parandamise töövood
 
 **Miks:** probleemist pidi saama liikuda otse parandamiseni (mitte ainult numbrini).
