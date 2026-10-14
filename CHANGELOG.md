@@ -5,6 +5,24 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 ---
 
+## 2026-10-14 — Admin Sprint 2: parandamise töövood
+
+**Miks:** probleemist pidi saama liikuda otse parandamiseni (mitte ainult numbrini).
+
+- **Kooskõla parandus:** töölaua "Icecat ülevaatusel" luges `icecat_metadata` üle kõigi 558 mudeli (15), Andmekvaliteet müügis mudelitest (7). Nüüd sama "Müügis" skoop (7); ülejäänud töölaua kaardid olid juba samast allikast.
+- **Icecati ülevaatuse järjekord** (`/admin/images/review`): vahelehed Ülevaatust vajavad / Kinnitatud, pildid alla laadimata / Tagasi lükatud / Vaste puudub (käsitsi ID — sh 26 müügis Apple'i mudelit); vaikimisi Müügis, järjekord müügis → rohkem poes nähtavaid konfiguratsioone → nimi; tootja filter. Igal real kandidaadi pealkiri, ID, vaste alus, kindlus, **6 pisipilti Icecatist** (ainult admini eelvaade, pood ei hotlingi) ja hoiatus, kui pealkiri ei vasta mudelile.
+- **Toimingud:** Kinnita (salvestab otsuse; teade "pildid pole veel alla laaditud" — importi ei teeselda), **Lükka tagasi** (uus: `REJECTED_ICECAT_ID`, matcher ja nimepõhine otsing jätavad selle vahele, vaste pildid peidetakse), Taasta kandidaat (üks klikk), Sisesta Icecat ID (eelvaade pisipiltidega → kinnita), Eemalda vaste, Laadi pildid alla (lokaalselt).
+- **Piltide olek** (`domain/admin/image-state.ts`, tuletatud olemasolevast andmest, migratsioonita): ülevaatusel / tagasi lükatud / vaste + pildid olemas / vaste kinnitatud, pildid alla laadimata / oma või Laptopid.ee pildid / vastet pole. "Leitud" ei tähenda enam edu, kui pilte pole.
+- **Kiirparandus:** "Tundmatu klaviatuur" nimekirjas registri valik reas → parandus (`manual_overrides.keyboard`), rida kaob ja loendur väheneb.
+- **Jõudluse parandused** `manual_overrides.cpuBenchmark` / `gpuBenchmark` / `cpuMaxMhz` (JSONB, migratsioonita): prioriteet parandus > tarnija > rikastus (`effectivePerformance`, sama poes ja adminis); valideerimine (benchmark > 0 ja ≤ 1 000 000, MHz täisarv 400–7000); "Taasta".
+- **Väljade päritolu** konfiguratsiooni lehel: CPU, GPU, RAM, SSD, ekraan, resolutsioon, klaviatuur, maks. GHz, CPU/GPU kiirusindeks — tarnija / rikastus (koos vaste alusega) / parandus (esile tõstetud) / kehtiv; kanooniline CPU/GPU võti.
+- **Kahtlased jõudlusandmed** (Andmekvaliteet): deterministlikud kontrollid — MHz vahemikust väljas, benchmark ≤ 0, sama CPU/GPU eri väärtused, sama CPU eri integreeritud GPU (kirjapilt "Iris Xe Graphics" = "Iris Xe"). Müügis 6 tabamust (nt i5-8350U HD 520 vs UHD 620, 10. põlvkonna Intel "Iris Xe"). Midagi ei kirjutata üle.
+- **Audit:** `icecat.reject`, `icecat.reject_undone`, `icecat.manual_match`, `listing.update` (klaviatuur / jõudlus, vana → uus), `listing.override_cleared`.
+- **Probleem:** shellis kirjutatud regulaaravaldis kaotas kaldkriipsud (`\b` → juhtmärk) — leitud testiga, parandatud; lähtekoodis juhtmärke pole.
+- **Testid:** 813 → 833.
+
+---
+
 ## 2026-10-14 — Admin Sprint 1: müügis skoop, poes nähtavus, UX kiirparandused
 
 **Miks:** admini audit näitas, et numbrid ja tabelid segasid "kogu andmebaasi" ja "seda, mida klient poes näeb" (nt pildita 176 vs müügis 60) ning konfiguratsiooni lehel polnud vastust küsimusele "miks see poes ei ole?".

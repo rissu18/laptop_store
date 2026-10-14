@@ -179,6 +179,20 @@ Iga muutev toiming kirjutab `audit_logs` tabelisse rea: admin, tegevus (nt `list
 
 Icecati import kasutab nüüd `DbImageRepository`-t (PostgreSQL), mis on sama liidesega nagu varasem JSON-hoidla. Impordi loogika ei muutunud. Korduv import ei muuda admini valitud järjekorda, põhipilti ega peitmist.
 
+### Ülevaatuse järjekord (2026-10-14)
+
+`/admin/images/review` (Pildid → "Icecati ülevaatus"): vahelehed **Ülevaatust vajavad**, **Kinnitatud, pildid alla laadimata**, **Tagasi lükatud**, **Vaste puudub (käsitsi ID)**. Vaikimisi ainult müügis mudelid; järjekord müügis → rohkem poes nähtavaid konfiguratsioone → nimi; tootja filter (Apple: automaatset vastet pole, ainult käsitsi ID). Rida: mudel, tootja, poes nähtavate konfiguratsioonide arv, galerii piltide arv, olek, kandidaadi pealkiri + Icecat ID + vaste alus/kindlus/põhjus ja **kuni 6 pisipilti** (Icecati kaug-URL, ainult admini eelvaade — pood Icecatist ei laadi; `icecatPreviewThumbnails`).
+
+| Toiming | Tulemus |
+| --- | --- |
+| Kinnita | `CONFIRMED_ICECAT_ID`, staatus MATCHED; teade "Vaste kinnitatud, pildid pole veel alla laaditud" — importi ei teeselda |
+| Lükka tagasi | `REJECTED_ICECAT_ID` (matchModel ja nimepõhine otsing jätavad vahele), staatus REJECTED; kui see oli vaste, selle Icecati pildid peidetakse. Audit `icecat.reject` |
+| Taasta kandidaat | Eemaldab tagasilükkamise (üks klikk, kinnitust pole), staatus tagasi ülevaatusele. Audit `icecat.reject_undone` |
+| Sisesta Icecat ID | Eelvaade pisipiltidega → kinnita (tagasilükatud ID-d saab teadlikult kinnitada) |
+| Laadi pildid alla | Ainult lokaalselt (püsiv pildisalvestus puudub) |
+
+**Piltide olek** (`domain/admin/image-state.ts`, tuletatud `icecat_metadata.status` + nähtavate piltide allikast): ülevaatusel / tagasi lükatud / vaste + pildid olemas / vaste kinnitatud, pildid alla laadimata / oma või Laptopid.ee pildid / vastet pole. Kuvatakse Piltide nimekirjas ja Icecati paneelis.
+
 ## 8. Andmekvaliteet
 
 ### Skoop "Müügis" ja poes nähtavus (2026-10-14)
@@ -190,6 +204,8 @@ Icecati import kasutab nüüd `DbImageRepository`-t (PostgreSQL), mis on sama li
 - **Konfiguratsiooni leht:** plokk "Poes nähtavus" (✓/✕ iga tingimus, põhjus, tarne "Poes kohapeal" / "Tarne 2–4 päeva", "täpne kogus teadmata", kliendihind). "Vaata poes ↗" ainult nähtaval pakkumisel. Tekstid: `domain/admin/visibility.ts` (ainult kuvamine).
 - **Nimekirjad:** filter "Poes" (Müügis / Poes ei kuvata), konfiguratsioonide veerud Tarnija ja Poes (lühike põhjus, täpsem tooltipis), mudeli filter otsinguga (`model-combobox.tsx`).
 - **Hinnad adminis:** tarnija/toorhind sentides (`fmtCents`), **kliendihind täiseurodes** nagu poes (`fmtCustomerPrice` → `roundToEuro`). "Brutovahe (müük − ost)" ei ole netomarginaal (KM ja kulud arvestamata).
+- **Kiirparandused (Sprint 2):** "Tundmatu klaviatuur" nimekirjas registri valik reas (`setListingOverrideAction` → `manual_overrides.keyboard`). Jõudlus: konfiguratsiooni lehe kaart **"Väljade päritolu ja jõudlus"** (tarnija / rikastus / parandus / kehtiv; parandus esile tõstetud) — `manual_overrides.cpuBenchmark` / `gpuBenchmark` / `cpuMaxMhz` (benchmark > 0 ja ≤ 1 000 000, MHz täisarv 400–7000), "Taasta". Prioriteet parandus > tarnija > rikastus (`effectivePerformance`). Hinnale, saadavusele, KM-ile ja riketele kiirparandust pole.
+- **Kahtlased jõudlusandmed:** deterministlikud kontrollid (`domain/admin/performance-anomalies.ts`): MHz väljaspool 400–7000, benchmark ≤ 0, sama täpne CPU/GPU eri tarnija väärtustega, sama CPU eri integreeritud GPU. Ainult ülevaatus, midagi ei kirjutata üle.
 - **Kiirusindeks:** kategooriad "CPU/GPU kiirusindeks puudub", "CPU maks. sagedus puudub" — sama reegel mis tooteleht (`effectivePerformance`); SQL ja JS vastavust kontrollib `sellable-scope.test.ts`.
 
 
