@@ -14,7 +14,8 @@ import type { Database } from "@/server/db/client";
 import { listingImages, productModels, supplierListings } from "@/server/db/schema";
 import type { LogLevel } from "@/server/logging/system-log";
 import type { ImageSizeProbe } from "./image-probe";
-import { acquireSyncRun, finishSyncRun, type SyncTrigger } from "./sync-runs";
+import { syncLogLevel } from "@/domain/catalog/sync-log-level";
+import { acquireSyncRun, finishSyncRun, lastSuccessfulSyncRun, type SyncTrigger } from "./sync-runs";
 
 /**
  * Laptopid.ee → PostgreSQL sync (vt docs/LAPTOPID_SYNC.md).
@@ -200,6 +201,8 @@ export async function runLaptopidSync(db: Database, options: LaptopidSyncOptions
 
   const stats = emptyStats();
   try {
+    // Eelmine edukas sync (logitase: WARN ainult siis, kui teadaolev jääk kasvas)
+    const previous = await lastSuccessfulSyncRun(db, LAPTOPID_SOURCE);
     // 2–4. API → valideerimine → normaliseerimine (viga = DB-d ei puututa)
     const raw = await options.fetchRaw();
     const snapshot = parseLaptopidSnapshot(raw.products, raw.images);
@@ -379,7 +382,12 @@ export async function runLaptopidSync(db: Database, options: LaptopidSyncOptions
       now: clock(),
     });
     await options.log({
-      level: trust.trusted && stats.imageErrors === 0 && stats.taxonomyWarnings === 0 ? "INFO" : "WARN",
+      level: syncLogLevel({
+        status: "SUCCESS",
+        trusted: trust.trusted,
+        backlog: { imageErrors: stats.imageErrors, taxonomyWarnings: stats.taxonomyWarnings },
+        previous: previous?.stats,
+      }),
       message: trust.trusted ? "Laptopid sync lõppes" : "Laptopid sync lõppes — snapshot polnud usaldusväärne, puuduvaid maha ei võetud",
       details: { runId, success: true, snapshotTrusted: trust.trusted, trustReason: trust.reason, ...stats, rejectedSample: rejectedSample.slice(0, 20), taxonomyWarningSample: taxonomyWarningSample.slice(0, 20) },
     });

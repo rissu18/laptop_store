@@ -20,7 +20,8 @@ import type { Database } from "@/server/db/client";
 import { icecatMetadata, listingImages, productImages, productModels, supplierListings } from "@/server/db/schema";
 import type { LogLevel } from "@/server/logging/system-log";
 import { modeOf } from "./laptopid-sync";
-import { acquireSyncRun, finishSyncRun, type SyncTrigger } from "./sync-runs";
+import { syncLogLevel } from "@/domain/catalog/sync-log-level";
+import { acquireSyncRun, finishSyncRun, lastSuccessfulSyncRun, type SyncTrigger } from "./sync-runs";
 
 /**
  * Foxway API → PostgreSQL (vt docs/FOXWAY_SYNC.md).
@@ -451,6 +452,8 @@ export async function runFoxwaySync(db: Database, options: FoxwaySyncOptions): P
 
   let partial: Partial<FoxwaySyncStats> = {};
   try {
+    // Eelmine edukas sync (logitase: WARN ainult siis, kui teadaolev jääk kasvas)
+    const previous = await lastSuccessfulSyncRun(db, FOXWAY_SOURCE);
     // Kõik 4 feed'i (võrk) ENNE tehingut — ükskõik milline viga → FAILED, midagi ei muudeta
     const snapshot = buildFoxwaySnapshot(await options.loadFeeds());
     partial = { ...snapshot.counts };
@@ -459,9 +462,14 @@ export async function runFoxwaySync(db: Database, options: FoxwaySyncOptions): P
     const stats = { ...plan.stats, durationMs: clock().getTime() - startedAt.getTime() };
     const samples = foxwaySampleDetails(plan);
     await finishSyncRun(db, runId, { status: "SUCCESS", stats: { ...stats, ...samples, trustReason: plan.trustReason }, snapshotTrusted: plan.trusted, error: null, now: clock() });
-    const warn = !plan.trusted || stats.duplicateConflicts > 0 || stats.review > 0 || stats.invalidRows > 0 || samples.unknownFaults.length > 0;
     await options.log({
-      level: warn ? "WARN" : "INFO",
+      level: syncLogLevel({
+        status: "SUCCESS",
+        trusted: plan.trusted,
+        alerts: { duplicateConflicts: stats.duplicateConflicts, unknownFaults: samples.unknownFaults.length },
+        backlog: { review: stats.review, invalidRows: stats.invalidRows },
+        previous: previous?.stats,
+      }),
       message: plan.trusted ? "Foxway sync lõppes" : "Foxway sync lõppes — snapshot polnud usaldusväärne, puuduvaid maha ei võetud",
       details: {
         runId,

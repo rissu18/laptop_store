@@ -19,7 +19,8 @@ import type { Database } from "@/server/db/client";
 import { catalogSyncRuns, icecatMetadata, listingImages, productImages, productModels, supplierInventoryUnits, supplierListings } from "@/server/db/schema";
 import type { LogLevel } from "@/server/logging/system-log";
 import { modeOf } from "./laptopid-sync";
-import { acquireSyncRun, finishSyncRun, type SyncTrigger } from "./sync-runs";
+import { syncLogLevel } from "@/domain/catalog/sync-log-level";
+import { acquireSyncRun, finishSyncRun, lastSuccessfulSyncRun, type SyncTrigger } from "./sync-runs";
 
 /**
  * Tech hinnakiri (Google Sheets XLSX) → PostgreSQL (vt docs/TECH_SYNC.md).
@@ -459,6 +460,8 @@ export async function runTechSync(db: Database, options: TechSyncOptions): Promi
 
   let partial: Partial<TechSyncStats> = {};
   try {
+    // Eelmine edukas sync (logitase: WARN ainult siis, kui teadaolev jääk kasvas)
+    const previous = await lastSuccessfulSyncRun(db, TECH_SOURCE);
     // XLSX → tabid (võrk + parsimine) ENNE tehingut
     const snapshot = snapshotFromSheets(await options.loadSheets());
     partial = { ...snapshot.counts };
@@ -467,9 +470,14 @@ export async function runTechSync(db: Database, options: TechSyncOptions): Promi
     const stats = { ...plan.stats, durationMs: clock().getTime() - startedAt.getTime() };
     const samples = sampleDetails(plan);
     await finishSyncRun(db, runId, { status: "SUCCESS", stats: { ...stats, ...samples, trustReason: plan.trustReason }, snapshotTrusted: plan.trusted, error: null, now: clock() });
-    const warn = !plan.trusted || stats.conflicts > 0 || stats.unknownNoteRows > 0 || stats.invalidRows > 0 || stats.enrichmentMissing > 0;
     await options.log({
-      level: warn ? "WARN" : "INFO",
+      level: syncLogLevel({
+        status: "SUCCESS",
+        trusted: plan.trusted,
+        alerts: { conflicts: stats.conflicts },
+        backlog: { unknownNoteRows: stats.unknownNoteRows, invalidRows: stats.invalidRows, enrichmentMissing: stats.enrichmentMissing },
+        previous: previous?.stats,
+      }),
       message: plan.trusted ? "Tech sync lõppes" : "Tech sync lõppes — snapshot polnud usaldusväärne, puuduvaid maha ei võetud",
       details: { runId, success: true, snapshotTrusted: plan.trusted, trustReason: plan.trustReason, ...stats, unknownNoteSample: samples.unknownNoteSample.slice(0, 20), conflictSample: samples.conflictSample.slice(0, 20), layoutWarnings: samples.layoutWarnings },
     });
