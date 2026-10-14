@@ -57,10 +57,10 @@ export default async function AdminDashboardPage() {
           <MetricCard label="Kiirusindeks puudu" value={`CPU ${s.missingCpuBenchmark}`} hint={`GPU ${s.missingGpuBenchmark} konfiguratsioonil`} href={issueHref("missing-cpu-benchmark", "sellable")} />
           <MetricCard
             label="Icecat"
-            value={`${d.icecat.NEEDS_REVIEW ?? 0} ülevaatusel`}
-            hint={`${d.icecat.MATCHED ?? 0} leitud · ${d.icecat.NOT_FOUND ?? 0} ei leitud (kõik mudelid)`}
-            href="/admin/images?icecat=NEEDS_REVIEW"
-            tone={d.icecat.NEEDS_REVIEW ? "warning" : undefined}
+            value={`${s.icecatReview} ülevaatusel`}
+            hint={`${s.icecatNotFound} mudelil Icecatist vastet ei leitud`}
+            href={issueHref("icecat-needs-review", "sellable")}
+            tone={s.icecatReview ? "warning" : undefined}
           />
         </div>
       </section>
