@@ -4,6 +4,7 @@ import { pricingConfig } from "@/config/pricing";
 import { computeFacets, filterItems, sortItems, type CatalogFacets, type SearchableItem } from "@/domain/catalog/filtering";
 import { sortConfigurations } from "@/domain/catalog/configuration-order";
 import { groupBusinessSeries, seriesStatsKey, summarizeBusinessSeries, type BusinessSeriesGroup, type SeriesStats } from "@/domain/catalog/business-series";
+import { HOME_RECENT_MIN_GEN_RANK, homeRecentQuery } from "@/domain/storefront/home-recent";
 import { isImmediatelyAvailable } from "@/domain/storefront/showroom";
 import { PAGE_SIZE, emptyQuery, type CatalogQuery, type FacetSelection } from "@/domain/catalog/query";
 import { searchScore, tokenize } from "@/domain/catalog/search";
@@ -192,12 +193,13 @@ export async function getFeaturedItems(limit: number): Promise<CatalogItem[]> {
 async function cachedRecentlyAddedItems(limit: number): Promise<CatalogItem[]> {
   "use cache";
   cached();
-  return queryTopItems(getDb(), { ...emptyQuery(), sort: "recently-added" }, limit);
+  // Avalehe valik: äriklass, seisukord ≥ B, uuem põlvkond, üks mudeli kohta (domain/storefront/home-recent.ts)
+  return queryTopItems(getDb(), homeRecentQuery(), limit, { onePerModel: true, minGenRank: HOME_RECENT_MIN_GEN_RANK });
 }
 
 export async function getRecentlyAddedItems(limit: number): Promise<CatalogItem[]> {
   if (hasDb()) return cachedRecentlyAddedItems(limit);
-  return sortItems(await getMockItems(), "recently-added").slice(0, limit).map(toPublic);
+  return sortItems(filterItems(await getMockItems(), homeRecentQuery()), "recently-added").slice(0, limit).map(toPublic);
 }
 
 async function cachedAllDbItems(): Promise<SearchableItem[]> {

@@ -436,8 +436,16 @@ export async function queryItemsByVariantIds(db: Db, ids: string[]): Promise<Cat
 }
 
 /** Esimesed `limit` pakkumist antud sorteeringu ja filtritega (avaleht, parimad pakkumised). */
-export async function queryTopItems(db: Db, query: CatalogQuery, limit: number, options: { featuredOnly?: boolean; onePerModel?: boolean } = {}): Promise<CatalogItem[]> {
-  const where = sql.join([whereClause(query), ...(options.featuredOnly ? [sql`featured`] : [])], sql` AND `);
+export async function queryTopItems(
+  db: Db,
+  query: CatalogQuery,
+  limit: number,
+  options: { featuredOnly?: boolean; onePerModel?: boolean; minGenRank?: number } = {},
+): Promise<CatalogItem[]> {
+  const where = sql.join(
+    [whereClause(query), ...(options.featuredOnly ? [sql`featured`] : []), ...(options.minGenRank !== undefined ? [sql`gen_rank >= ${options.minGenRank}`] : [])],
+    sql` AND `,
+  );
   const inner = sql`SELECT id, model_id, sku, featured, gen_rank, grade_rank, price, first_seen_at FROM storefront WHERE ${where}`;
   const body = options.onePerModel
     ? // Igast mudelist üks (soovituslikum) pakkumine — DISTINCT ON + välimine sorteerimine

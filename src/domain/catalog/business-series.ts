@@ -65,3 +65,8 @@ export function groupBusinessSeries(stats: SeriesStats, minCount = 1): BusinessS
     return { brand, brandName, series };
   }).filter((group) => group.series.length > 0);
 }
+
+/** Kõik äriklassi seeria filtriväärtused (avalehe "Viimati lisatud" valik kasutab sama nimekirja). */
+export function businessSeriesValues(): string[] {
+  return BUSINESS_SERIES.flatMap(({ values }) => values);
+}

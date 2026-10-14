@@ -73,7 +73,7 @@ export default async function HomePage() {
             <SectionHeader
               id="viimati-lisatud"
               title="Viimati lisatud"
-              description="Värskelt meie valikusse jõudnud sülearvutid."
+              description="Värskelt valikusse jõudnud äriklassi sülearvutid — seisukord vähemalt B."
               link={{ href: "/sulearvutid?sort=recently-added", label: "Kõik uued" }}
             />
             <ProductGrid items={recent} />
