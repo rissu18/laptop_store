@@ -107,8 +107,33 @@ export interface Performance {
 }
 
 /**
- * Pakkumise jõudlusväärtused: tarnija oma (`details`) → täpse vastega rikastus (`enrichment`). Kui admin parandas
- * CPU/GPU (`manual_overrides.cpu` / `.gpu`), selle komponendi väärtusi ei kuvata.
+ * Admini parandused jõudlusväärtustele (`manual_overrides` JSONB võtmed, migratsiooni pole vaja). Parandus võidab
+ * alati; `null` = "väärtus puudub" (tarnija/rikastuse väärtus oli vale ja õiget ei tea).
+ */
+export const PERFORMANCE_OVERRIDE_FIELDS = ["cpuBenchmark", "gpuBenchmark", "cpuMaxMhz"] as const;
+export type PerformanceOverrideField = (typeof PERFORMANCE_OVERRIDE_FIELDS)[number];
+
+/** Admini sisestus → salvestatav väärtus või viga. Benchmark: lõplik arv > 0 ja ≤ 1 000 000; MHz: täisarv 400–7000. */
+export function parsePerformanceOverride(field: PerformanceOverrideField, input: unknown): { ok: true; value: number } | { ok: false; error: string } {
+  const text = typeof input === "number" ? String(input) : typeof input === "string" ? input.trim().replace(/\s+/g, "").replace(",", ".") : "";
+  const n = text === "" ? Number.NaN : Number(text);
+  if (!Number.isFinite(n)) return { ok: false, error: "Sisesta arv." };
+  if (field === "cpuMaxMhz") {
+    if (!Number.isInteger(n) || n < 400 || n > 7000) return { ok: false, error: "Maks. sagedus peab olema täisarv 400–7000 MHz (nt 4400)." };
+    return { ok: true, value: n };
+  }
+  const value = parseBenchmark(n);
+  if (value === null) return { ok: false, error: "Kiirusindeks peab olema arv > 0 ja ≤ 1 000 000." };
+  return { ok: true, value };
+}
+
+const hasOwn = (record: Record<string, unknown>, key: string) => Object.prototype.hasOwnProperty.call(record, key);
+
+/**
+ * Pakkumise jõudlusväärtused, prioriteet: admini parandus (`manual_overrides.cpuBenchmark` / `.gpuBenchmark` /
+ * `.cpuMaxMhz`) → tarnija oma (`details`) → täpse vastega rikastus (`enrichment`). Kui admin parandas CPU/GPU nime
+ * (`manual_overrides.cpu` / `.gpu`), tarnija/rikastuse väärtusi selle komponendi kohta ei kuvata (need kirjeldasid
+ * teist komponenti) — otsene jõudluse parandus kehtib ka siis.
  */
 export function effectivePerformance(listing: {
   details?: ListingDetails | null;
@@ -120,11 +145,19 @@ export function effectivePerformance(listing: {
   const overrides = listing.manualOverrides ?? {};
   const cpuOverridden = "cpu" in overrides;
   const gpuOverridden = "gpu" in overrides;
-  const mhz = cpuOverridden ? null : (validCpuMaxMhz(d.cpuMaxMhz) ?? validCpuMaxMhz(e.cpuMaxMhz?.value));
+  const mhz = hasOwn(overrides, "cpuMaxMhz") ? validCpuMaxMhz(overrides.cpuMaxMhz) : cpuOverridden ? null : (validCpuMaxMhz(d.cpuMaxMhz) ?? validCpuMaxMhz(e.cpuMaxMhz?.value));
   return {
     cpuMaxGhz: mhz === null ? null : mhz / 1000,
-    cpuBenchmark: cpuOverridden ? null : (parseBenchmark(d.cpuBenchmark3dmark06) ?? parseBenchmark(e.cpuBenchmark?.value)),
-    gpuBenchmark: gpuOverridden ? null : (parseBenchmark(d.gpuBenchmark3dmark11) ?? parseBenchmark(e.gpuBenchmark?.value)),
+    cpuBenchmark: hasOwn(overrides, "cpuBenchmark")
+      ? parseBenchmark(overrides.cpuBenchmark)
+      : cpuOverridden
+        ? null
+        : (parseBenchmark(d.cpuBenchmark3dmark06) ?? parseBenchmark(e.cpuBenchmark?.value)),
+    gpuBenchmark: hasOwn(overrides, "gpuBenchmark")
+      ? parseBenchmark(overrides.gpuBenchmark)
+      : gpuOverridden
+        ? null
+        : (parseBenchmark(d.gpuBenchmark3dmark11) ?? parseBenchmark(e.gpuBenchmark?.value)),
   };
 }
 

@@ -5,9 +5,11 @@ import { DataTable, type Column } from "@/components/admin/data-table";
 import { FilterForm, SearchField, SelectFilter } from "@/components/admin/filters";
 import { fmtCents, fmtCustomerPrice, fmtGb } from "@/components/admin/format";
 import { ModelCombobox } from "@/components/admin/model-combobox";
+import { KeyboardQuickFix } from "@/components/admin/quick-fix";
+import { KEYBOARD_REGISTRY } from "@/domain/catalog/keyboard";
 import { Pagination } from "@/components/admin/pagination";
 import { Badge, Missing, PageHeader } from "@/components/admin/ui";
-import { LISTING_ISSUES, LISTING_ISSUE_SHORT, listingIssuesOf, performanceIssuesOf, type ListingIssue } from "@/domain/admin/data-quality-rules";
+import { LISTING_ISSUES, LISTING_ISSUE_SHORT, PERFORMANCE_ISSUES, listingIssuesOf, performanceIssuesOf, type ListingIssue } from "@/domain/admin/data-quality-rules";
 import { supplierLabel } from "@/domain/admin/display";
 import { CATALOG_STATUS_VALUES } from "@/domain/admin/product-edit";
 import { GRADE_CODES } from "@/domain/grade/grades";
@@ -84,6 +86,22 @@ const columns: Column<Row>[] = [
   },
 ];
 
+const KEYBOARD_OPTIONS = KEYBOARD_REGISTRY.map((k) => ({ code: k.code, label: k.label }));
+
+/**
+ * Andmekvaliteedi drill-down: "Paranda" otse reas, kus see on ohutu (klaviatuur registrist); jõudlusväärtused
+ * konfiguratsiooni lehe jõudluse kaardil (päritolu + parandus). Hinnale, saadavusele, KM-ile ja rikketele kiirparandust pole.
+ */
+function withFixColumn(base: Column<Row>[], issue: ListingIssue | undefined): Column<Row>[] {
+  if (issue === "unknown-keyboard") {
+    return [...base.filter((c) => c.key !== "issues"), { key: "fix", header: "Paranda", cell: ({ effective }) => (effective.keyboard ? <span className="text-success">✓ {effective.keyboard}</span> : <KeyboardQuickFix listingId={effective.id} options={KEYBOARD_OPTIONS} />) }];
+  }
+  if (issue && (PERFORMANCE_ISSUES as readonly string[]).includes(issue)) {
+    return [...base.filter((c) => c.key !== "issues"), { key: "fix", header: "Paranda", cell: ({ effective }) => <Link href={`/admin/products/listings/${effective.id}#joudlus`} className="whitespace-nowrap text-primary hover:underline">Paranda →</Link> }];
+  }
+  return base;
+}
+
 export default async function ListingsPage({ searchParams }: PageProps<"/admin/products/listings">) {
   const sp = await searchParams;
   const filters = {
@@ -146,7 +164,7 @@ export default async function ListingsPage({ searchParams }: PageProps<"/admin/p
           ]}
         />
       </div>
-      <DataTable rows={rows} columns={columns} rowKey={(row) => row.effective.id} caption="Konfiguratsioonid" selectionForm="listings-bulk" empty={{ title: "Konfiguratsioone ei leitud", description: "Muuda filtreid või otsingut." }} />
+      <DataTable rows={rows} columns={withFixColumn(columns, filters.issue)} rowKey={(row) => row.effective.id} caption="Konfiguratsioonid" selectionForm="listings-bulk" empty={{ title: "Konfiguratsioone ei leitud", description: "Muuda filtreid või otsingut." }} />
       <Pagination basePath="/admin/products/listings" params={{ ...filters }} page={Math.min(page, pageCount)} pageCount={pageCount} total={total} />
     </>
   );

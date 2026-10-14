@@ -1,7 +1,10 @@
 import "server-only";
 import { sql, type SQL } from "drizzle-orm";
 import { LISTING_ISSUES, MODEL_ISSUES, type ListingIssue, type ModelIssue } from "@/domain/admin/data-quality-rules";
+import { ANOMALY_LABELS, findPerformanceAnomalies, type AnomalyKind } from "@/domain/admin/performance-anomalies";
+import { applyListingEnrichment } from "@/domain/catalog/enrichment";
 import { requireAdmin } from "@/server/auth/auth";
+import { effectiveListing } from "@/server/catalog/db-catalog-mapper";
 import { getDb } from "@/server/db/client";
 import { productModels, supplierListings } from "@/server/db/schema";
 import { listingIssueCondition, modelIssueCondition } from "../products/queries";
@@ -131,4 +134,25 @@ async function getPerformanceCoverageRows(scope: SQL): Promise<{ total: number; 
       { key: "cpuMaxMhz", issue: "missing-cpu-max-mhz", label: "CPU maks. sagedus", direct: r.mhz_direct, matched: r.mhz_matched },
     ],
   };
+}
+
+/**
+ * "Kahtlased jõudlusandmed" (deterministlikud kontrollid, ainult ülevaatus). Skoop nagu Andmekvaliteedil:
+ * "Müügis" = poes nähtavad pakkumised, "Kõik" = kõik pakkumised.
+ */
+export async function getPerformanceAnomalies(scope: CatalogScope = "sellable") {
+  await requireAdmin();
+  const snapshot = await getSellableSnapshot();
+  const rows = await getDb()
+    .select()
+    .from(supplierListings)
+    .where(scope === "sellable" ? idIn(supplierListings.id, snapshot.listingIds) : sql`true`);
+  const anomalies = findPerformanceAnomalies(
+    rows.map((row) => {
+      const effective = applyListingEnrichment(effectiveListing(row), row.enrichment);
+      return { id: row.id, sku: row.sku, cpu: effective.cpu, gpu: effective.gpu, gpuDedicated: effective.gpuDedicated, details: row.details, enrichment: row.enrichment, manualOverrides: row.manualOverrides };
+    }),
+  );
+  const counts = Object.fromEntries((Object.keys(ANOMALY_LABELS) as AnomalyKind[]).map((kind) => [kind, anomalies.filter((a) => a.kind === kind).length])) as Record<AnomalyKind, number>;
+  return { anomalies, counts };
 }

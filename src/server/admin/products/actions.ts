@@ -1,7 +1,7 @@
 "use server";
 
 import { eq, inArray } from "drizzle-orm";
-import { updateTag } from "next/cache";
+import { refresh, updateTag } from "next/cache";
 import { z } from "zod";
 import {
   LISTING_BULK_OPERATIONS,
@@ -12,6 +12,9 @@ import {
   modelEditSchema,
   zodFieldErrors,
 } from "@/domain/admin/product-edit";
+import { PERFORMANCE_OVERRIDE_FIELDS, effectivePerformance, parsePerformanceOverride } from "@/domain/catalog/benchmarks";
+import { KEYBOARD_REGISTRY } from "@/domain/catalog/keyboard";
+import { QUICK_FIX_FIELDS, type QuickFixField } from "@/domain/admin/quick-fix";
 import { LISTING_OVERRIDABLE_FIELDS, MODEL_OVERRIDABLE_FIELDS, listingOverridableFields, mergeOverrides } from "@/domain/catalog/overrides";
 import { CATALOG_CACHE_TAG } from "@/server/cache-tags";
 import { effectiveListing, effectiveModel } from "@/server/catalog/db-catalog-mapper";
@@ -91,11 +94,59 @@ export async function updateListingAction(id: string, _prev: ActionResult | null
   });
 }
 
+const KEYBOARD_CODES = new Set(KEYBOARD_REGISTRY.map((k) => k.code));
+
+/**
+ * Üks parandus ühele väljale (manual_overrides): klaviatuur registrist või jõudlusväärtus (valideeritud).
+ * Tarnija toorandmeid ei puudutata; audit vana → uus (kehtiv väärtus); poe vahemälu + leht värskendatakse.
+ */
+export async function setListingOverrideAction(id: string, field: QuickFixField, value: string): Promise<ActionResult> {
+  return runAdminAction("listing.quick_fix", async (admin) => {
+    if (!uuid.safeParse(id).success) return fail("Vigane konfiguratsiooni ID");
+    if (!(QUICK_FIX_FIELDS as readonly string[]).includes(field)) return fail("Seda välja ei saa siit parandada");
+    let next: string | number;
+    if (field === "keyboard") {
+      if (!KEYBOARD_CODES.has(value)) return fail("Vali klaviatuur registrist.");
+      next = value;
+    } else {
+      const parsed = parsePerformanceOverride(field, value);
+      if (!parsed.ok) return fail(parsed.error);
+      next = parsed.value;
+    }
+
+    const result = await getDb().transaction(async (tx) => {
+      const [current] = await tx.select().from(supplierListings).where(eq(supplierListings.id, id)).for("update");
+      if (!current) return fail("Konfiguratsiooni ei leitud");
+      const currentOverrides = (current.manualOverrides ?? {}) as Record<string, unknown>;
+      // Klaviatuur: tarnija väärtusega sama → parandust ei hoita (nagu vormis); jõudlus: alati parandusena
+      const overrides = field === "keyboard" ? mergeOverrides(current, currentOverrides, { keyboard: next }, LISTING_OVERRIDABLE_FIELDS) : { ...currentOverrides, [field]: next };
+      const before = quickFixValue(current, field);
+      const [updated] = await tx.update(supplierListings).set({ manualOverrides: overrides }).where(eq(supplierListings.id, id)).returning();
+      const after = quickFixValue(updated, field);
+      if (Object.is(before, after) && JSON.stringify(currentOverrides) === JSON.stringify(overrides)) return ok("Muudatusi polnud.");
+      await writeAudit(tx, admin, { action: "listing.update", entityType: "SupplierListing", entityId: id, entityLabel: updated.sku, changes: { [field]: { from: before, to: after } } });
+      return ok("Parandus salvestatud.");
+    });
+    if (result.ok) {
+      updateTag(CATALOG_CACHE_TAG);
+      refresh();
+    }
+    return result;
+  });
+}
+
+/** Kehtiv väärtus auditi jaoks (sama reegel mis pood). */
+function quickFixValue(row: typeof supplierListings.$inferSelect, field: QuickFixField): unknown {
+  if (field === "keyboard") return effectiveListing(row).keyboard ?? null;
+  const p = effectivePerformance({ details: row.details, enrichment: row.enrichment, manualOverrides: row.manualOverrides as Record<string, unknown> });
+  return field === "cpuMaxMhz" ? (p.cpuMaxGhz === null ? null : Math.round(p.cpuMaxGhz * 1000)) : field === "cpuBenchmark" ? p.cpuBenchmark : p.gpuBenchmark;
+}
+
 /** "Taasta tarnija väärtus": eemaldab ühe välja paranduse. */
 export async function clearOverrideAction(entity: "model" | "listing", id: string, field: string): Promise<ActionResult> {
   return runAdminAction(`${entity}.clear_override`, async (admin) => {
     if (!uuid.safeParse(id).success) return fail("Vigane ID");
-    const allowed: readonly string[] = entity === "model" ? MODEL_OVERRIDABLE_FIELDS : listingOverridableFields("SUPPLIER");
+    const allowed: readonly string[] = entity === "model" ? MODEL_OVERRIDABLE_FIELDS : [...listingOverridableFields("SUPPLIER"), ...PERFORMANCE_OVERRIDE_FIELDS];
     if (!allowed.includes(field)) return fail("Seda välja ei saa taastada");
     const table = entity === "model" ? productModels : supplierListings;
 
@@ -108,18 +159,23 @@ export async function clearOverrideAction(entity: "model" | "listing", id: strin
       if (!(field in overrides)) return ok("Parandust polnud.");
       const from = overrides[field];
       delete overrides[field];
-      await tx.update(table).set({ manualOverrides: overrides }).where(eq(table.id, id));
+      const [updated] = await tx.update(table).set({ manualOverrides: overrides }).where(eq(table.id, id)).returning();
+      // Jõudluse parandusel pole veergu — "to" = kehtiv väärtus pärast taastamist (tarnija/rikastus)
+      const restored = (PERFORMANCE_OVERRIDE_FIELDS as readonly string[]).includes(field) && "sku" in updated ? quickFixValue(updated, field as QuickFixField) : ((current as Record<string, unknown>)[field] ?? null);
       const label = "sku" in current ? current.sku : `${current.family} ${current.model}`;
       await writeAudit(tx, admin, {
         action: `${entity}.override_cleared`,
         entityType: entity === "model" ? "ProductModel" : "SupplierListing",
         entityId: id,
         entityLabel: label,
-        changes: { [field]: { from, to: (current as Record<string, unknown>)[field] ?? null } },
+        changes: { [field]: { from, to: restored } },
       });
       return ok("Tarnija väärtus taastatud.");
     });
-    if (result.ok) updateTag(CATALOG_CACHE_TAG);
+    if (result.ok) {
+      updateTag(CATALOG_CACHE_TAG);
+      refresh();
+    }
     return result;
   });
 }

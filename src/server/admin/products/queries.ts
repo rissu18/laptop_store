@@ -32,8 +32,12 @@ const benchmarkOk = (text: SQL) =>
   sql`COALESCE((CASE WHEN (${text}) ~ ${String.raw`^\s*\d[\d\s]*([.,]\d+)?\s*$`} THEN replace(regexp_replace(${text}, ${String.raw`\s+`}, '', 'g'), ',', '.')::numeric END) BETWEEN 0.000001 AND 1000000, false)`;
 /** = benchmarks.ts → validCpuMaxMhz: JSON number 400–7000 MHz. */
 const maxMhzOk = (json: SQL) => sql`(CASE WHEN jsonb_typeof(${json}) = 'number' THEN (${json})::numeric BETWEEN 400 AND 7000 ELSE false END)`;
-const performanceMissing = (component: "cpu" | "gpu", ok: (details: AnyColumn, enrichment: AnyColumn) => SQL) =>
-  sql`(${supplierListings.manualOverrides} ? ${component} OR NOT (${ok(supplierListings.details, supplierListings.enrichment)}))`;
+/** Admini jõudluse parandus (manual_overrides.<key>) võidab; muidu CPU/GPU nime parandus tühistab tarnija/rikastuse väärtuse. */
+const performanceMissing = (component: "cpu" | "gpu", key: string, overrideOk: SQL, sourceOk: SQL) =>
+  sql`(CASE WHEN ${supplierListings.manualOverrides} ? ${key} THEN NOT ${overrideOk} ELSE (${supplierListings.manualOverrides} ? ${component} OR NOT (${sourceOk})) END)`;
+const mo = supplierListings.manualOverrides;
+const d = supplierListings.details;
+const e = supplierListings.enrichment;
 
 export function listingIssueCondition(issue: ListingIssue): SQL {
   switch (issue) {
@@ -58,11 +62,11 @@ export function listingIssueCondition(issue: ListingIssue): SQL {
       return sql`${listingEff("stock")} IS NULL AND ${supplierListings.available} IS NULL`;
     // = data-quality-rules.ts → performanceIssuesOf (benchmarks.ts → effectivePerformance)
     case "missing-cpu-benchmark":
-      return performanceMissing("cpu", (d, e) => sql`${benchmarkOk(sql`${d}->>'cpuBenchmark3dmark06'`)} OR ${benchmarkOk(sql`${e}->'cpuBenchmark'->>'value'`)}`);
+      return performanceMissing("cpu", "cpuBenchmark", benchmarkOk(sql`${mo}->>'cpuBenchmark'`), sql`${benchmarkOk(sql`${d}->>'cpuBenchmark3dmark06'`)} OR ${benchmarkOk(sql`${e}->'cpuBenchmark'->>'value'`)}`);
     case "missing-gpu-benchmark":
-      return performanceMissing("gpu", (d, e) => sql`${benchmarkOk(sql`${d}->>'gpuBenchmark3dmark11'`)} OR ${benchmarkOk(sql`${e}->'gpuBenchmark'->>'value'`)}`);
+      return performanceMissing("gpu", "gpuBenchmark", benchmarkOk(sql`${mo}->>'gpuBenchmark'`), sql`${benchmarkOk(sql`${d}->>'gpuBenchmark3dmark11'`)} OR ${benchmarkOk(sql`${e}->'gpuBenchmark'->>'value'`)}`);
     case "missing-cpu-max-mhz":
-      return performanceMissing("cpu", (d, e) => sql`${maxMhzOk(sql`${d}->'cpuMaxMhz'`)} OR ${maxMhzOk(sql`${e}->'cpuMaxMhz'->'value'`)}`);
+      return performanceMissing("cpu", "cpuMaxMhz", maxMhzOk(sql`${mo}->'cpuMaxMhz'`), sql`${maxMhzOk(sql`${d}->'cpuMaxMhz'`)} OR ${maxMhzOk(sql`${e}->'cpuMaxMhz'->'value'`)}`);
   }
 }
 

@@ -11,7 +11,7 @@ import { auditLogs, adminUsers, pricingRules, productImages, productModels, stor
 
 const state = vi.hoisted(() => ({ db: null as unknown, admin: null as null | { id: string; email: string; name: string; role: string; sessionId: string }, updatedTags: [] as string[] }));
 
-vi.mock("next/cache", () => ({ updateTag: (tag: string) => state.updatedTags.push(tag), cacheTag: () => {}, cacheLife: () => {} }));
+vi.mock("next/cache", () => ({ updateTag: (tag: string) => state.updatedTags.push(tag), cacheTag: () => {}, cacheLife: () => {}, refresh: () => {} }));
 vi.mock("@/server/db/client", async (importOriginal) => ({ ...(await importOriginal<object>()), getDb: () => state.db, isDatabaseConfigured: () => true }));
 vi.mock("@/server/logging/system-log", () => ({ writeSystemLog: async () => {}, newErrorId: () => "TESTID", errorMessage: (e: unknown) => String(e) }));
 vi.mock("@/server/auth/auth", () => {

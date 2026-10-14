@@ -5,7 +5,8 @@ import { EnrichCatalogButton } from "@/components/admin/enrich-catalog-button";
 import { cx } from "@/components/ui/class-names";
 import { PERFORMANCE_ISSUES } from "@/domain/admin/data-quality-rules";
 import { issueHref, parseDataQualityScope, type DataQualityScope } from "@/domain/admin/scope";
-import { getDataQualityCounts, type IssueCount } from "@/server/admin/data-quality/queries";
+import { ANOMALY_LABELS } from "@/domain/admin/performance-anomalies";
+import { getDataQualityCounts, getPerformanceAnomalies, type IssueCount } from "@/server/admin/data-quality/queries";
 
 /** Admin on alati päringupõhine (sessioon, värsked andmed) — eelrenderdust ega "instant" navigeerimist ei kasutata. */
 export const instant = false;
@@ -13,6 +14,9 @@ export const instant = false;
 export const maxDuration = 300;
 
 export const metadata: Metadata = { title: "Andmekvaliteet" };
+
+/** Kategooriad, mille nimekirjas on kiirparandus (klaviatuur reas, jõudlus konfiguratsiooni lehel) */
+const FIXABLE = new Set<string>(["unknown-keyboard", "missing-cpu-benchmark", "missing-gpu-benchmark", "missing-cpu-max-mhz", "icecat-needs-review"]);
 
 function IssueList<K extends string>({ items, total, scope, unit }: { items: IssueCount<K>[]; total: number; scope: DataQualityScope; unit: string }) {
   return (
@@ -27,7 +31,7 @@ function IssueList<K extends string>({ items, total, scope, unit }: { items: Iss
                 {item.description} {total > 0 && `(${Math.round((item.count / total) * 100)}% ${unit})`}
               </span>
             </span>
-            <span className="shrink-0 text-sm font-medium text-primary">{item.count > 0 ? "Vaata kirjeid →" : "Vaata"}</span>
+            <span className="shrink-0 text-sm font-medium text-primary">{item.count === 0 ? "Vaata" : FIXABLE.has(item.key) ? "Vaata ja paranda →" : "Vaata kirjeid →"}</span>
           </Link>
         </li>
       ))}
@@ -55,7 +59,7 @@ function ScopeSwitch({ scope }: { scope: DataQualityScope }) {
 
 export default async function DataQualityPage({ searchParams }: PageProps<"/admin/data-quality">) {
   const scope = parseDataQualityScope((await searchParams).scope);
-  const data = await getDataQualityCounts(scope);
+  const [data, anomalies] = await Promise.all([getDataQualityCounts(scope), getPerformanceAnomalies(scope)]);
   // Kiirusindeksi lüngad ei takista müüki — loetakse eraldi, et andmevigade arv jääks loetavaks
   const isPerformance = (key: string) => (PERFORMANCE_ISSUES as readonly string[]).includes(key);
   const totalIssues = [...data.models, ...data.listings].filter((item) => !isPerformance(item.key)).reduce((sum, item) => sum + item.count, 0);
@@ -130,6 +134,39 @@ export default async function DataQualityPage({ searchParams }: PageProps<"/admi
               ))}
             </tbody>
           </table>
+        </Card>
+        <Card
+          title={`Kahtlased jõudlusandmed (${anomalies.anomalies.length})`}
+          description="Deterministlikud kontrollid tarnija väärtustele (sama täpne CPU/GPU, eri väärtus; vahemikust väljas). Ainult ülevaatus — midagi ei kirjutata üle. Paranda konfiguratsiooni lehe jõudluse kaardil."
+          className="lg:col-span-2"
+        >
+          {anomalies.anomalies.length === 0 ? (
+            <p className="text-sm text-success">Kahtlasi väärtusi ei leitud.</p>
+          ) : (
+            <ul className="divide-y divide-border text-sm">
+              {anomalies.anomalies.slice(0, 40).map((anomaly) => (
+                <li key={`${anomaly.kind}-${anomaly.key}`} className="py-2">
+                  <span className="font-medium">{ANOMALY_LABELS[anomaly.kind]}</span> <code className="text-xs">{anomaly.key}</code>
+                  <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
+                    {anomaly.values.map((value) => (
+                      <li key={value.value}>
+                        <strong className="text-text">{value.value}</strong> × {value.listings.length}:{" "}
+                        {value.listings.slice(0, 3).map((listing, i) => (
+                          <span key={listing.id}>
+                            {i > 0 && ", "}
+                            <Link href={`/admin/products/listings/${listing.id}#joudlus`} className="text-primary hover:underline">
+                              {listing.sku}
+                            </Link>
+                          </span>
+                        ))}
+                        {value.listings.length > 3 && ` +${value.listings.length - 3}`}
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              ))}
+            </ul>
+          )}
         </Card>
         <Card title="Rikastus" description="Laptopid.ee pildid mudelitele (kindla vastega) ning integreeritud GPU / resolutsioon meie andmetest. Admini parandusi ega peidetud pilte ei puudutata; ebakindel vaste läheb ülevaatusele. Icecat: lokaalselt `npm run enrich:catalog -- --images --icecat`.">
           <EnrichCatalogButton />
