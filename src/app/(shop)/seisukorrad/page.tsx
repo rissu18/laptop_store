@@ -11,20 +11,18 @@ export const metadata: Metadata = {
 };
 
 export default function GradesPage() {
-  const hasPlaceholders = GRADE_CODES.some((code) => GRADES[code].isPlaceholder);
   return (
     <Container className="max-w-4xl pb-16">
       <Breadcrumbs items={[{ label: "Seisukorra klassid" }]} siteUrl={storeConfig.siteUrl} />
       <h1 className="text-3xl font-bold tracking-tight">Seisukorra klassid</h1>
       <p className="mt-2 text-muted">
-        Iga kasutatud sülearvuti saab seisukorra klassi. Klass kirjeldab välimust; seade peab igas klassis olema töökorras.
+        Iga kasutatud sülearvuti saab seisukorra klassi. Klass kirjeldab välimust; seade on igas klassis täielikult töökorras.
+        Kui mõni liides ei tööta (nt üks USB-pesa), on see toote juures eraldi välja toodud — see ei mõjuta klassi.
       </p>
-      {hasPlaceholders && (
-        <p className="mt-6 rounded-md bg-warning-soft p-4 text-sm text-warning">
-          <strong>Prototüüp:</strong> allolevad kirjeldused on arenduse näidistekstid, mitte hulgilao (tarnija) ametlikud
-          seisukorra reeglid. Ametlikud kirjeldused ja näidispildid lisatakse tarnija dokumentatsiooni põhjal.
-        </p>
-      )}
+      <p className="mt-3 text-sm text-muted">
+        Partnerlaos olevate seadmete (tarne 1–4 tööpäeva) klassi määrab tarnija oma hindamise järgi. Konkreetse seadme seisukorra
+        märkus on alati tootelehel.
+      </p>
       <ul className="mt-8 space-y-4">
         {GRADE_CODES.map((code) => (
           <li key={code} id={GRADES[code].param} className="rounded-lg border border-border p-5">

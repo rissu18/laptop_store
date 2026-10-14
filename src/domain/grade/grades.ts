@@ -1,9 +1,9 @@
 /**
  * Seisukorra klassid.
  *
- * TODO: REAL PROVIDER DATA REQUIRED
- * Klasside tähendus (`description`, `criteria`) PEAB tulema hulgilao dokumentatsioonist.
- * Praegused kirjeldused on arenduse ajutised näidistekstid ja on märgitud `isPlaceholder: true`.
+ * Kirjeldused: Sülearvutid OÜ avaldatud klassimääratlus (laptopid.ee → "Sülearvutite Grade klassid", 14.10.2026).
+ * C+ on ainult partnerlao (Foxway) klass — kirjeldatud konservatiivselt B ja C vahel.
+ * Partnerlao seadmetele annab klassi tarnija oma hindamise järgi (vt /seisukorrad).
  *
  * "NEW" (kliendile "Uus") koondab tarnijate uue/uueväärse kauba klassid — Laptopid.ee: New, Demo, Outlet.
  * Tarnija algne klass säilib pakkumise juures (raw_data + details.sourceGrade), poes kuvatakse "Uus".
@@ -41,45 +41,52 @@ export const GRADES: Record<GradeCode, GradeInfo> = {
     param: "a-plus",
     label: "Nagu uus",
     showCode: true,
-    description: "Näidistekst: kasutamise jälgi peaaegu ei ole.",
-    criteria: ["Korpus: näidiskriteerium", "Ekraan: näidiskriteerium", "Klaviatuur: näidiskriteerium"],
-    isPlaceholder: true,
+    description: "Välimuselt uueväärne — kasutusjälgi võib leida ainult põhjalikul uurimisel. Täielikult töökorras.",
+    criteria: ["Korpus: võib esineda üksik peen kriimustus, peamiselt seadme alumisel küljel", "Ekraan: uueväärne, töötades nähtavate kahjustusteta"],
+    isPlaceholder: false,
   },
   A: {
     code: "A",
     param: "a",
     label: "Väga hea",
     showCode: true,
-    description: "Näidistekst: väikesed kasutusjäljed, mis igapäevasel kasutamisel silma ei hakka.",
-    criteria: ["Korpus: näidiskriteerium", "Ekraan: näidiskriteerium", "Klaviatuur: näidiskriteerium"],
-    isPlaceholder: true,
+    description: "Väga heas seisukorras, võib esineda vähest kasutusjälge. Täielikult töökorras.",
+    criteria: ["Korpus: võib esineda kerget kulumist kaanel, põhja all või muudes nähtavates kohtades", "Ekraan: töökorras, töötades nähtavate kahjustusteta"],
+    isPlaceholder: false,
   },
   B: {
     code: "B",
     param: "b",
     label: "Hea",
     showCode: true,
-    description: "Näidistekst: nähtavad kasutusjäljed, seade on täielikult töökorras.",
-    criteria: ["Korpus: näidiskriteerium", "Ekraan: näidiskriteerium", "Klaviatuur: näidiskriteerium"],
-    isPlaceholder: true,
+    description: "Heas seisukorras, võib esineda kulumisjälgi. Täielikult töökorras.",
+    criteria: [
+      "Korpus: kaanel või põhja all võivad olla väiksemad kriimustused, täkked või kleebiste eemaldamise jäljed; raam on terve, väga harva võib plastikdetailidel esineda üksikuid väikeseid mõrasid",
+      "Ekraan: väljalülitatuna võivad olla nähtavad kerged klaviatuuri jäljed (sügavaid kriime ei ole); töötades neid näha pole, harva võivad esineda väikesed hämarad laigud",
+    ],
+    isPlaceholder: false,
   },
   "C+": {
     code: "C+",
     param: "c-plus",
     label: "Rahuldav+",
     showCode: true,
-    description: "Näidistekst: selged kasutusjäljed (vähem kui C-klassil), seade on täielikult töökorras.",
-    criteria: ["Korpus: näidiskriteerium", "Ekraan: näidiskriteerium", "Klaviatuur: näidiskriteerium"],
-    isPlaceholder: true,
+    // Ainult partnerlao (Foxway) klass "Grade C+": B- ja C-klassi vahel; konkreetse seadme märkus on tootelehel
+    description: "Nähtavad kasutusjäljed, vähem kui C-klassil. Täielikult töökorras.",
+    criteria: ["Korpus: võib esineda kriimustusi, täkkeid ja kleebiste eemaldamise jälgi", "Ekraan: töökorras; võimalikud jäljed on kirjas toote märkuses"],
+    isPlaceholder: false,
   },
   C: {
     code: "C",
     param: "c",
     label: "Rahuldav",
     showCode: true,
-    description: "Näidistekst: selged kasutusjäljed, seade on täielikult töökorras.",
-    criteria: ["Korpus: näidiskriteerium", "Ekraan: näidiskriteerium", "Klaviatuur: näidiskriteerium"],
-    isPlaceholder: true,
+    description: "Nähtavad kasutusjäljed. Täielikult töökorras.",
+    criteria: [
+      "Korpus: võib esineda kriimustusi, täkkeid, kleebiste eemaldamise jälgi ja väiksemaid pragusid, mis ei mõjuta toimimist; nurgad võivad olla kergelt painutatud, kui see ei takista kaane avamist ega sulgemist",
+      "Ekraan: väljalülitatuna võivad olla märgatavad klaviatuuri jäljed ja kriimustused; töötades võib esineda surnud piksleid ja heledamaid laike",
+    ],
+    isPlaceholder: false,
   },
 };
 

@@ -1,6 +1,7 @@
 import "server-only";
 import { sql, type SQL } from "drizzle-orm";
 import { LISTING_ISSUES, MODEL_ISSUES, type ListingIssue, type ModelIssue } from "@/domain/admin/data-quality-rules";
+import { customerConditionNotes, gradeNoteConflicts } from "@/domain/admin/grade-note-conflicts";
 import { ANOMALY_LABELS, findPerformanceAnomalies, type AnomalyKind } from "@/domain/admin/performance-anomalies";
 import { applyListingEnrichment } from "@/domain/catalog/enrichment";
 import { requireAdmin } from "@/server/auth/auth";
@@ -155,4 +156,25 @@ export async function getPerformanceAnomalies(scope: CatalogScope = "sellable") 
   );
   const counts = Object.fromEntries((Object.keys(ANOMALY_LABELS) as AnomalyKind[]).map((kind) => [kind, anomalies.filter((a) => a.kind === kind).length])) as Record<AnomalyKind, number>;
   return { anomalies, counts };
+}
+
+/**
+ * "Seisukord vs märkus": klass ja kliendile nähtav märkus on vastuolus (nt A+ ja "tükk puudu"). Ainult ülevaatus —
+ * tarnija andmeid ega klassi ei muudeta; admin parandab vajadusel klassi konfiguratsiooni lehel (parandusena).
+ */
+export async function getGradeNoteConflicts(scope: CatalogScope = "sellable") {
+  await requireAdmin();
+  const snapshot = await getSellableSnapshot();
+  const rows = await getDb()
+    .select()
+    .from(supplierListings)
+    .where(scope === "sellable" ? idIn(supplierListings.id, snapshot.listingIds) : sql`true`);
+  return rows
+    .map((row) => {
+      const effective = effectiveListing(row);
+      const notes = customerConditionNotes(row);
+      return { id: row.id, sku: row.sku, supplier: row.supplier, grade: effective.grade, notes, findings: gradeNoteConflicts(effective.grade, notes) };
+    })
+    .filter((row) => row.findings.length > 0)
+    .sort((a, b) => (a.grade ?? "").localeCompare(b.grade ?? "") || a.sku.localeCompare(b.sku));
 }

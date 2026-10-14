@@ -6,7 +6,7 @@ import { cx } from "@/components/ui/class-names";
 import { PERFORMANCE_ISSUES } from "@/domain/admin/data-quality-rules";
 import { issueHref, parseDataQualityScope, type DataQualityScope } from "@/domain/admin/scope";
 import { ANOMALY_LABELS } from "@/domain/admin/performance-anomalies";
-import { getDataQualityCounts, getPerformanceAnomalies, type IssueCount } from "@/server/admin/data-quality/queries";
+import { getDataQualityCounts, getGradeNoteConflicts, getPerformanceAnomalies, type IssueCount } from "@/server/admin/data-quality/queries";
 
 /** Admin on alati päringupõhine (sessioon, värsked andmed) — eelrenderdust ega "instant" navigeerimist ei kasutata. */
 export const instant = false;
@@ -59,7 +59,7 @@ function ScopeSwitch({ scope }: { scope: DataQualityScope }) {
 
 export default async function DataQualityPage({ searchParams }: PageProps<"/admin/data-quality">) {
   const scope = parseDataQualityScope((await searchParams).scope);
-  const [data, anomalies] = await Promise.all([getDataQualityCounts(scope), getPerformanceAnomalies(scope)]);
+  const [data, anomalies, gradeConflicts] = await Promise.all([getDataQualityCounts(scope), getPerformanceAnomalies(scope), getGradeNoteConflicts(scope)]);
   // Kiirusindeksi lüngad ei takista müüki — loetakse eraldi, et andmevigade arv jääks loetavaks
   const isPerformance = (key: string) => (PERFORMANCE_ISSUES as readonly string[]).includes(key);
   const totalIssues = [...data.models, ...data.listings].filter((item) => !isPerformance(item.key)).reduce((sum, item) => sum + item.count, 0);
@@ -163,6 +163,28 @@ export default async function DataQualityPage({ searchParams }: PageProps<"/admi
                       </li>
                     ))}
                   </ul>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+        <Card
+          title={`Seisukord vs märkus (${gradeConflicts.length})`}
+          description="Klass ja kliendile nähtav märkus on vastuolus avaldatud klassimääratlusega (nt A+ ja „tükk puudu“, A ja „mõlk“). Liidese rike (USB) klassi ei mõjuta. Ainult ülevaatus — tarnija andmeid ei muudeta; klassi saab parandada konfiguratsiooni lehel."
+          className="lg:col-span-2"
+        >
+          {gradeConflicts.length === 0 ? (
+            <p className="text-sm text-success">Vastuolusid ei leitud.</p>
+          ) : (
+            <ul className="divide-y divide-border text-sm">
+              {gradeConflicts.slice(0, 60).map((row) => (
+                <li key={row.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-2">
+                  <Link href={`/admin/products/listings/${row.id}`} className="font-medium text-primary hover:underline">
+                    {row.sku}
+                  </Link>
+                  <span className="font-semibold">Klass {row.grade}</span>
+                  <span className="text-warning">{row.findings.join(", ")}</span>
+                  <span className="w-full text-xs text-muted">„{row.notes.join(" · ").slice(0, 200)}“</span>
                 </li>
               ))}
             </ul>
