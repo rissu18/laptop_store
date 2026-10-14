@@ -1,6 +1,6 @@
 # HANDOFF — üleandmine järgmisele Claude Code sessioonile
 
-> Seis: **2026-10-12** (õhtu, rikastuse sprint), haru `main` = `origin/main`. Live: <https://laptop-store-rouge.vercel.app> · GitHub: <https://github.com/rissu18/laptop_store>
+> Seis: **2026-10-14** (Admin Sprint 1), haru `main` = `origin/main`. Live: <https://laptop-store-rouge.vercel.app> · GitHub: <https://github.com/rissu18/laptop_store>
 > Kasutaja kirjutab eesti keeles; vasta eesti keeles. Projekt on 12. klassi praktiline lõputöö — dokumentatsioon (docs/, CHANGELOG.md) on osa tööst.
 > Püsireeglid: **AGENTS.md** (ainus juhiste fail). Detailid: docs/LAPTOPID_SYNC.md, **TECH_SYNC.md**, **FOXWAY_SYNC.md**, ARCHITECTURE.md, DATABASE.md, ADMIN.md, ORDERS.md, DISCOUNTS.md, PROJECT_PLAN.md.
 
@@ -42,6 +42,8 @@ Custom e-pood **kasutatud äriklassi sülearvutitele** — **Sülearvutid.ee** (
 - **Kiirusindeks ja maks. sagedus (2026-10-12):** Laptopid.ee `cpu_3dmark06` / `gpu_3dmark11` + CPU tekstis maks. turbo → `details`; teistele tarnijatele ainult täpse CPU/GPU vastega (`enrich:catalog` → `enrichment`). Tooteleht "Tehnilised andmed → Jõudlus": Protsessor, Maks. sagedus, Kiirusindeks ⓘ, põlvkond, Mälu, Salvestus, Graafika, Kiirusindeks ⓘ (`benchmarks.ts`, `info-tip.tsx`). Tähti / 1–5 taset veel ei tehta (vaja enne jaotust).
 - **Tootelehe kiirinfo kastid:** `domain/catalog/quick-specs.ts` — Protsessor, Mälu, Salvestus, Ekraan, Klaviatuur, Graafika ("Integreeritud graafika", kui tarnija ütles Integrated ja täpsemat pole); tühja lahtrit ei jää.
 - **Tarnija omadused, mida ei antud** (HDMI, sõrmejälg …) on poes NULL (rida ei kuvata) — varem näitas tehniliste andmete tabel Techi ja Foxway pakkumistel neid ekslikult "Ei" (parandatud mapperis).
+
+- **Admin Sprint 1 (2026-10-14):** admini numbrid räägivad vaikimisi **müügis** olevast — üks nähtavuse reegel `storefrontVisibility()` (poe mapper + admin), skoop `server/admin/sellable.ts`. Andmekvaliteet Müügis/Kõik + drill-down skoobiga, konfiguratsiooni lehel "Poes nähtavus", tabelis Tarnija + Poes, kliendihind täiseurodes, sync'i logitase (jääk → WARN ainult kasvades), kinnitusdialoogid. Müügis 14.10: 834 konfiguratsiooni (Laptopid.ee 297 · Techvision 176 · Foxway 361), 386 mudelit, pildita 60, 1–4 pilti 48, tundmatu klaviatuur 202. Järgmised admini sammud (auditi järgi): Icecati ülevaatuse järjekord pisipiltidega + tagasilükkamine, Sync Center, päritolu vormis, hankejärjekord. **Netomarginaal** (Foxway STANDARD: admin näitas varem 326 €, reaalne ~31 €) vajab raamatupidaja kinnitust — admin näitab nüüd ainult "Brutovahe".
 
 ## 4. Laptopid.ee sync — praegune seis
 
@@ -88,7 +90,7 @@ Täielik kirjeldus: **docs/FOXWAY_SYNC.md**.
 
 ## 6. Testid ja kontrollid
 
-- **739 testi / 62 testifaili — kõik läbivad** (koondgalerii sprint 2026-10-13) — enne **725 testi / 60 testifaili** (Icecati Phase 2; NB: `cart.test.ts` 2 testi kukuvad, kui `.env.local` on shelli laetud — `cacheTag()` sõltub keskkonnast, oli ka enne) — enne: **694 testi / 57 testifaili** (kiirusindeksi sprint) — enne: **680 testi / 56 testifaili** (2026-10-12 rikastuse sprint; enne 591) — varasem kirjeldus: **578 testi / 54 testifaili** (Foxway: 51 ühik- + klienditesti, 16 andmebaasitesti, 6 cron-testi, 3 poe kuvamise testi) (`npm test`, DB testid päris Neonis ajutises skeemis `test_xxxx`, ~45 s).
+- **813 testi / 68 testifaili — kõik läbivad** (Admin Sprint 1, 2026-10-14) — enne **739 testi / 62 testifaili** (koondgalerii sprint 2026-10-13) — enne **725 testi / 60 testifaili** (Icecati Phase 2; NB: `cart.test.ts` 2 testi kukuvad, kui `.env.local` on shelli laetud — `cacheTag()` sõltub keskkonnast, oli ka enne) — enne: **694 testi / 57 testifaili** (kiirusindeksi sprint) — enne: **680 testi / 56 testifaili** (2026-10-12 rikastuse sprint; enne 591) — varasem kirjeldus: **578 testi / 54 testifaili** (Foxway: 51 ühik- + klienditesti, 16 andmebaasitesti, 6 cron-testi, 3 poe kuvamise testi) (`npm test`, DB testid päris Neonis ajutises skeemis `test_xxxx`, ~45 s).
 - `npm run typecheck` ✅ · `npm run lint` ✅ · `npm run build` ✅ (Git Bashis: `set -a; . ./.env.development.local; . ./.env.local; set +a; npm run build`).
 - Viimane production deploy: Foxway integratsioon (HEAD, vt `git log`). Jõudlus pärast Foxway importi (1128 pakkumist, lokaalselt → Neon, soe): kataloogi lehekülg 134 ms (enne 86 ms / 500 pakkumist), filter 107 ms (79), lk 3 112 ms (75), tooteleht 29 ms (30), otsing 270 ms (151); lehekülje andmemaht sama (24 kaarti). Tootmises filtri JSON 1,6–6,9 KB gzip.
 - Dev-serveri vana CSS (Turbopacki vahemälu) → peata server, kustuta `.next`, käivita uuesti. `next start` ei loe `.env.development.local` faili (kassa/DB ei tööta) — brauseris testimiseks kasuta `dev`. Brauseripaan on sageli peidetud → Suspense jääb `hidden` alla ja `requestAnimationFrame`/kerimissündmused ei käi; tee enne kuvatõmmis.

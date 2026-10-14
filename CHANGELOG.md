@@ -5,6 +5,24 @@ Seda logi kasutatakse lõputöö kirjaliku osa allikana.
 
 ---
 
+## 2026-10-14 — Admin Sprint 1: müügis skoop, poes nähtavus, UX kiirparandused
+
+**Miks:** admini audit näitas, et numbrid ja tabelid segasid "kogu andmebaasi" ja "seda, mida klient poes näeb" (nt pildita 176 vs müügis 60) ning konfiguratsiooni lehel polnud vastust küsimusele "miks see poes ei ole?".
+
+- **Üks nähtavuse reegel:** `storefrontVisibility()` (`db-catalog-mapper.ts`) — poe mapper kasutab seda ise; admin loeb sama funktsiooni. Tingimused: konfiguratsioon aktiivne, mudel aktiivne, `quality_hold` puudub (nt Foxway Grade C), saadavus (`availability.ts`), kohustuslikud andmed. `perf:bench --verify` OK (834 = 834).
+- **Skoop "Müügis" (vaikimisi):** `server/admin/sellable.ts` arvutab poe enda lugemisteest (queryStorefrontCatalogRows → storefrontVisibility → koondgalerii). Andmekvaliteet: lüliti **Müügis / Kõik**; töölaud ja nimekirjad (`?scope=sellable`) kasutavad sama hulka.
+- **Andmekvaliteet:** uued kategooriad "Mudelid 1–4 pildiga" (poe koondgalerii järgi), "CPU/GPU kiirusindeks puudub", "CPU maks. sagedus puudub" (= `effectivePerformance`); kõik klikitavad, skoop säilib; kaks koondpäringut (`count(*) FILTER`) 17 eraldi päringu asemel.
+- **Konfiguratsiooni leht:** plokk **"Poes nähtavus"** (iga tingimus ✓/✕, põhjus, tarne "Poes kohapeal" / "Tarne 2–4 päeva", "täpne kogus teadmata", kliendihind). "Vaata poes ↗" ainult nähtaval pakkumisel. Techvision: selgitus, miks klaviatuur on teadmata. "Marginaal" → **"Brutovahe (müük − ost)"** + märge "ei ole netomarginaal" (arvutust ei muudetud).
+- **Konfiguratsioonide tabel:** veerud **Tarnija** ja **Poes** (põhjusega), probleemid nimedega, kliendihind täiseurodes; mudeli filter **otsinguga** (558-realise rippmenüü asemel). Mudelinimi ilma korduseta ("Acer Aspire 3 A314-23P", mitte "Aspire Aspire 3 …").
+- **Töölaud:** müügis konfiguratsioonid tarnija kaupa, müügis mudelid, kliendihind, pildita / tundmatu klaviatuur / kiirusindeks puudu (müügis); sisselogimised ei täida "Viimaseid muudatusi".
+- **Kinnitusdialoogid:** Sync now (tarnija, tegevus, kas suur muutus on lubatud) ja "Rikasta kataloogi".
+- **Vananenud tekstid:** Tervis ("mock-andmed" → viimane edukas sync tarnijate kaupa), Logid, Laptopid.ee cron (QStash ajastus), "Teiste tarnijate aktiivseid" → "Poes nähtavaid", Pildid (koondgalerii), Hinnastamine (ei muuda tarnija hinnaga pakkumisi).
+- **Logitase:** `syncLogLevel()` — FAILED → ERROR; usaldamatu snapshot / konflikt / tundmatu rike → WARN; teadaolev jääk (ülevaatus, vigased read, pildivead …) → WARN ainult siis, kui see kasvas võrreldes eelmise eduka sync'iga, muidu INFO. Näide 14.10 17:00: kõik kolm sync'i WARN → INFO (jääk muutumatu).
+- **Probleem:** drizzle'i `sql\`\`` mall kaotab regulaaravaldise kaldkriipsud (`\s` → `s`) — "Missing Keyboard" SQL-kontroll ei leidnud kunagi midagi. Regulaaravaldis on nüüd SQL-parameeter; "Klaviatuur puudub" 0 → 5, "Tundmatu klaviatuur" (kõik) 238 → 233.
+- Hinnavalemit, KM-i ega arvestust ei muudetud. Migratsioone pole. **Testid:** 780 → 813.
+
+---
+
 ## 2026-10-13 — Piltide rikastus: madala riskiga parandused
 
 **Miks:** diagnostika näitas, et 114 / 394 müügis mudelit on pildita ja 59 on 1–4 pildiga; põhjused olid kitsad ja parandatavad.

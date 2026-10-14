@@ -8,11 +8,11 @@ Poe haldusliides aadressil `/admin`. Selles dokumendis on kirjas, kuidas admin o
 
 | Leht | Aadress | Mida teeb |
 | --- | --- | --- |
-| Töölaud | `/admin` | Kataloogi, piltide, andmekvaliteedi, hindade ja süsteemi mõõdikud (ainult päris andmed) |
+| Töölaud | `/admin` | **Müügis** (poes nähtav) konfiguratsioonid tarnija kaupa, mudelid, kliendihind; andmekvaliteet müügis; tellimused, sooduskoodid, vead 24 h |
 | Mudelid | `/admin/products/models` (+ `/[id]`) | Otsing, filtrid, sorteerimine, bulk-toimingud; mudeli andmete parandamine, staatus, esiletõstmine, kirjeldus |
 | Konfiguratsioonid | `/admin/products/listings` (+ `/[id]`) | Tarnija pakkumised; riistvara, seisukorra, laoseisu, ostu- ja müügihinna parandamine |
 | Pildid | `/admin/images` (+ `/[modelId]`) | Pildikate, põhipilt, järjekord, peitmine; Icecati toimingud |
-| Andmekvaliteet | `/admin/data-quality` | Probleemide kategooriad → filtreeritud nimekiri → "Paranda" |
+| Andmekvaliteet | `/admin/data-quality` (`?scope=all`) | Skoop **Müügis / Kõik**; kategooriad → filtreeritud nimekiri (skoop säilib) → detail |
 | Tarnijad | `/admin/suppliers` | Laptopid.ee sync: viimane edukas sync, saadud / uued / muutunud / maha võetud / vigased, vahele jäetud tooted, käivituste ajalugu, **Sync now** — vt §16 ja [LAPTOPID_SYNC.md](LAPTOPID_SYNC.md) |
 | Hinnastamine | `/admin/pricing` | Hinnareeglid, eelvaade, eraldi rakendamine kinnitusega |
 | Sooduskoodid | `/admin/discounts` (+ `/new`, `/[id]`) | Koodid, tingimused, kehtivus, piirangud, eelvaade, duplikaat, arhiveerimine — vt §14 ja [DISCOUNTS.md](DISCOUNTS.md) |
@@ -181,6 +181,18 @@ Icecati import kasutab nüüd `DbImageRepository`-t (PostgreSQL), mis on sama li
 
 ## 8. Andmekvaliteet
 
+### Skoop "Müügis" ja poes nähtavus (2026-10-14)
+
+**Üks reegel:** `storefrontVisibility(model, listing)` (`src/server/catalog/db-catalog-mapper.ts`) — sama funktsioon, mida poe mapper (`mapCatalogRows`) kasutab. Tingimused järjekorras: konfiguratsioon aktiivne → mudel aktiivne → `quality_hold` puudub (efektiivne; nt Foxway Grade C / BLOCK-rike, REVIEW) → saadaval (`availability.ts` → `resolveStock`) → kohustuslikud andmed (CPU, RAM, SSD, lubatud seisukord, müügihind, ekraan, tootja). Esimene mittetäidetud tingimus on põhjus.
+
+- **Müügis** = poes nähtavad pakkumised ja mudelid, millel on vähemalt üks nähtav pakkumine. Arvutatakse poe enda lugemisteest (`server/admin/sellable.ts` → `getSellableSnapshot`, üks kord päringu kohta), mitte paralleelse SQL-reegliga. Sealt tulevad ka poe koondgalerii piltide arv ja kliendihind (täiseurod).
+- **Andmekvaliteet** on vaikimisi "Müügis"; "Kõik" näitab kogu andmebaasi (ka peidetud, arhiveeritud, laoseisuta, kinni peetud). Iga kategooria link viib nimekirja sama skoobiga (`?issue=…&scope=sellable`, `domain/admin/scope.ts`).
+- **Konfiguratsiooni leht:** plokk "Poes nähtavus" (✓/✕ iga tingimus, põhjus, tarne "Poes kohapeal" / "Tarne 2–4 päeva", "täpne kogus teadmata", kliendihind). "Vaata poes ↗" ainult nähtaval pakkumisel. Tekstid: `domain/admin/visibility.ts` (ainult kuvamine).
+- **Nimekirjad:** filter "Poes" (Müügis / Poes ei kuvata), konfiguratsioonide veerud Tarnija ja Poes (lühike põhjus, täpsem tooltipis), mudeli filter otsinguga (`model-combobox.tsx`).
+- **Hinnad adminis:** tarnija/toorhind sentides (`fmtCents`), **kliendihind täiseurodes** nagu poes (`fmtCustomerPrice` → `roundToEuro`). "Brutovahe (müük − ost)" ei ole netomarginaal (KM ja kulud arvestamata).
+- **Kiirusindeks:** kategooriad "CPU/GPU kiirusindeks puudub", "CPU maks. sagedus puudub" — sama reegel mis tooteleht (`effectivePerformance`); SQL ja JS vastavust kontrollib `sellable-scope.test.ts`.
+
+
 Kontrollid töötavad SQL-is **efektiivsete väärtuste** järgi, seega parandatud väli pole enam probleem:
 
 | Mudelid | Konfiguratsioonid |
@@ -268,10 +280,11 @@ Täielik kirjeldus: [ORDERS.md](ORDERS.md#12-admin).
 
 Täielik kirjeldus: [LAPTOPID_SYNC.md](LAPTOPID_SYNC.md).
 
-- **`/admin/suppliers`:** "Sync'i seis" (viimane edukas sync + vanus, viimase käivituse tulemus, saadud / muutunud / maha võetud / vead) ja hoiatus **"Automaatne sünkroonimine ei ole ajakohane."**, kui edukas sync on Eesti aja järgi päeval üle 45 min / öösel üle 150 min vana (ainult adminis); API võtme olek, viimane edukas sync ja selle arvud (saadud, uued, muutunud, maha võetud, vigased), pakkumiste arv andmebaasis (saadaval / mitte saadaval), teiste tarnijate aktiivsed pakkumised, automaatse sync'i olek, viimases sync'is vahele jäetud tooted koos põhjusega ja viimase 10 käivituse tabel.
-- **Sync now:** sama kaitse nagu teistel admini toimingutel (`runAdminAction`: sessioon + päritolu). Vahemälu tühjendatakse alati (`updateTag('catalog')`). Valik **"Luba suur muutus"** lubab maha võtta rohkem tooteid, kui ohutuspiir lubab (kui need on Laptopid.ee-st päriselt kadunud).
+- **`/admin/suppliers`:** "Laptopid.ee sync'i seis" (viimane edukas sync + vanus, viimase käivituse tulemus, saadud / muutunud / maha võetud / vead) ja hoiatus **"Automaatne sünkroonimine ei ole ajakohane."**, kui edukas sync on Eesti aja järgi päeval üle 45 min / öösel üle 150 min vana (ainult adminis); API võtme olek, viimane edukas sync ja selle arvud (saadud, uued, muutunud, maha võetud, vigased), pakkumiste arv andmebaasis (saadaval / mitte saadaval), poes nähtavad Laptopid.ee pakkumised (sama reegel mis pood), automaatse sync'i olek (QStash ajastus), viimases sync'is vahele jäetud tooted koos põhjusega ja viimase 10 käivituse tabel.
+- **Sync now:** sama kaitse nagu teistel admini toimingutel (`runAdminAction`: sessioon + päritolu). Vahemälu tühjendatakse alati (`updateTag('catalog')`). Valik **"Luba suur muutus"** lubab maha võtta rohkem tooteid, kui ohutuspiir lubab (kui need on Laptopid.ee-st päriselt kadunud). **Kinnitusdialoog** (2026-10-14) näitab enne käivitamist tarnijat, tegevust ja kas suur muutus on lubatud (lubatud → punane nupp); sama kõigil kolmel tarnijal. Ka "Rikasta kataloogi" küsib kinnitust.
+- **Logitase** (`domain/catalog/sync-log-level.ts`, kõik tarnijad): FAILED → ERROR; usaldamatu snapshot, konflikt või tundmatu rikketekst → WARN; teadaolev jääk (ülevaatus, vigased read, pildivead, tundmatud märkused …) → WARN ainult siis, kui see kasvas võrreldes eelmise eduka sync'iga, muidu INFO.
 - **Audit:** `laptopid.sync` (käivitaja, tulemus, kas suur muutus lubati). Detailid on süsteemilogis (allikas LAPTOPID).
-- **Konfiguratsiooni leht:** Laptopid pakkumisel näidatakse saadavust ("Saadaval (kogus teadmata)"), hinna allikat ja viimast nimekirjas olemise aega. Müügihinda saab parandada (tarnija väärtus jääb nähtavale, "Taasta" viib tagasi).
+- **Konfiguratsiooni leht:** Laptopid pakkumisel näidatakse saadavust ("Poes kohapeal — täpne kogus teadmata"), hinna allikat ja viimast nimekirjas olemise aega. Müügihinda saab parandada (tarnija väärtus jääb nähtavale, "Taasta" viib tagasi).
 - **Andmekvaliteet:** "Puudub laoseis" ei rakendu pakkumistele, mille saadavuse tarnija kinnitab ilma koguseta.
 
 ## 17. Tarnijad (Tech hinnakiri)
