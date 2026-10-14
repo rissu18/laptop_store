@@ -197,13 +197,13 @@ describe.skipIf(!hasTestDatabase)("admin", () => {
   describe("andmekvaliteet", () => {
     it("SQL-i kontrollid arvestavad parandusi ja vastavad domeeni reeglitele", async () => {
       const { getDataQualityCounts } = await import("./data-quality/queries");
-      const before = await getDataQualityCounts();
+      const before = await getDataQualityCounts("all");
       const missingCpu = () => before.listings.find((i) => i.key === "missing-cpu")!.count;
       expect(missingCpu()).toBe(0);
 
-      // Parandus "puudub" (null) muudab efektiivse väärtuse puuduvaks
+      // Parandus "puudub" (null) muudab efektiivse väärtuse puuduvaks — skoop "Kõik" (pakkumine pole enam poes, seega "Müügis" seda ei loe)
       await t.db.update(supplierListings).set({ manualOverrides: { cpu: null } }).where(eq(supplierListings.id, listing.id));
-      const after = await getDataQualityCounts();
+      const after = await getDataQualityCounts("all");
       expect(after.listings.find((i) => i.key === "missing-cpu")!.count).toBe(1);
       expect(before.models.find((i) => i.key === "icecat-not-found")!.count).toBe(3);
       await t.db.update(supplierListings).set({ manualOverrides: {} }).where(eq(supplierListings.id, listing.id));

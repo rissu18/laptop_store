@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { IcecatPanel } from "@/components/admin/icecat-panel";
 import { ImageManager } from "@/components/admin/image-manager";
 import { EmptyState, PageHeader } from "@/components/admin/ui";
+import { adminModelTitle } from "@/domain/admin/display";
 import { getModelImages } from "@/server/admin/images/queries";
 import { uuidParam } from "@/server/admin/search-params";
 
@@ -18,7 +19,7 @@ export default async function ModelImagesPage({ params }: PageProps<"/admin/imag
   const data = await getModelImages(id);
   if (!data) notFound();
   const { model, images, icecat } = data;
-  const title = `${model.family} ${model.model}`;
+  const title = adminModelTitle(model);
 
   return (
     <>

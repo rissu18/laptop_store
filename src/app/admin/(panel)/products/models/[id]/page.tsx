@@ -4,15 +4,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DataTable } from "@/components/admin/data-table";
 import { EntityEditForm, type FormSection } from "@/components/admin/entity-form";
-import { fmtCents, fmtDateTime, fmtGb, toDisplay, toInput } from "@/components/admin/format";
+import { fmtCustomerPrice, fmtDateTime, fmtGb, toDisplay, toInput } from "@/components/admin/format";
 import { IcecatPanel } from "@/components/admin/icecat-panel";
 import { Badge, Card, DefinitionList, Missing, PageHeader, StatusBadge } from "@/components/admin/ui";
 import { LISTING_ISSUES, listingIssuesOf } from "@/domain/admin/data-quality-rules";
+import { adminModelTitle, supplierLabel } from "@/domain/admin/display";
 import { CATALOG_STATUS_VALUES, STATUS_LABELS } from "@/domain/admin/product-edit";
 import { BRAND_CODES, BRAND_NAMES } from "@/domain/catalog/types";
 import { updateModelAction } from "@/server/admin/products/actions";
 import { getModelDetail } from "@/server/admin/products/queries";
 import { uuidParam } from "@/server/admin/search-params";
+import { describeVisibility } from "@/server/admin/sellable";
 
 /** Admin on alati päringupõhine (sessioon, värsked andmed) — eelrenderdust ega "instant" navigeerimist ei kasutata. */
 export const instant = false;
@@ -49,7 +51,8 @@ export default async function ModelDetailPage({ params }: PageProps<"/admin/prod
   const data = await getModelDetail(id);
   if (!data) notFound();
   const { effective: model, supplier, overrides, identifiers, icecat, listings, images } = data;
-  const title = `${model.family} ${model.model}`;
+  const title = adminModelTitle(model);
+  const sellableCount = listings.filter(({ visibility }) => visibility.visible).length;
   const visibleImages = images.filter((image) => !image.isHidden);
 
   const defaults = Object.fromEntries(SECTIONS.flatMap((s) => s.fields).map((f) => [f.name, toInput((model as Record<string, unknown>)[f.name])]));
@@ -71,7 +74,7 @@ export default async function ModelDetailPage({ params }: PageProps<"/admin/prod
             <StatusBadge status={model.status} />
             {model.featured && <Badge tone="primary">Esiletõstetud</Badge>}
             <span>Slug: {model.slug}</span>
-            {model.status === "ACTIVE" && (
+            {sellableCount > 0 && (
               <Link href={`/toode/${model.slug}`} target="_blank" rel="noopener" className="text-primary hover:underline">
                 Vaata poes ↗
               </Link>
@@ -94,7 +97,7 @@ export default async function ModelDetailPage({ params }: PageProps<"/admin/prod
           />
 
           <Card
-            title={`Konfiguratsioonid (${listings.length})`}
+            title={`Konfiguratsioonid (${sellableCount} poes / ${listings.length})`}
             actions={
               <Link href={`/admin/products/listings?model=${model.id}`} className="text-sm text-primary hover:underline">
                 Ava nimekirjas
@@ -117,12 +120,20 @@ export default async function ModelDetailPage({ params }: PageProps<"/admin/prod
                     </Link>
                   ),
                 },
+                { key: "supplier", header: "Tarnija", cell: ({ raw }) => supplierLabel(raw.supplier) },
+                {
+                  key: "shop",
+                  header: "Poes",
+                  cell: ({ raw, visibility }) => {
+                    const poes = describeVisibility(raw, model, visibility);
+                    return poes.visible ? <Badge tone="success">✓</Badge> : <span title={poes.reason?.detail}><Badge tone="neutral">✕ {poes.reason?.short}</Badge></span>;
+                  },
+                },
                 { key: "cpu", header: "CPU", cell: ({ effective }) => effective.cpu ?? <Missing /> },
                 { key: "ram", header: "RAM / SSD", cell: ({ effective }) => `${fmtGb(effective.ramGb) ?? "?"} / ${fmtGb(effective.storageGb) ?? "?"}` },
                 { key: "grade", header: "Seisukord", cell: ({ effective }) => effective.grade ?? <Missing /> },
                 { key: "stock", header: "Laos", align: "right", cell: ({ effective }) => effective.stock ?? (effective.available === true ? "saadaval" : effective.available === false ? "ei" : <Missing />) },
-                { key: "price", header: "Hind", align: "right", cell: ({ effective }) => fmtCents(effective.salePriceCents) ?? <Missing /> },
-                { key: "status", header: "Staatus", cell: ({ effective }) => <StatusBadge status={effective.status} /> },
+                { key: "price", header: "Kliendihind", align: "right", cell: ({ effective }) => fmtCustomerPrice(effective.salePriceCents) ?? <Missing /> },
               ]}
             />
           </Card>

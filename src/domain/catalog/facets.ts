@@ -113,7 +113,7 @@ export function deliveryFilterValue(variant: Pick<CatalogVariant, "stock" | "del
   return variant.delivery ? `${variant.delivery.minDays}-${variant.delivery.maxDays}` : null;
 }
 
-function deliveryFilterLabel(value: string): string {
+export function deliveryFilterLabel(value: string): string {
   if (value === IN_STORE_DELIVERY) return "Poes kohapeal";
   const [, min, max] = value.match(DELIVERY_RANGE) ?? [];
   if (!min) return value;

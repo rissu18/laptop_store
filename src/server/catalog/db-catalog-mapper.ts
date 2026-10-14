@@ -169,6 +169,45 @@ export function galleryCandidatesByModel(
   return candidates;
 }
 
+/** Poe nähtavuse tingimused (järjekorras) — üks reegel poele, ostukorvile, kassale ja adminile. */
+export const VISIBILITY_CHECKS = ["listingStatus", "modelStatus", "qualityHold", "availability", "requiredFields"] as const;
+export type VisibilityCheck = (typeof VISIBILITY_CHECKS)[number];
+
+
+export interface StorefrontVisibility<L extends ListingRow = ListingRow> {
+  visible: boolean;
+  /** Esimene mittetäidetud tingimus (null = poes nähtav) */
+  blockedBy: VisibilityCheck | null;
+  checks: Record<VisibilityCheck, boolean>;
+  /** Efektiivne pakkumine: admini parandus ?? tarnija ?? rikastus — sama, mida pood kuvab */
+  listing: L;
+  /** Efektiivne kinnipidamine (REVIEW / BLOCKED) või null */
+  qualityHold: string | null;
+  stock: ReturnType<typeof resolveStock>;
+  missing: string[];
+}
+
+/**
+ * Kas pakkumine on poes nähtav ja miks mitte. `model` = efektiivne mudel (effectiveModel), `raw` = andmebaasi rida.
+ * Poe mapper (mapCatalogRows) kasutab sama funktsiooni — admin ei kirjuta paralleelset reeglit.
+ */
+export function storefrontVisibility<L extends ListingRow>(model: ModelRow, raw: L): StorefrontVisibility<L> {
+  // Efektiivne: admini parandus ?? tarnija ?? rikastus (enrich:catalog; lehe renderdamisel välisallikaid ei küsita)
+  const listing = applyListingEnrichment(effectiveListing(raw), raw.enrichment);
+  const stock = resolveStock({ stock: listing.stock, available: listing.available });
+  const missing = missingStorefrontFields(model, listing);
+  const checks: Record<VisibilityCheck, boolean> = {
+    listingStatus: raw.status === "ACTIVE",
+    modelStatus: model.status === "ACTIVE",
+    // Kinni peetud (ülevaatus / blokeeritud rike, nt Foxway Grade C) → poes, ostukorvis ega kassas ei kuvata
+    qualityHold: !listing.qualityHold,
+    availability: stock.available,
+    requiredFields: missing.length === 0,
+  };
+  const blockedBy = VISIBILITY_CHECKS.find((check) => !checks[check]) ?? null;
+  return { visible: blockedBy === null, blockedBy, checks, listing, qualityHold: listing.qualityHold ?? null, stock, missing };
+}
+
 export function mapCatalogRows(
   models: ModelRow[],
   listings: ListingRow[],
@@ -183,19 +222,14 @@ export function mapCatalogRows(
 
   for (const raw of listings) {
     const model = modelById.get(raw.productModelId);
-    if (!model || model.status !== "ACTIVE" || raw.status !== "ACTIVE") continue;
-    // Efektiivne: admini parandus ?? tarnija ?? rikastus (enrich:catalog; lehe renderdamisel välisallikaid ei küsita)
-    const listing = applyListingEnrichment(effectiveListing(raw), raw.enrichment);
-    // Kinni peetud (ülevaatus / blokeeritud rike) → poes, ostukorvis ega kassas ei kuvata
-    if (listing.qualityHold) continue;
-    const stock = resolveStock({ stock: listing.stock, available: listing.available });
-    if (!stock.available) continue;
-
-    const missing = missingStorefrontFields(model, listing);
-    if (missing.length) {
-      incomplete.push({ sku: listing.sku, missing });
+    if (!model) continue;
+    const visibility = storefrontVisibility(model, raw);
+    if (!visibility.visible) {
+      // Puudulik (muidu müüdav) pakkumine → admin näeb seda Data Quality all
+      if (visibility.blockedBy === "requiredFields") incomplete.push({ sku: raw.sku, missing: visibility.missing });
       continue;
     }
+    const { listing, stock } = visibility;
 
     let product = products.get(model.id);
     if (!product) {

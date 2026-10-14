@@ -3,8 +3,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EntityEditForm, type FormSection } from "@/components/admin/entity-form";
 import { FoxwayListingCard } from "@/components/admin/foxway-listing-card";
-import { fmtCents, fmtDateTime, toDisplay, toInput } from "@/components/admin/format";
-import { Card, DefinitionList, PageHeader, StatusBadge } from "@/components/admin/ui";
+import { fmtCents, fmtCustomerPrice, fmtDateTime, toDisplay, toInput } from "@/components/admin/format";
+import { ShopVisibility } from "@/components/admin/shop-visibility";
+import { Badge, Card, DefinitionList, PageHeader, StatusBadge } from "@/components/admin/ui";
+import { adminModelTitle, supplierLabel } from "@/domain/admin/display";
+import { storefrontHref } from "@/domain/admin/visibility";
 import { LISTING_ISSUES, listingIssuesOf } from "@/domain/admin/data-quality-rules";
 import { CATALOG_STATUS_VALUES, STATUS_LABELS } from "@/domain/admin/product-edit";
 import { KEYBOARD_REGISTRY } from "@/domain/catalog/keyboard";
@@ -13,6 +16,7 @@ import { GRADE_CODES } from "@/domain/grade/grades";
 import { updateListingAction } from "@/server/admin/products/actions";
 import { getListingDetail } from "@/server/admin/products/queries";
 import { uuidParam } from "@/server/admin/search-params";
+import { describeVisibility } from "@/server/admin/sellable";
 import { publicListingId } from "@/server/db/seed/seed-catalog";
 
 /** Admin on alati päringupõhine (sessioon, värsked andmed) — eelrenderdust ega "instant" navigeerimist ei kasutata. */
@@ -65,7 +69,7 @@ const SECTIONS: FormSection[] = [
   },
   {
     title: "Hind ja nähtavus",
-    description: "Müügihind ja staatus on admini väljad. Hinnareeglite rakendamine (Hinnastamine) võib müügihinda muuta.",
+    description: "Müügihind ja staatus on admini väljad. Hinnastamise reeglid muudavad ainult ostuhinnast hinnastatavaid pakkumisi (Laptopid.ee, Techvision ja Foxway annavad hinna ise — neid Hinnastamine ei puuduta). Kliendile kuvatakse hind täiseurodes.",
     fields: [
       { name: "supplierPriceCents", label: "Ostuhind", type: "euro", overridable: true },
       { name: "salePriceCents", label: "Müügihind", type: "euro", hint: "Tühi = puudub (pakkumine ei jõua poodi)" },
@@ -102,7 +106,10 @@ export default async function ListingDetailPage({ params }: PageProps<"/admin/pr
   if (!id) notFound();
   const data = await getListingDetail(id);
   if (!data) notFound();
-  const { effective: listing, supplier, overrides, model, units } = data;
+  const { effective: listing, supplier, overrides, model, units, visibility } = data;
+  const poes = describeVisibility(supplier, model, visibility);
+  const shopHref = storefrontHref({ visible: poes.visible, modelSlug: model.slug, publicListingId: publicListingId(listing.supplier, listing.supplierProductId) });
+  const techKeyboardUnknown = listing.supplier === "tech" && !listing.keyboard;
   const sections = sectionsFor(listing.priceSource, supplier.supplierPriceCents !== null);
   const sourcePriceCents = typeof listing.details?.sourcePriceCents === "number" ? listing.details.sourcePriceCents : null;
   const activeUnits = units.filter((u) => u.available);
@@ -120,17 +127,34 @@ export default async function ListingDetailPage({ params }: PageProps<"/admin/pr
         description={
           <span className="flex flex-wrap items-center gap-2">
             <StatusBadge status={listing.status} />
+            <Badge>{supplierLabel(listing.supplier)}</Badge>
             <Link href={`/admin/products/models/${model.id}`} className="text-primary hover:underline">
-              {model.family} {model.model}
+              {adminModelTitle(model)}
             </Link>
-            {listing.status === "ACTIVE" && model.status === "ACTIVE" && (
-              <Link href={`/toode/${model.slug}?konfiguratsioon=${publicListingId(listing.supplier, listing.supplierProductId)}`} target="_blank" rel="noopener" className="text-primary hover:underline">
+            {shopHref ? (
+              <Link href={shopHref} target="_blank" rel="noopener" className="text-primary hover:underline">
                 Vaata poes ↗
               </Link>
+            ) : (
+              <span className="text-muted">Poes ei kuvata</span>
             )}
           </span>
         }
       />
+      <ShopVisibility
+        visible={poes.visible}
+        checks={poes.checks}
+        reason={poes.reason}
+        deliveryLabel={poes.deliveryLabel}
+        quantityUnknown={poes.quantityUnknown}
+        customerPrice={fmtCustomerPrice(listing.salePriceCents)}
+        shopHref={shopHref}
+      />
+      {techKeyboardUnknown && (
+        <p className="mb-6 rounded-md border border-border bg-surface px-4 py-3 text-sm">
+          <strong>Klaviatuur teadmata:</strong> Techvisioni hinnakirjas klaviatuuripaigutuse andmed puuduvad. Paigutust ei arvata — kui seade on kontrollitud, saab selle allpool parandusena määrata.
+        </p>
+      )}
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <EntityEditForm
           key={listing.updatedAt.toISOString()}
@@ -192,16 +216,17 @@ export default async function ListingDetailPage({ params }: PageProps<"/admin/pr
             )}
           </Card>
           {(sourcePriceCents !== null || units.length > 0) && (
-            <Card title={listing.supplier === "tech" ? "Tech hinnakiri" : "Tarnija seadmed"} description="Ainult adminile — seerianumbreid kliendile ei näidata.">
+            <Card title={listing.supplier === "tech" ? "Techvisioni hinnakiri" : "Tarnija seadmed"} description="Ainult adminile — seerianumbreid kliendile ei näidata.">
               <DefinitionList
                 items={[
-                  { label: "Tarnija", value: listing.supplier === "tech" ? "Tech" : listing.supplier },
+                  { label: "Tarnija", value: supplierLabel(listing.supplier) },
                   ...(sourcePriceCents !== null
                     ? [
                         { label: "Hinnakirja hind (M)", value: fmtCents(sourcePriceCents) },
                         { label: "Ostuhind (M − 20 €)", value: fmtCents(supplier.supplierPriceCents) },
                         { label: "Müügihind (M + 60 €)", value: fmtCents(supplier.salePriceCents) },
                         { label: "Kehtiv müügihind", value: overrides.salePriceCents !== undefined ? `${fmtCents(listing.salePriceCents)} (admini parandus)` : fmtCents(listing.salePriceCents) },
+                        { label: "Kliendihind (poes)", value: fmtCustomerPrice(listing.salePriceCents) },
                       ]
                     : []),
                   { label: "Laoseis (täpne)", value: listing.stock === null ? null : `${listing.stock} tk` },
@@ -230,15 +255,15 @@ export default async function ListingDetailPage({ params }: PageProps<"/admin/pr
           <Card title="Tarnija">
             <DefinitionList
               items={[
-                { label: "Tarnija", value: listing.supplier },
+                { label: "Tarnija", value: supplierLabel(listing.supplier) },
                 { label: "Tarnija SKU", value: listing.supplierSku },
                 { label: "Seisukord (tarnija algne)", value: listing.details?.sourceGrade ?? null },
-                { label: "Saadavus", value: listing.available === null ? null : listing.available ? (listing.stock === null ? "Saadaval (kogus teadmata)" : "Saadaval") : "Ei ole saadaval (puudus tarnija nimekirjast)" },
+                { label: "Saadavus", value: listing.available === null ? null : listing.available ? (listing.stock === null ? (poes.deliveryLabel === "Poes kohapeal" ? "Poes kohapeal — täpne kogus teadmata" : "Saadaval (kogus teadmata)") : "Saadaval") : "Ei ole saadaval (puudus tarnija nimekirjast)" },
                 { label: "Hinna allikas", value: listing.priceSource === "SUPPLIER" ? "Tarnija müügihind" : "Hinnastamine (ostuhinnast)" },
                 { label: "Viimati tarnija nimekirjas", value: fmtDateTime(listing.lastSeenAt) },
                 { label: "Käibemaksu režiim", value: listing.vatScheme },
                 { label: "Tarneaeg", value: listing.deliveryMinDays !== null ? `${listing.deliveryMinDays}–${listing.deliveryMaxDays} päeva` : null },
-                { label: "Marginaal (müük − ost)", value: fmtCents(margin) },
+                { label: "Brutovahe (müük − ost)", value: margin === null ? null : <span>{fmtCents(margin)} <span className="block text-xs text-muted">Ei ole netomarginaal: käibemaks ja kulud on arvestamata.</span></span> },
                 { label: "Esimest korda nähtud", value: fmtDateTime(listing.firstSeenAt) },
                 { label: "Viimane sync", value: fmtDateTime(listing.lastSyncedAt) },
                 { label: "Muudetud", value: fmtDateTime(listing.updatedAt) },

@@ -4,7 +4,8 @@ import { BulkActionBar } from "@/components/admin/bulk-actions";
 import { DataTable, type Column } from "@/components/admin/data-table";
 import { FilterForm, SearchField, SelectFilter } from "@/components/admin/filters";
 import { Pagination } from "@/components/admin/pagination";
-import { Badge, Missing, PageHeader, StatusBadge } from "@/components/admin/ui";
+import { Badge, PageHeader, StatusBadge } from "@/components/admin/ui";
+import { adminModelTitle } from "@/domain/admin/display";
 import { MODEL_ISSUES, type ModelIssue } from "@/domain/admin/data-quality-rules";
 import { CATALOG_STATUS_VALUES } from "@/domain/admin/product-edit";
 import { BRAND_CODES, BRAND_NAMES, type BrandCode } from "@/domain/catalog/types";
@@ -27,17 +28,31 @@ const columns: Column<Row>[] = [
     mobile: "title",
     cell: (row) => (
       <Link href={`/admin/products/models/${row.model.id}`} className="font-medium text-primary hover:underline">
-        {row.model.family} {row.model.model}
+        {adminModelTitle(row.model)}
       </Link>
     ),
   },
   { key: "brand", header: "Tootja", cell: (row) => BRAND_NAMES[row.model.manufacturer as BrandCode] ?? row.model.manufacturer },
   { key: "status", header: "Staatus", cell: (row) => <StatusBadge status={row.model.status} /> },
   { key: "featured", header: "Esiletõstetud", cell: (row) => (row.model.featured ? <Badge tone="primary">Jah</Badge> : <span className="text-muted">—</span>) },
-  { key: "listings", header: "Konfiguratsioone", align: "right", cell: (row) => `${row.activeListingCount} / ${row.listingCount}` },
-  { key: "images", header: "Pilte", align: "right", cell: (row) => (row.imageCount > 0 ? row.imageCount : <Badge tone="warning">0</Badge>) },
+  {
+    key: "listings",
+    header: "Poes / kokku",
+    align: "right",
+    cell: (row) => (row.sellableListingCount > 0 ? `${row.sellableListingCount} / ${row.listingCount}` : <span title="Ükski konfiguratsioon pole poes nähtav">0 / {row.listingCount}</span>),
+  },
+  {
+    key: "images",
+    header: "Pilte poes",
+    align: "right",
+    // Poe koondgalerii (müügis mudelil); muidu mudeli enda nähtavad pildid
+    cell: (row) => {
+      const n = row.galleryCount ?? row.imageCount;
+      return n === 0 ? <Badge tone="warning">0</Badge> : n < 5 && row.galleryCount !== null ? <Badge tone="warning">{n}</Badge> : n;
+    },
+  },
   { key: "icecat", header: "Icecat", cell: (row) => <StatusBadge status={row.icecatStatus} /> },
-  { key: "price", header: "Alates", align: "right", cell: (row) => (row.minPrice !== null ? formatEur(row.minPrice) : <Missing />) },
+  { key: "price", header: "Kliendihind alates", align: "right", cell: (row) => (row.minCustomerPrice !== null ? formatEur(row.minCustomerPrice) : <span className="text-muted">poes pole</span>) },
 ];
 
 export default async function ModelsPage({ searchParams }: PageProps<"/admin/products/models">) {
@@ -48,6 +63,7 @@ export default async function ModelsPage({ searchParams }: PageProps<"/admin/pro
     brand: oneOf(sp.brand, BRAND_CODES),
     featured: oneOf(sp.featured, ["yes", "no"] as const),
     issue: oneOf(sp.issue, Object.keys(MODEL_ISSUES) as ModelIssue[]),
+    scope: oneOf(sp.scope, ["sellable", "not-sellable"] as const),
     sort: oneOf(sp.sort, ["name", "updated", "listings"] as const),
   };
   const page = pageNumber(sp.page);
@@ -58,17 +74,18 @@ export default async function ModelsPage({ searchParams }: PageProps<"/admin/pro
       <PageHeader
         title="Mudelid"
         breadcrumbs={[{ label: "Kataloog" }, { label: "Mudelid" }]}
-        description="Tootemudel (nt ThinkPad T14 Gen 3) koondab tarnija konfiguratsioonid ja pildid. Pildid ja kirjeldus on mudeli tasemel."
+        description="Tootemudel (nt ThinkPad T14 Gen 3) koondab tarnija konfiguratsioonid ja pildid. Pildid ja kirjeldus on mudeli tasemel. „Poes“ = konfiguratsioonid, mida pood päriselt näitab; kliendihind täiseurodes nagu poes."
       />
       {filters.issue && (
         <p className="mb-3 rounded-md bg-warning-soft px-3 py-2 text-sm">
-          Filter: <strong>{MODEL_ISSUES[filters.issue].label}</strong> — {MODEL_ISSUES[filters.issue].description}
+          Filter: <strong>{MODEL_ISSUES[filters.issue].label}</strong>{filters.scope === "sellable" && " (ainult müügis mudelid)"} — {MODEL_ISSUES[filters.issue].description}
         </p>
       )}
       <FilterForm action="/admin/products/models" resetHref="/admin/products/models">
         <SearchField defaultValue={filters.q} placeholder="Otsi mudelit…" />
         <SelectFilter name="status" label="Staatus" value={filters.status} options={[{ value: "ACTIVE", label: "Aktiivne" }, { value: "HIDDEN", label: "Peidetud" }, { value: "ARCHIVED", label: "Arhiveeritud" }]} />
         <SelectFilter name="brand" label="Tootja" value={filters.brand} options={BRAND_CODES.map((b) => ({ value: b, label: BRAND_NAMES[b] }))} />
+        <SelectFilter name="scope" label="Poes" value={filters.scope} options={[{ value: "sellable", label: "Müügis" }, { value: "not-sellable", label: "Poes ei kuvata" }]} />
         <SelectFilter name="featured" label="Esiletõstetud" value={filters.featured} options={[{ value: "yes", label: "Jah" }, { value: "no", label: "Ei" }]} />
         <SelectFilter name="issue" label="Probleem" value={filters.issue} options={Object.entries(MODEL_ISSUES).map(([value, { label }]) => ({ value, label }))} />
         <SelectFilter name="sort" label="Järjestus" value={filters.sort} options={[{ value: "name", label: "Nimi" }, { value: "listings", label: "Konfiguratsioone" }, { value: "updated", label: "Viimati muudetud" }]} />
