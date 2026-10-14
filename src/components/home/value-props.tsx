@@ -1,7 +1,8 @@
 import { Layers, Store, type LucideIcon } from "lucide-react";
 import type { TrustItem } from "@/config/store";
 import { formatEur } from "@/domain/money/money";
-import { roundedCountLabel, SHOWROOM } from "@/domain/storefront/showroom";
+import { configurationCountLabel } from "@/domain/storefront/count-labels";
+import { SHOWROOM } from "@/domain/storefront/showroom";
 import { Container } from "@/components/ui/container";
 import { TRUST_ICONS } from "@/components/layout/site-header";
 
@@ -14,7 +15,7 @@ interface Highlight {
 
 /**
  * Kompaktne usaldusriba hero all. Ainult tõestatavad väited:
- *  - salongi arv ja valiku suurus tulevad kataloogist (ümardatud allapoole, `roundedCountLabel`);
+ *  - salongi arv ja valiku suurus tulevad kataloogist (täpsed konfiguratsioonide arvud, sama mis kataloogi filtrites);
  *  - taganemisõigus ja tarne tulevad admini usaldusriba seadetest (sama tekst mis headeris).
  * Garantii pikkust siin ei väideta — see on iga toote juures eraldi (tarnija andmetest).
  */
@@ -25,18 +26,18 @@ export function ValueProps({
   stats: { count: number; minPriceCents: number | null; immediateCount: number };
   trustItems: TrustItem[];
 }) {
-  const immediate = roundedCountLabel(stats.immediateCount);
   const highlights: Highlight[] = [
-    immediate !== null && {
+    stats.immediateCount > 0 && {
       key: "showroom",
       icon: Store,
-      title: `${immediate} sülearvutit kohapeal`,
+      // Sama arv mis kataloogi filtris "Poes kohapeal" (konfiguratsioonid, mitte seadmete koguarv)
+      title: `${configurationCountLabel(stats.immediateCount)} kohapeal`,
       detail: `Salongis ${SHOWROOM.addressShort}`,
     },
     stats.count > 0 && {
       key: "selection",
       icon: Layers,
-      title: `${stats.count} konfiguratsiooni valikus`,
+      title: `${configurationCountLabel(stats.count)} valikus`,
       detail: stats.minPriceCents !== null ? `Hinnad alates ${formatEur(stats.minPriceCents)}` : "Lenovo, Dell, HP ja teised",
     },
     ...trustItems

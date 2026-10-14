@@ -2,6 +2,7 @@ import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import type { BusinessSeriesGroup } from "@/domain/catalog/business-series";
 import { formatEur } from "@/domain/money/money";
+import { configurationCountLabel } from "@/domain/storefront/count-labels";
 
 /**
  * "Populaarsed äriklassi seeriad" tootjate kaupa. Arvud ja hinnad päris kataloogist; link avab
@@ -28,7 +29,7 @@ export function BusinessSeries({ groups }: { groups: BusinessSeriesGroup[] }) {
                   <span className="min-w-0 flex-1">
                     <span className="block font-semibold group-hover:text-primary">{series.label}</span>
                     <span className="tabular block text-xs text-muted">
-                      {series.count} sülearvutit · alates {formatEur(series.minPriceCents)}
+                      {configurationCountLabel(series.count)} · alates {formatEur(series.minPriceCents)}
                     </span>
                   </span>
                   <ChevronRight className="size-4 shrink-0 text-subtle group-hover:text-primary" aria-hidden />

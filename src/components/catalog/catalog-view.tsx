@@ -38,7 +38,7 @@ export function CatalogView() {
 
         <div id={RESULTS_ANCHOR_ID} className="flex scroll-mt-20 flex-wrap items-center justify-between gap-3 py-4">
           <p className="text-sm text-muted" aria-live="polite">
-            <strong className="tabular text-base font-semibold text-text">{total}</strong> {total === 1 ? "sülearvuti" : "sülearvutit"}
+            <strong className="tabular text-base font-semibold text-text">{total}</strong> {total === 1 ? "konfiguratsioon" : "konfiguratsiooni"}
           </p>
           <SortSelect query={query} className="hidden w-56 lg:flex" />
         </div>

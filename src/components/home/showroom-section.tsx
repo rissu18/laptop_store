@@ -1,7 +1,8 @@
 import { Check, Clock, MapPin, Phone } from "lucide-react";
 import Image from "next/image";
 import { COMPANY } from "@/config/company";
-import { roundedCountLabel, SHOWROOM } from "@/domain/storefront/showroom";
+import { configurationCountLabel } from "@/domain/storefront/count-labels";
+import { SHOWROOM } from "@/domain/storefront/showroom";
 import { SHOWROOM_PHOTOS } from "@/components/brand/showroom-photos";
 import { ButtonLink } from "@/components/ui/button";
 import { Container } from "@/components/ui/container";
@@ -16,7 +17,7 @@ const POINTS = [
 /** Avalehe salongiplokk (brändi visuaalne ankur). id="salong" — hero link "Vaata salongi". */
 export function ShowroomSection({ immediateCount }: { immediateCount: number }) {
   const photo = SHOWROOM_PHOTOS.wide;
-  const count = roundedCountLabel(immediateCount);
+  const count = immediateCount > 0 ? configurationCountLabel(immediateCount) : null;
   return (
     <Container className="py-10">
       <section
@@ -37,7 +38,7 @@ export function ShowroomSection({ immediateCount }: { immediateCount: number }) 
         <div className="flex flex-col justify-center p-6 sm:p-10">
           <p className="text-sm font-semibold text-primary">Salong Tallinnas</p>
           <h2 id="salong-pealkiri" className="mt-1 text-balance text-2xl font-bold tracking-tight sm:text-3xl">
-            {count ? `${count} sülearvutit meie Tallinna salongis` : "Vaata ja võrdle enne ostu kohapeal"}
+            {count ? `${count} kohapeal meie Tallinna salongis` : "Vaata ja võrdle enne ostu kohapeal"}
           </h2>
           <p className="mt-3 text-body">Tule vaatama ja võrdle mudeleid kõrvuti enne ostu — veebis valitud sülearvuti saad üle vaadata kohapeal.</p>
           <ul className="mt-5 space-y-2.5">

@@ -19,6 +19,14 @@ export function roundRange(range: { min: number; max: number }): { min: number; 
   return { min, max: Math.max(max, min + PRICE_STEP) };
 }
 
+/**
+ * Kuvatav väärtus: liuguri samm on 10 €, aga piiril näidatakse kataloogi TEGELIKKU min/max hinda (sama mis avalehe
+ * "Hinnad alates" ja poe skoop), mitte sammuni ümardatud väärtust (131 €, mitte 130 €).
+ */
+export function displayRange(lo: number, hi: number, bounds: { min: number; max: number }, raw: { min: number; max: number }): { lo: number; hi: number } {
+  return { lo: lo <= bounds.min ? raw.min : lo, hi: hi >= bounds.max ? raw.max : hi };
+}
+
 /** Valitud vahemik → filtri väärtused (piir, mis langeb kokku kataloogi piiriga, = filtrit pole). */
 export function rangeToFilter(lo: number, hi: number, bounds: { min: number; max: number }): { min: number | null; max: number | null } {
   return { min: lo <= bounds.min ? null : lo, max: hi >= bounds.max ? null : hi };
@@ -46,6 +54,7 @@ export function PriceRangeSlider({
     if (next.min !== value.min || next.max !== value.max) onCommit(next);
   };
 
+  const shown = displayRange(lo, hi, bounds, rawBounds);
   const span = bounds.max - bounds.min;
   const left = ((lo - bounds.min) / span) * 100;
   const right = ((hi - bounds.min) / span) * 100;
@@ -54,7 +63,7 @@ export function PriceRangeSlider({
   return (
     <div>
       <p className="tabular text-center text-base font-semibold" aria-live="polite">
-        {lo} € – {hi} €
+        {shown.lo} € – {shown.hi} €
       </p>
 
       <div className="relative mt-2 h-11">
@@ -70,7 +79,7 @@ export function PriceRangeSlider({
           step={PRICE_STEP}
           value={lo}
           aria-label="Minimaalne hind"
-          aria-valuetext={`${lo} €`}
+          aria-valuetext={`${shown.lo} €`}
           onChange={(event) => setLo(Math.min(Number(event.target.value), hi - PRICE_STEP))}
           {...commitEvents}
         />
@@ -82,7 +91,7 @@ export function PriceRangeSlider({
           step={PRICE_STEP}
           value={hi}
           aria-label="Maksimaalne hind"
-          aria-valuetext={`${hi} €`}
+          aria-valuetext={`${shown.hi} €`}
           onChange={(event) => setHi(Math.max(Number(event.target.value), lo + PRICE_STEP))}
           {...commitEvents}
         />
@@ -96,7 +105,7 @@ export function PriceRangeSlider({
             key={`lo-${lo}`}
             type="number"
             inputMode="numeric"
-            defaultValue={lo}
+            defaultValue={shown.lo}
             min={bounds.min}
             max={bounds.max}
             className="no-spinner h-10 w-full rounded-md border border-border-strong px-2 text-sm text-text"
@@ -117,7 +126,7 @@ export function PriceRangeSlider({
             key={`hi-${hi}`}
             type="number"
             inputMode="numeric"
-            defaultValue={hi}
+            defaultValue={shown.hi}
             min={bounds.min}
             max={bounds.max}
             className="no-spinner h-10 w-full rounded-md border border-border-strong px-2 text-sm text-text"

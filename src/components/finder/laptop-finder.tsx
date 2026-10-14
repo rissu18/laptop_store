@@ -138,7 +138,7 @@ export function LaptopFinder({ initialPurpose = null }: { initialPurpose?: Purpo
         <h2 className="text-2xl font-bold tracking-tight">Sinu soovitused</h2>
         <p className="mt-1 text-sm text-muted">
           {result.matchingCount > 0
-            ? `Sinu eelarvesse mahub ${result.matchingCount} sülearvutit. Valisime neist välja need, mis sobivad sinu vastustega kõige paremini.`
+            ? `Sinu eelarvesse mahub ${result.matchingCount} ${result.matchingCount === 1 ? "konfiguratsioon" : "konfiguratsiooni"}. Valisime neist välja need, mis sobivad sinu vastustega kõige paremini.`
             : "Selle eelarvega ei leidnud praegu ühtegi sülearvutit."}
         </p>
         {picks.length > 0 && (
